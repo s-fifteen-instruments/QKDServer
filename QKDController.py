@@ -7,6 +7,7 @@ import asyncio  # for concurrent processes
 import glob
 import stat
 import shutil
+import locale
 
 dataroot = 'tmp/cryptostuff'
 programroot = 'bin/remotecrypto'
@@ -16,7 +17,7 @@ localcountrate = -1
 testing = 1  # CHANGE to 0 if you want to run it with hardware
 if testing == 1:
     # this outputs one timestamp file in an endless loop. This is for testing only.
-    prog_readevents = './helper_script/out_timestamps.sh'
+    prog_readevents = 'helper_script/out_timestamps.sh'
 else:
     prog_readevents = programroot + '/readevents3'
 prog_getrate = programroot + '/getrate'
@@ -37,9 +38,6 @@ def _prepare_folders():
     global dataroot
     if os.path.exists(dataroot):
         shutil.rmtree(dataroot)
-    # if not os.path.exists(dataroot):
-    #     os.makedirs(dataroot)
-
     folder_list = ('/sendfiles', '/receivefiles', '/t1',
                    '/t3', '/rawkey', '/histos', '/finalkey')
     for i in folder_list:
@@ -59,7 +57,7 @@ def _prepare_folders():
                 os.unlink(fifo_path)
             else:
                 os.remove(fifo_path)
-        os.mkfifo(dataroot + i, 0o600)
+        os.mkfifo(dataroot + i)
 
 
 def _remove_stale_comm_files():
@@ -77,13 +75,14 @@ def measure_local_count_rate():
     '''
     global programroot, dataroot, localcountrate, extclockopt, cwd
     localcountrate = -1
+
     p1 = subprocess.Popen((prog_readevents,
                            '-a 1',
                            '-F',
                            '-u {extclockopt}',
                            '-S 20'),
                           stdout=subprocess.PIPE)
-    p2 = subprocess.Popen(prog_getrate,
+    p2 = subprocess.Popen([prog_getrate, '>', f'{dataroot}/rawevents'],
                           stdin=p1.stdout,
                           stdout=subprocess.PIPE)
     p2.wait()
@@ -92,10 +91,11 @@ def measure_local_count_rate():
         kill_process(p2.pid)
     except psutil.NoSuchProcess as a:
         pass
-
     localcountrate = (p2.stdout.read()).decode()
-    with open(f"{dataroot}/rawevents", "w") as f:
-        f.write(localcountrate)
+    f = os.open(f'{dataroot}/rawevents', os.O_RDWR)
+    # blocking = False
+    # os.set_blocking(f, blocking)
+    os.write(f, f'{localcountrate}\n'.encode())
     return localcountrate
 
 
@@ -117,6 +117,7 @@ def open_message_pipes():
 
 
 async def startcommunication():
+    # READ PIPE from process not working yet
     global debugval, commhandle, commstat, programroot, commprog, dataroot
     global portnum, targetmachine, receivenotehandle
     cmd = f'{commprog}'
@@ -128,21 +129,24 @@ async def startcommunication():
     if commstat == 0:
         _remove_stale_comm_files()
         proc_transferd = await asyncio.create_subprocess_exec(cmd, *args.split(),
-                                                               stdout=asyncio.subprocess.PIPE,
-                                                               stderr=asyncio.subprocess.PIPE)
+                                                              stdout=asyncio.subprocess.PIPE,
+                                                              stderr=asyncio.subprocess.PIPE)
         commstat = 1
-        stdout, stderr = await proc_transferd.communicate()
-        print(f'[{cmd} exited with {proc_transferd.returncode}]')
-        if stdout:
-            print(f'[stdout]\n{stdout.decode()}')
-        if stderr:
-            print(f'[stderr]\n{stderr.decode()}')
+        async for line in proc_transferd.stdout:
+            print(line.decode())
+            print('.')
+            # await asyncio.sleep(0.1)
+            # if commstat == 0: 
+            #     proc_transferd.kill()
+        return await proc_transferd.kill()
 
-
+import select
 if __name__ == '__main__':
-    # shutil.rmtree(dataroot)
     _prepare_folders()
-    # print(measure_local_count_rate())
-    asyncio.run(startcommunication())
-    # time.sleep(5)
-    # print('test')
+    loop = asyncio.get_event_loop()
+    # loop.run_until_complete(startcommunication())
+    print(measure_local_count_rate())
+    # asyncio.run(startcommunication())
+    commstat = 0
+    with open(f'{dataroot}/rawevents', 'r') as fifo:
+        print(fifo.readline())
