@@ -4,10 +4,13 @@ import signal
 import time
 import psutil
 import asyncio  # for concurrent processes
-import glob
+import glob  # for file system access
 import stat
-import shutil
-import locale
+import shutil  # delete complete folders with everything underneath
+import signal  # used for pipe read timeouts
+import sys
+import threading
+from queue import Queue, Empty
 
 dataroot = 'tmp/cryptostuff'
 programroot = 'bin/remotecrypto'
@@ -115,11 +118,22 @@ def open_message_pipes():
     #     set messagepipestatus 1
     # }
 
+def transferd_stdout_digest(out, queue):
+    global process_transferd, commstat
+    while commstat == 1:
+        for line in iter(out.readline, b''):
+            print(line.decode())
+            time.sleep(0.1)
+    print('transferd thread finished')
 
-async def startcommunication():
+
+
+def startcommunication():
     # READ PIPE from process not working yet
     global debugval, commhandle, commstat, programroot, commprog, dataroot
     global portnum, targetmachine, receivenotehandle
+    global process_transferd
+
     cmd = f'{commprog}'
     args = f'-d {cwd}/{dataroot}/sendfiles -c {cwd}/{dataroot}/cmdpipe -t {targetmachine} \
             -D {cwd}/{dataroot}/receivefiles -l {cwd}/{dataroot}/transferlog \
@@ -128,25 +142,42 @@ async def startcommunication():
 
     if commstat == 0:
         _remove_stale_comm_files()
-        proc_transferd = await asyncio.create_subprocess_exec(cmd, *args.split(),
-                                                              stdout=asyncio.subprocess.PIPE,
-                                                              stderr=asyncio.subprocess.PIPE)
-        commstat = 1
-        async for line in proc_transferd.stdout:
-            print(line.decode())
-            print('.')
-            # await asyncio.sleep(0.1)
-            # if commstat == 0: 
-            #     proc_transferd.kill()
-        return await proc_transferd.kill()
+        process_transferd = subprocess.Popen((cmd, *args.split()), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-import select
+        q = Queue() # I don't know why I need this but it works
+        t = threading.Thread(target = transferd_stdout_digest, args=(process_transferd.stdout, q))
+        t.daemon = True
+        commstat = 1
+        t.start()
+
+
+
+def signal_handler(signum, frame):
+    # print(frame)
+    print('pipe read timeout')
+    raise IOError("Couldn't read pipe!")
+
 if __name__ == '__main__':
     _prepare_folders()
-    loop = asyncio.get_event_loop()
-    # loop.run_until_complete(startcommunication())
+    startcommunication()
+    time.sleep(1)
+    kill_process(process_transferd.pid)
     print(measure_local_count_rate())
-    # asyncio.run(startcommunication())
+
+    TIMEOUT = 1  # number of seconds your want for timeout
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(TIMEOUT)
+    # This open() may hang indefinitely
+    try:
+        with open(f'{dataroot}/rawevents', 'r') as fifo:
+            print(fifo.readline())
+    except IOError:
+        print('no read happened')
+
+    signal.alarm(0)
     commstat = 0
-    with open(f'{dataroot}/rawevents', 'r') as fifo:
-        print(fifo.readline())
+
+#     loop = asyncio.get_event_loop()
+# # loop = asyncio.get_event_loop()
+#     sys.exit(loop.run_until_complete(startcommunication()))
+#     print('whats next')
