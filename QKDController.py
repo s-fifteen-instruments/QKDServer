@@ -10,6 +10,7 @@ import shutil  # delete complete folders with everything underneath
 import signal  # used for pipe read timeouts
 import sys
 import threading
+import select
 from queue import Queue, Empty
 
 dataroot = 'tmp/cryptostuff'
@@ -28,6 +29,7 @@ commprog = programroot + '/transferd'
 targetmachine = '127.0.0.1'
 portnum = 4852
 commstat = 0
+commhandle = None
 
 
 def kill_process(proc_pid: int):
@@ -96,43 +98,44 @@ def measure_local_count_rate():
         pass
     localcountrate = (p2.stdout.read()).decode()
     f = os.open(f'{dataroot}/rawevents', os.O_RDWR)
-    # blocking = False
-    # os.set_blocking(f, blocking)
     os.write(f, f'{localcountrate}\n'.encode())
     return localcountrate
 
 
-def open_message_pipes():
-    global debugval, commstat, dataroot, msgh, smsgh, messagepipestatus
-    if commstat < 1:
-        return
-    if not messagepipestatus:
-        pass  # needs to be implemented
-    # open input pipe
-    #     set msgh [open $dataroot/msgout r+]
-    #     debugval = msgh
-    #     fconfigure $msgh -blocking false
-    #     fileevent $msgh readable hms
-    #     # output pipe
-    #     set smsgh [open $dataroot/msgin w]
-    #     set messagepipestatus 1
-    # }
 
 def transferd_stdout_digest(out, queue):
-    global process_transferd, commstat
-    while commstat == 1:
+    global commhandle, commstat
+    while commhandle.poll() == None:
         for line in iter(out.readline, b''):
-            print(line.decode())
+            print(f'[transferd stdout] {line.decode()}')
+            if line == b'connected.\n':
+                commstat = 2
+            elif line == b'disconnected.\n':
+                commstat = 3
             time.sleep(0.1)
     print('transferd thread finished')
+    # startcommunication() # this is to restart the startcomm process if it crashes
 
+
+def msg_out_digest():
+    global commhandle
+    global read_timeout
+    read_timeout = 0.05
+    out = open(f'{dataroot}/msgout', 'r')
+    while commhandle.poll() == None:
+        readers = select.select([out], [], [], read_timeout)[0] # this is non-blocking reader with a timeout. Only works on Unix
+        if not readers:
+            time.sleep(0.1)
+        else:
+            for r in readers:
+                print(f'[msgout] {r.readline()}')
+    print('msg_out_digest thread finished')
 
 
 def startcommunication():
-    # READ PIPE from process not working yet
     global debugval, commhandle, commstat, programroot, commprog, dataroot
     global portnum, targetmachine, receivenotehandle
-    global process_transferd
+    global commhandle
 
     cmd = f'{commprog}'
     args = f'-d {cwd}/{dataroot}/sendfiles -c {cwd}/{dataroot}/cmdpipe -t {targetmachine} \
@@ -142,14 +145,18 @@ def startcommunication():
 
     if commstat == 0:
         _remove_stale_comm_files()
-        process_transferd = subprocess.Popen((cmd, *args.split()), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-        q = Queue() # I don't know why I need this but it works
-        t = threading.Thread(target = transferd_stdout_digest, args=(process_transferd.stdout, q))
-        t.daemon = True
+        commhandle = subprocess.Popen((cmd, *args.split()), 
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        q = Queue()  # I don't know why I need this but it works
+        # t.daemon = True
         commstat = 1
+        # setup read thread for the process stdout
+        t = threading.Thread(target=transferd_stdout_digest,
+                             args=(commhandle.stdout, q))
         t.start()
-
+        # setup read thread for the msgout pipe
+        msg_out_thread = threading.Thread(target=msg_out_digest, args=())
+        msg_out_thread.start()
 
 
 def signal_handler(signum, frame):
@@ -157,27 +164,25 @@ def signal_handler(signum, frame):
     print('pipe read timeout')
     raise IOError("Couldn't read pipe!")
 
+
 if __name__ == '__main__':
+    if os.path.exists(dataroot):
+        shutil.rmtree(dataroot)
     _prepare_folders()
     startcommunication()
-    time.sleep(1)
-    kill_process(process_transferd.pid)
     print(measure_local_count_rate())
+    fd = os.open(f'{dataroot}/rawevents', os.O_RDWR) # non-blocking
+    f = os.fdopen(fd, 'r') # non-blocking
+    readers = select.select([f], [], [], 0.1)[0] # non-blocking
+    if readers:
+        for i in readers:
+            print(i.readline())
 
-    TIMEOUT = 1  # number of seconds your want for timeout
-    signal.signal(signal.SIGALRM, signal_handler)
-    signal.alarm(TIMEOUT)
-    # This open() may hang indefinitely
-    try:
-        with open(f'{dataroot}/rawevents', 'r') as fifo:
-            print(fifo.readline())
-    except IOError:
-        print('no read happened')
 
     signal.alarm(0)
-    commstat = 0
-
-#     loop = asyncio.get_event_loop()
-# # loop = asyncio.get_event_loop()
-#     sys.exit(loop.run_until_complete(startcommunication()))
-#     print('whats next')
+    time.sleep(1)
+    print('try to write')
+    f = os.open(f'{dataroot}/msgout', os.O_RDWR)
+    os.write(f, f'test\n'.encode())
+    time.sleep(2)
+    kill_process(commhandle.pid)
