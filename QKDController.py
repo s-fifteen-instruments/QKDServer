@@ -107,7 +107,7 @@ def transferd_stdout_digest(out, queue):
     global commhandle, commstat
     while commhandle.poll() == None:
         for line in iter(out.readline, b''):
-            print(f'[transferd stdout] {line.decode()}')
+            print(f'[transferd:stdout] {line.decode()}')
             if line == b'connected.\n':
                 commstat = 2
             elif line == b'disconnected.\n':
@@ -181,7 +181,7 @@ if __name__ == '__main__':
 
     signal.alarm(0)
     time.sleep(1)
-    print('try to write')
+    print('try to write msg out pipe')
     f = os.open(f'{dataroot}/msgout', os.O_RDWR)
     os.write(f, f'test\n'.encode())
     time.sleep(2)
