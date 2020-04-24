@@ -12,9 +12,14 @@ import sys
 import threading
 import select
 from queue import Queue, Empty
+import json
 
-dataroot = 'tmp/cryptostuff'
-programroot = 'bin/remotecrypto'
+# configuration file contains the most important paths and the target ip and port number
+with open('config/config.json', 'r') as f: 
+    config = json.load(f)
+
+dataroot = config['data_root']
+programroot = config['program_root']
 cwd = os.getcwd()
 extclockopt = "-e"  # clock
 localcountrate = -1
@@ -26,10 +31,11 @@ else:
     prog_readevents = programroot + '/readevents3'
 prog_getrate = programroot + '/getrate'
 commprog = programroot + '/transferd'
-targetmachine = '127.0.0.1'
-portnum = 4852
+targetmachine = config['target_ip']
+portnum = config['port_num']
 commstat = 0
 commhandle = None
+sleep_time = 0.05
 
 
 def kill_process(proc_pid: int):
@@ -102,8 +108,7 @@ def measure_local_count_rate():
     return localcountrate
 
 
-
-def transferd_stdout_digest(out, queue):
+def transferd_stdout_digest(out, err, queue):
     global commhandle, commstat
     while commhandle.poll() == None:
         for line in iter(out.readline, b''):
@@ -112,23 +117,32 @@ def transferd_stdout_digest(out, queue):
                 commstat = 2
             elif line == b'disconnected.\n':
                 commstat = 3
-            time.sleep(0.1)
-    print('transferd thread finished')
+        for line in iter(err.readline, b''):
+            print(f'[transferd:stderr] {line.decode()}')
+        time.sleep(sleep_time)
+    print('transferd_stdout_digest thread finished')
     # startcommunication() # this is to restart the startcomm process if it crashes
 
 
 def msg_out_digest():
     global commhandle
     global read_timeout
-    read_timeout = 0.05
-    out = open(f'{dataroot}/msgout', 'r')
+    read_timeout = 0.01
+    fd = os.open(f'{dataroot}/msgout', os.O_RDWR)  # non-blocking
+    f = os.fdopen(fd, 'r')  # non-blocking
     while commhandle.poll() == None:
-        readers = select.select([out], [], [], read_timeout)[0] # this is non-blocking reader with a timeout. Only works on Unix
+        # this is non-blocking reader with a timeout. Only works on Unix
+        readers = select.select([f], [], [], read_timeout)[0]
         if not readers:
-            time.sleep(0.1)
+            time.sleep(sleep_time)
         else:
             for r in readers:
-                print(f'[msgout] {r.readline()}')
+                message = f.readline()
+                print(message)
+                print(f'[msgout read] {message}')
+                print(message.split(':'))
+                # if message == ''
+
     print('msg_out_digest thread finished')
 
 
@@ -145,18 +159,26 @@ def startcommunication():
 
     if commstat == 0:
         _remove_stale_comm_files()
-        commhandle = subprocess.Popen((cmd, *args.split()), 
-                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        commhandle = subprocess.Popen((cmd, *args.split()),
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         q = Queue()  # I don't know why I need this but it works
         # t.daemon = True
         commstat = 1
         # setup read thread for the process stdout
         t = threading.Thread(target=transferd_stdout_digest,
-                             args=(commhandle.stdout, q))
+                             args=(commhandle.stdout, commhandle.stderr, q))
         t.start()
         # setup read thread for the msgout pipe
         msg_out_thread = threading.Thread(target=msg_out_digest, args=())
         msg_out_thread.start()
+        time.sleep(sleep_time)
+
+
+def send_message(message):
+    f = os.open(f'{dataroot}/msgin', os.O_RDWR)
+    os.write(f, f'{message}'.encode())
+    print(f'[msgin write] Sent message: {message}')
+    time.sleep(sleep_time)
 
 
 def signal_handler(signum, frame):
@@ -165,24 +187,30 @@ def signal_handler(signum, frame):
     raise IOError("Couldn't read pipe!")
 
 
+def symmetry_negotiation():
+    count_rate = measure_local_count_rate()
+    send_message(f'ne1:{count_rate}')
+
+
 if __name__ == '__main__':
-    if os.path.exists(dataroot):
-        shutil.rmtree(dataroot)
+    if os.path.exists('tmp'):
+        shutil.rmtree('tmp')
     _prepare_folders()
     startcommunication()
-    print(measure_local_count_rate())
-    fd = os.open(f'{dataroot}/rawevents', os.O_RDWR) # non-blocking
-    f = os.fdopen(fd, 'r') # non-blocking
-    readers = select.select([f], [], [], 0.1)[0] # non-blocking
-    if readers:
-        for i in readers:
-            print(i.readline())
+    for _ in range(0, 10):
+        symmetry_negotiation()
+    # time.sleep(5)
+    # fd = os.open(f'{dataroot}/rawevents', os.O_RDWR)  # non-blocking
+    # f = os.fdopen(fd, 'r')  # non-blocking
+    # readers = select.select([f], [], [], 0.1)[0]  # non-blocking
+    # if readers:
+    #     for i in readers:
+    #         print(i.readline())
 
-
-    signal.alarm(0)
-    time.sleep(1)
-    print('try to write msg out pipe')
-    f = os.open(f'{dataroot}/msgout', os.O_RDWR)
-    os.write(f, f'test\n'.encode())
-    time.sleep(2)
+    # signal.alarm(0)
+    # time.sleep(1)
+    # print('try to write msg out pipe')
+    # # f = os.open(f'{dataroot}/msgout', os.O_RDWR)
+    # # os.write(f, f'test\n'.encode())
+    # # time.sleep(2)
     kill_process(commhandle.pid)
