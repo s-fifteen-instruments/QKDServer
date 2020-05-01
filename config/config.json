@@ -10,15 +10,15 @@
   "inital_AKF_length": 10,
   "AKF_buffer_order": 19,
   "local_detector_skew_correction": {
-    "det1": 0,
-    "det2": 0,
-    "det3": 0,
-    "det4": 0
+    "det1corr": 0,
+    "det2corr": 0,
+    "det3corr": 0,
+    "det4corr": 0
   },
   "max_event_time_puase": 20000,
   "autorestart_costream": true,
   "costream_general_log": true,
-  "clock_source": "extern",
+  "clock_source": "-e",
   "operation_mode": "error_correction",
   "privacy_amplifiction": true,
   "minimal_block_size": 5000,
@@ -26,5 +26,6 @@
   "initial_error": "5 blocks",
   "protocol": 1,
   "max_event_diff": 20000,
-  "kill_option": "-k -K"
+  "kill_option": "-k -K",
+  "periode_count": 15
 }
