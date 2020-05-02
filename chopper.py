@@ -120,7 +120,7 @@ def _kill_process(my_process):
         process.kill()
 
 
-def kill_chopper_process():
+def stop_chopper():
     global proc_chopper, t2logpipe_digest_thread_flag
     _kill_process(proc_chopper)
     proc_chopper = None

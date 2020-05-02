@@ -110,7 +110,7 @@ def _kill_process(my_process):
         process.kill()
 
 
-def kill_chopper2_process():
+def stop_chopper2():
     global proc_chopper2, t1logpipe_digest_thread_flag
     _kill_process(proc_chopper2)
     proc_chopper2 = None

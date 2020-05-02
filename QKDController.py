@@ -83,7 +83,7 @@ remote_count_rate = -1
 testing = 1  # CHANGE to 0 if you want to run it with hardware
 if testing == 1:
     # this outputs one timestamp file in an endless loop. This is for testing only.
-    prog_readevents = 'helper_script/out_timestamps.sh'
+    prog_readevents = 'timestampsimulator/readevents_simulator.sh'
 else:
     prog_readevents = programroot + '/readevents3'
 
@@ -279,13 +279,14 @@ def start_raw_key_generation():
 
 def start_communication():
     _prepare_folders()
+    _remove_stale_comm_files()
     transferd.start_communication(msg_response)
 
 def stop_communication():
     transferd.stop_communication()
-    chopper.kill_chopper_process()
-    chopper2.kill_chopper2_process()
-    splicer.kill_splicer_process()
+    chopper.stop_chopper()
+    chopper2.stop_chopper2()
+    splicer.stop_splicer()
 
 # def symmetry_negotiation():
 #     global low_count_side
@@ -311,6 +312,6 @@ def _start_readevents():
 
 if __name__ == '__main__':
     start_communication()
-    time.sleep(60)
+    time.sleep(10)
     stop_communication()
     # kill_process(commhandle)

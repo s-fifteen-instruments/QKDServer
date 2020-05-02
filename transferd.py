@@ -74,13 +74,22 @@ first_received_epoch = None
 
 testing = 1  # CHANGE to 0 if you want to run it with hardware
 if testing == 1:
-    # this outputs one timestamp file in an endless loop. This is for testing only.
-    prog_readevents = 'helper_script/out_timestamps.sh'
+    prog_readevents = 'timestampsimulator/readevents_simulator.sh'
+    # prog_readevents = 'helper_script/readevents_simulator.sh'
 else:
     prog_readevents = programroot + '/readevents3'
 
 
-def _local_callback(msg):
+def _local_callback(msg: str):
+    '''The transferd process has a msgout pipe which contains received messages.
+    Usually we let an external script manage the response to theses messages, 
+    however when no response function is defined this function is used as a default response.
+
+    [description]
+
+    Arguments:
+        msg {str} -- Contains the messages received in the msgout pipe.
+    '''
     method_name = sys._getframe().f_code.co_name
     print(f'[{method_name}] The msgout pipe is printed locally by the transferd modul.\n\
           Define a callback function in start_communication to digest the msgout output in your custom function.')
@@ -98,6 +107,11 @@ def start_communication(msg_out_callback=_local_callback):
             -k -e {cwd}/{dataroot}/ecspipe -E {cwd}/{dataroot}/ecrpipe'
     q = Queue()  # I don't know why I need this but it works
 
+    msg_out_thread = threading.Thread(target=_msg_out_digest,
+                                      args=[msg_out_callback])
+    transferlog_thread = threading.Thread(
+        target=_transferlog_digest, args=())
+
     if communication_status == 0:
         # _remove_stale_comm_files()
         commhandle = subprocess.Popen((prog_transferd, *args.split()),
@@ -106,20 +120,15 @@ def start_communication(msg_out_callback=_local_callback):
 
         # setup read thread for the process stdout
         t = threading.Thread(target=_transferd_stdout_digest,
-                             args=(commhandle.stdout, commhandle.stderr, q))
+                         args=(commhandle.stdout, commhandle.stderr, q))
         t.start()
 
         # setup read thread for the msgout pipe
-        msg_out_thread = threading.Thread(
-            target=_msg_out_digest, args=[msg_out_callback])
         msg_out_thread.start()
-
         # setup read thread fro the transferlog
-        transferlog_thread = threading.Thread(
-            target=_transferlog_digest, args=())
         transferlog_thread.start()
-        time.sleep(0.1)
-        return commhandle
+        time.sleep(0.1)  # give some time to connect to the partnering computer
+        return commhandle  # returns the process handle
 
 
 def _transferd_stdout_digest(out, err, queue):
@@ -139,7 +148,7 @@ def _transferd_stdout_digest(out, err, queue):
             # _kill_transferd_process()
             # break
             print(f'[transferd:stderr] {line.decode()}')
-        
+
     print(f'[{method_name}] Thread finished')
     # startcommunication() # this is to restart the startcomm process if it crashes
 
@@ -223,7 +232,8 @@ def _symmetry_negotiation_messaging(message):
                 low_count_side = False
                 print(f'[{method_name}:ne2] This the high count side.')
         else:
-            print(f'[{method_name}:ne2] Local countrates do not agree. Symmetry negotiation failed.')
+            print(f'[{method_name}:ne2] Local countrates do not agree. \
+                    Symmetry negotiation failed.')
 
     if msg_code == 'ne3':
         if int(msg_split[2]) == local_count_rate and int(msg_split[1]) == remote_count_rate:
@@ -249,11 +259,9 @@ def _kill_process(proc_pid):
         process.kill()
 
 
-
 def stop_communication():
     if commhandle.poll() is None:
         _kill_process(commhandle)
-
 
 
 def send_message(message):

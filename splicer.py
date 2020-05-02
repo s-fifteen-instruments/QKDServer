@@ -128,7 +128,7 @@ def splice_pipe_digest():
     print(f'[{method_name}] Thread finished.')
 
 
-def kill_splicer_process():
+def stop_splicer():
     global proc_splicer
     _kill_process(proc_splicer)
     proc_splicer = None
