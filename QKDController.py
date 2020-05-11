@@ -43,7 +43,6 @@ import os
 import signal
 import time
 import psutil
-import asyncio  # for concurrent processes
 import glob  # for file system access
 import stat
 import shutil  # can delete complete folders with everything underneath
@@ -58,6 +57,8 @@ import transferd
 import splicer
 import chopper
 import chopper2
+import costream
+
 
 # configuration file contains the most important paths and the target ip and port number
 with open('config/config.json', 'r') as f:
@@ -75,7 +76,7 @@ portnum = config['port_num']
 kill_option = config['kill_option']
 extclockopt = config['clock_source']
 periode_count = config['periode_count']
-AKF_buffer_order = config['AKF_buffer_order']
+FFT_buffer_order = config['FFT_buffer_order']
 
 cwd = os.getcwd()
 localcountrate = -1
@@ -143,9 +144,8 @@ def _remove_stale_comm_files():
         os.remove(f)
 
 
-
 def msg_response(message):
-    global low_count_side
+    global low_count_side, first_epoch
     method_name = sys._getframe().f_code.co_name
     msg_split = message.split(':')[:]
     msg_code = msg_split[0]
@@ -159,7 +159,7 @@ def msg_response(message):
             return
         elif low_count_side is True:
             chopper.start_chopper()
-            splicer.start_splicer()
+            splicer.start_splicer(_splicer_callback_start_error_correction())
             _start_readevents()
         elif low_count_side is False:
             chopper2.start_chopper2()
@@ -174,29 +174,45 @@ def msg_response(message):
             return
         elif low_count_side is True:
             chopper.start_chopper()
+            splicer.start_splicer(_splicer_callback_start_error_correction())
             _start_readevents()
-            splicer.start_splicer()
             transferd.send_message('st3')  # High count side starts pfind
         elif low_count_side is False:
             chopper2.start_chopper2()
             _start_readevents()
-            periode_find()
+            time_diff, sig_long, sig_short = periode_find()
+            costream.start_costream(time_diff, first_epoch)
 
     if msg_code == 'st3':
         if low_count_side is False:
-            periode_find()
-            return
+            time_diff, sig_long, sig_short = periode_find()
+            costream.start_costream(time_diff, first_epoch)
         else:
             print(f'[{method_name}:st3] Not the high count side or symmetry \
                 negotiation not completed.')
 
 
-def periode_find():
-    '''Starts pfind and costream
+def _splicer_callback_start_error_correction(epoch_name: str):
+    '''
+    This function is used as a call back for the splicer process.
+    Whenever the splicer generates a raw key, we notify the error correction process to
+    convert the keys to error-corrected privacy-amplified keys.
 
+    Checks if the process is running and writes the raw key file name into the eccmdpipe.
+    '''
+    global error_corr_queue
+    # Missing: check if error correction is running
+    error_correction.ec_queue.put(epoch_name)
+
+
+def periode_find():
+    '''
+    Starts pfind and searches for the photon coincidence peak
+    in the combined timestamp files.
     '''
     method_name = sys._getframe().f_code.co_name
-    global periode_count, t1logcount, AKF_buffer_order, prog_pfind, first_epoch, first_received_epoch
+    global periode_count, t1logcount, FFT_buffer_order
+    global prog_pfind, first_epoch, first_received_epoch
 
     if transferd.commhandle is None:
         print(f'[{method_name}] transferd process has not been started.' +
@@ -208,29 +224,30 @@ def periode_find():
         return
 
     while transferd.first_received_epoch is None or chopper2.first_epoch is None:
-        print('waiting for more data')
+        print(f'[{method_name}] Waiting for more data.')
         time.sleep(1)
 
+    # make sure there is enough epochs available
     while chopper2.t1_epoch_count < periode_count:
         print(f'[{method_name}] Not enough epochs available to execute pfind.')
         time.sleep(1)
 
+    # Not sure why minus 2, but I'm following what was done in crgui_ec.
+    use_periods = periode_count - 2
 
+    epoch_diff = int(transferd.first_received_epoch, 16) - \
+        int(chopper2.first_epoch, 16)
+    if epoch_diff < 0 or epoch_diff == 0:
+        first_epoch = chopper2.first_epoch
+    elif epoch_diff > 0:
+        first_epoch = transferd.first_received_epoch
+        use_periods = periode_count - epoch_diff  # less periodes are available
 
-    print('!!!!', transferd.first_received_epoch, chopper2.first_epoch)
-    # if chopper2.t1_epoch_count < periode_count:
-    #     print(f'[{method_name}] Not enough epochs available to execute pfind.')
-    # use_periods = periode_count - 2
-
-    # delete this here later. this is for testing
-    use_periods = 5
-    first_epoch = transferd.first_received_epoch
-    time.sleep(10)
     args = f'-d {cwd}/{dataroot}/receivefiles \
             -D {cwd}/{dataroot}/t1 \
             -e 0x{first_epoch} \
             -n {use_periods} -V 1 \
-            -q {AKF_buffer_order}'
+            -q {FFT_buffer_order}'
 
     with open(f'{cwd}/{dataroot}/pfinderror', 'a+') as f:
         proc_pfind = subprocess.Popen([prog_pfind, *args.split()],
@@ -238,7 +255,8 @@ def periode_find():
                                       stdout=subprocess.PIPE)
     proc_pfind.wait()
     pfind_result = (proc_pfind.stdout.read()).decode()
-    print(f'[{method_name}:pfind_result] {pfind_result}')
+    print(f'[{method_name}:pfind_result] {pfind_result.split()}')
+    return [float(i) for i in pfind_result.split()]
 
 
 def _reader(file_name):
@@ -256,21 +274,16 @@ def _writer(file_name, message):
     os.close(f)
 
 
-def symmetry_negotiation():
-    count_rate = measure_local_count_rate()
-    send_message(f'ne1:{count_rate}')
-
-
-def initiate_proto_negotiation():
+def initiate_proto_negotiation(wanted_protocol):
     global wantprotocol, protocol
     protocol = 0  # disable protocol on asking
-    sendmsg(f'pr1:{protocol}')
+    sendmsg(f'pr1:{wanted_protocol}')
 
 
 def start_raw_key_generation():
     global protocol
     method_name = sys._getframe().f_code.co_name
-    
+
     if transferd.low_count_side is None:
         print(f'[{method_name}] Symmetry negotiation not finished.')
     else:
@@ -278,18 +291,21 @@ def start_raw_key_generation():
 
 
 def start_communication():
+    '''Establishes network connection between computers.
+    
+    [description]
+    '''
     _prepare_folders()
     _remove_stale_comm_files()
     transferd.start_communication(msg_response)
+
 
 def stop_communication():
     transferd.stop_communication()
     chopper.stop_chopper()
     chopper2.stop_chopper2()
     splicer.stop_splicer()
-
-# def symmetry_negotiation():
-#     global low_count_side
+    costream.stop_costream()
 
 
 def _start_readevents():
@@ -312,6 +328,6 @@ def _start_readevents():
 
 if __name__ == '__main__':
     start_communication()
-    time.sleep(10)
+    time.sleep(120)
     stop_communication()
     # kill_process(commhandle)

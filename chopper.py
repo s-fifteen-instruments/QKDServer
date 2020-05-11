@@ -62,6 +62,11 @@ proc_chopper = None
 
 
 def start_chopper(rawevents_pipe='rawevents'):
+    '''Starts the chopper process.
+
+    Keyword Arguments:
+        rawevents_pipe {str} -- The pipe it reads to acquire timestamps. (default: {'rawevents'})
+    '''
     global proc_chopper, protocol, max_event_diff
     method_name = sys._getframe().f_code.co_name  # used for logging
     t2logpipe_thread = threading.Thread(target=_t2logpipe_digest, args=())
@@ -99,12 +104,11 @@ def _t2logpipe_digest():
         try:
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
             if len(message) == 0:
-                print('.')
+                # print('.')
                 continue
             epoch = message.split()[0]
             _writer(cmd_pipe_name, epoch)
             print(f'[{method_name}] {message}')
-            time.sleep(0.01)
         except OSError as a:
             pass
     print(f'[{method_name}] Thread finished')
@@ -136,4 +140,4 @@ if __name__ == '__main__':
     import time
     start_chopper()
     time.sleep(1)
-    kill_chopper_process()
+    stop_chopper()

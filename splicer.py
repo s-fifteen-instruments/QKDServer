@@ -73,7 +73,7 @@ def _kill_process(my_process):
         process.kill()
 
 
-def start_splicer():
+def start_splicer(splicer_callback):
     '''
     Starts the splicer process and attaches a thread digesting 
     the splice pipe and the genlog.
@@ -81,7 +81,7 @@ def start_splicer():
     global dataroot, cwd, proc_splicer
     method_name = sys._getframe().f_code.co_name
     thread_splicepipe_digest = threading.Thread(target=splice_pipe_digest,
-                                                args=())
+                                                args=(splicer_callback))
     args = f'-d {cwd}/{dataroot}/t3 -D {dataroot}/receivefiles \
             -f {cwd}/{dataroot}/rawkey \
             -E {cwd}/{dataroot}/splicepipe \
@@ -95,7 +95,7 @@ def start_splicer():
     thread_splicepipe_digest.start()
 
 
-def splice_pipe_digest():
+def splice_pipe_digest(splicer_callback):
     '''
     Digests the text written into splicepipe and genlog.
     Runs until the splicer process is closed.
@@ -122,7 +122,7 @@ def splice_pipe_digest():
             for r in readers:
                 message = ((f_genlog.readline()).rstrip('\n')).lstrip('\x00')
                 print(f'[{method_name}:genlog] {message}')
-                # msg_response(message)
+                splicer_callback(message)
         if proc_splicer is None:
             break
     print(f'[{method_name}] Thread finished.')

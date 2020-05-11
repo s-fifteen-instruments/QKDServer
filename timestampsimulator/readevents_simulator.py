@@ -46,14 +46,15 @@ def write_to_stdout(time_list: list, pattern_list: list):
     t_running = 0
 
     with os.fdopen(sys.stdout.fileno(), "wb", 0, closefd=False) as stdout:
-        for dt, p in zip(diff_time_list, pattern_list):
-            # The sleep slows down the printing. However sleep is not very precies on a micro second scale.
-            # Adjust denominator until it works for you. This is ugly and I know it.
-            t_running += dt
-            time.sleep(dt * 1e-9 / 2.5)
-            stdout.write(time_pattern_to_byte_timestamp(
-                t_running * 1e3, int(p)))
-            stdout.flush()
+        while True:
+            for dt, p in zip(diff_time_list, pattern_list):
+                # The sleep slows down the printing. However sleep is not very precies on a micro second scale.
+                # Adjust denominator until it works for you. This is ugly and I know it.
+                t_running += dt
+                time.sleep(dt * 1e-9 / 2.5)
+                stdout.write(time_pattern_to_byte_timestamp(
+                    t_running * 1e3, int(p)))
+                stdout.flush()
 
 
 def main(file_name):
@@ -73,4 +74,4 @@ if __name__ == '__main__':
         main(args.infile)
 
     else:
-        main('../data/simulated_timestamps/alice_correlated.ts')
+        main('../data/simulated_timestamps/bob_correlated.ts')

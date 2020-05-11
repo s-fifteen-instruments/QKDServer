@@ -81,7 +81,8 @@ else:
 
 
 def _local_callback(msg: str):
-    '''The transferd process has a msgout pipe which contains received messages.
+    '''
+    The transferd process has a msgout pipe which contains received messages.
     Usually we let an external script manage the response to theses messages, 
     however when no response function is defined this function is used as a default response.
 
@@ -117,7 +118,7 @@ def start_communication(msg_out_callback=_local_callback):
         commhandle = subprocess.Popen((prog_transferd, *args.split()),
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.PIPE)
-
+        print(args)
         # setup read thread for the process stdout
         t = threading.Thread(target=_transferd_stdout_digest,
                          args=(commhandle.stdout, commhandle.stderr, q))
@@ -136,7 +137,7 @@ def _transferd_stdout_digest(out, err, queue):
     method_name = sys._getframe().f_code.co_name
     print(f'[{method_name}] Thread started.')
     while commhandle.poll() is None:
-        time.sleep(0.1)
+        time.sleep(0.05)
         for line in iter(out.readline, b''):
             line = line.rstrip()
             print(f'[transferd:stdout] {line.decode()}')
@@ -145,8 +146,6 @@ def _transferd_stdout_digest(out, err, queue):
             elif line == b'disconnected.':
                 commstat = 3
         for line in iter(err.readline, b''):
-            # _kill_transferd_process()
-            # break
             print(f'[transferd:stderr] {line.decode()}')
 
     print(f'[{method_name}] Thread finished')
