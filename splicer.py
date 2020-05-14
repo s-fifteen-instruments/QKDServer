@@ -81,7 +81,7 @@ def start_splicer(splicer_callback):
     global dataroot, cwd, proc_splicer
     method_name = sys._getframe().f_code.co_name
     thread_splicepipe_digest = threading.Thread(target=splice_pipe_digest,
-                                                args=(splicer_callback))
+                                                args=([splicer_callback]))
     args = f'-d {cwd}/{dataroot}/t3 -D {dataroot}/receivefiles \
             -f {cwd}/{dataroot}/rawkey \
             -E {cwd}/{dataroot}/splicepipe \

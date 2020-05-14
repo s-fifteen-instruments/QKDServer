@@ -159,7 +159,7 @@ def msg_response(message):
             return
         elif low_count_side is True:
             chopper.start_chopper()
-            splicer.start_splicer(_splicer_callback_start_error_correction())
+            splicer.start_splicer(_splicer_callback_start_error_correction)
             _start_readevents()
         elif low_count_side is False:
             chopper2.start_chopper2()
@@ -174,7 +174,7 @@ def msg_response(message):
             return
         elif low_count_side is True:
             chopper.start_chopper()
-            splicer.start_splicer(_splicer_callback_start_error_correction())
+            splicer.start_splicer(_splicer_callback_start_error_correction)
             _start_readevents()
             transferd.send_message('st3')  # High count side starts pfind
         elif low_count_side is False:
