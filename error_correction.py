@@ -49,7 +49,7 @@ import queue
 
 
 def load_error_correction_config(config_file_name: str):
-    global dataroot, config, error_correction_program_path
+    global dataroot, config, error_correction_program_path, program_root, data_root
     global privacy_amplification, errcd_killfile_option, target_bit_error
     global minimal_block_size, QBER_limit, default_QBER
     with open(config_file_name, 'r') as f:
@@ -66,6 +66,8 @@ def load_error_correction_config(config_file_name: str):
     servo_blocks = config['servo_blocks']
 
 
+load_error_correction_config('config/config.json')
+
 program_error_correction = error_correction_program_path + '/errcd'
 program_diagbb84 = program_root + '/diagbb84'
 proc_error_correction = None  # error correction process handle
@@ -73,6 +75,7 @@ ec_queue = queue.Queue()  # used to queue raw key files
 servoed_QBER = default_QBER
 # counts the final key bits produced by the error correction process
 total_ec_key_bits = 0
+cwd = os.getcwd()
 
 
 def start_error_correction():
@@ -83,6 +86,7 @@ def start_error_correction():
     ecnotepipe_thread = threading.Thread(target=_ecnotepipe_digest, args=())
     do_ec_thread = threading.Thread(target=_do_error_correction, args=())
 
+    erropt = ''
     if privacy_amplification is False:
         erropt = '-p'
     if errcd_killfile_option is True:
@@ -97,8 +101,8 @@ def start_error_correction():
              -Q {data_root}/ecquery -q {data_root}/ecresp \
              -V 2 {erropt} -T 1'
 
-    with open(f'{cwd}/{dataroot}/errcd_log', 'a+') as f_stdout:
-        with open(f'{cwd}/{dataroot}/errcd_err', 'a+') as f_err:
+    with open(f'{cwd}/{data_root}/errcd_log', 'a+') as f_stdout:
+        with open(f'{cwd}/{data_root}/errcd_err', 'a+') as f_err:
             proc_error_correction = subprocess.Popen((program_error_correction,
                                                       *args.split()),
                                                      stdout=f_stdout,
