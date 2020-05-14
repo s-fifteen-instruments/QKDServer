@@ -62,7 +62,7 @@ def load_costream_config(config_file_name: str):
     data_root = config['data_root']
     program_root = config['program_root']
     kill_option = config['kill_option']
-    program_costream = program_root + '/' + config['program_costream']
+
     protocol = config['protocol']
     remote_coincidence_window = config['remote_coincidence_window']
     tracking_window = config['tracking_window']
@@ -74,6 +74,7 @@ def load_costream_config(config_file_name: str):
 load_costream_config('config/config.json')
 cwd = os.getcwd()
 process_costream = None
+program_costream = program_root + '/costream'
 
 
 def start_costream(time_difference: int, begin_epoch: str):

@@ -49,7 +49,7 @@ import queue
 
 
 def load_error_correction_config(config_file_name: str):
-    global dataroot, config, error_correction_program_path, program_root, data_root
+    global config, error_correction_program_path, program_root, data_root
     global privacy_amplification, errcd_killfile_option, target_bit_error
     global minimal_block_size, QBER_limit, default_QBER
     with open(config_file_name, 'r') as f:
@@ -68,7 +68,7 @@ def load_error_correction_config(config_file_name: str):
 
 load_error_correction_config('config/config.json')
 
-program_error_correction = error_correction_program_path + '/errcd'
+program_error_correction = program_root + '/errcd'
 program_diagbb84 = program_root + '/diagbb84'
 proc_error_correction = None  # error correction process handle
 ec_queue = queue.Queue()  # used to queue raw key files
@@ -100,7 +100,7 @@ def start_error_correction():
              -l {data_root}/ecnotepipe \
              -Q {data_root}/ecquery -q {data_root}/ecresp \
              -V 2 {erropt} -T 1'
-
+    print(f'[{method_name}] trying to start error correction')
     with open(f'{cwd}/{data_root}/errcd_log', 'a+') as f_stdout:
         with open(f'{cwd}/{data_root}/errcd_err', 'a+') as f_err:
             proc_error_correction = subprocess.Popen((program_error_correction,
@@ -118,7 +118,7 @@ def _ecnotepipe_digest():
     '''
     global proc_error_correction, total_ec_key_bits, servoed_QBER
     method_name = sys._getframe().f_code.co_name
-    pipe_name = f'{dataroot}/ecnotepipe'
+    pipe_name = f'{data_root}/ecnotepipe'
     fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
 
@@ -159,7 +159,7 @@ def _do_error_correction():
     '''
     global ec_queue, minimal_block_size
     method_name = sys._getframe().f_code.co_name
-    ec_cmd_pipe = f'{dataroot}/eccmdpipe'
+    ec_cmd_pipe = f'{data_root}/eccmdpipe'
     undigested_raw_bits = 0
     first_epoch = None
     undigested_epochs = 0
@@ -169,7 +169,7 @@ def _do_error_correction():
         try:
             file_name = ec_queue.get_nowait()
         except queue.Empty as a:
-            print(f'{method_name:Exception} {a}')
+            print(f'[{method_name}:Exception] {a}')
             time.sleep(0.5)
             continue
         # Use diagbb84 to check for raw key bits
