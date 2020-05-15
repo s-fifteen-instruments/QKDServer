@@ -100,7 +100,7 @@ def start_error_correction():
              -l {data_root}/ecnotepipe \
              -Q {data_root}/ecquery -q {data_root}/ecresp \
              -V 2 {erropt} -T 1'
-    print(f'[{method_name}] trying to start error correction')
+
     with open(f'{cwd}/{data_root}/errcd_log', 'a+') as f_stdout:
         with open(f'{cwd}/{data_root}/errcd_err', 'a+') as f_err:
             proc_error_correction = subprocess.Popen((program_error_correction,
@@ -169,11 +169,12 @@ def _do_error_correction():
         try:
             file_name = ec_queue.get_nowait()
         except queue.Empty as a:
-            print(f'[{method_name}:Exception] {a}')
-            time.sleep(0.5)
+            # print(f'[{method_name}:Exception] {a}')
+            time.sleep(0.6)
             continue
+        print(f'[{method_name}] Successfully read message {file_name}')
         # Use diagbb84 to check for raw key bits
-        args = f'{file_name}'
+        args = f'{data_root}/rawkey/{file_name}'
         proc_diagbb84 = subprocess.Popen([program_diagbb84, *args.split()],
                                          stderr=subprocess.PIPE,
                                          stdout=subprocess.PIPE)
@@ -181,10 +182,11 @@ def _do_error_correction():
         diagbb84_result = (proc_diagbb84.stdout.read()).decode().split()
         diagbb84_error = (proc_diagbb84.stderr.read()).decode()
         print(f'[{method_name}:diagbb84_result] {diagbb84_result}')
-        print(f'[{method_name}:diagbb84_result] {diagbb84_error}')
+        print(f'[{method_name}:diagbb84_error] {diagbb84_error}')
         # If no BB84 type OR more than one bit per entry
         # Check diagbb84 for the return values meanings
         if int(diagbb84_result[0]) == 0 or int(diagbb84_result[1]) != 1:
+            print(f'[{method_name}] Not BB84 file type or more than 1 bit per entry.')
             continue
 
         if undigested_epochs == 0:
@@ -192,13 +194,15 @@ def _do_error_correction():
         undigested_epochs += 1
         undigested_raw_bits += int(diagbb84_result[2])
         # for now I just implement the bit size option
+        print(f'[{method_name}] Undigested raw bits: {undigested_raw_bits}.')
         if undigested_raw_bits > minimal_block_size:
             # notify the error correction process about the first epoch, number of epochs, and the servoed QBER
             _writer(ec_cmd_pipe, f'0x{first_epoch} {undigested_epochs} {float("{0:.4f}".format(servoed_QBER))}')
             undigested_raw_bits = 0
             undigested_epochs = 0
             print(print(f'[{method_name}] Started error correction for epoch {first_epoch}, {undigested_epochs}.'))
-
+        ec_queue.task_done()
+    print(f'[{method_name}] Thread finished.')
 
 def _writer(file_name, message):
     f = os.open(file_name, os.O_WRONLY)

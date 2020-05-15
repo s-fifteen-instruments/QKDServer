@@ -30,6 +30,7 @@ def test_chopper():
 def main():
     # print(transferd.measure_local_count_rate())
     test_raw_key_gen()
+    # QKDController.transferd.start_communication()
     # test_chopper()
     # QKDController.transferd.start_communication()
     # chopper.start_chopper()

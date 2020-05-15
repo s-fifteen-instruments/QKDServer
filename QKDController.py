@@ -58,6 +58,7 @@ import splicer
 import chopper
 import chopper2
 import costream
+import error_correction
 
 
 # configuration file contains the most important paths and the target ip and port number
@@ -160,6 +161,7 @@ def msg_response(message):
         elif low_count_side is True:
             chopper.start_chopper()
             splicer.start_splicer(_splicer_callback_start_error_correction)
+            error_correction.start_error_correction()
             _start_readevents()
         elif low_count_side is False:
             chopper2.start_chopper2()
@@ -176,17 +178,20 @@ def msg_response(message):
             chopper.start_chopper()
             splicer.start_splicer(_splicer_callback_start_error_correction)
             _start_readevents()
+            error_correction.start_error_correction()
             transferd.send_message('st3')  # High count side starts pfind
         elif low_count_side is False:
             chopper2.start_chopper2()
             _start_readevents()
             time_diff, sig_long, sig_short = periode_find()
             costream.start_costream(time_diff, first_epoch)
+            error_correction.start_error_correction()
 
     if msg_code == 'st3':
         if low_count_side is False:
             time_diff, sig_long, sig_short = periode_find()
             costream.start_costream(time_diff, first_epoch)
+            error_correction.start_error_correction()
         else:
             print(f'[{method_name}:st3] Not the high count side or symmetry \
                 negotiation not completed.')
@@ -200,8 +205,10 @@ def _splicer_callback_start_error_correction(epoch_name: str):
 
     Checks if the process is running and writes the raw key file name into the eccmdpipe.
     '''
-    global error_corr_queue
+    # global error_corr_queue
+    method_name = sys._getframe().f_code.co_name
     # Missing: check if error correction is running
+    print(f'[{method_name}] Add {epoch_name} to error correction queue')
     error_correction.ec_queue.put(epoch_name)
 
 
