@@ -124,6 +124,8 @@ def _ecnotepipe_digest():
 
     while proc_error_correction.poll() is None:
         time.sleep(0.05)
+        if proc_error_correction is None:
+            break
         try:
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
             if len(message) == 0:
@@ -164,6 +166,8 @@ def _do_error_correction():
     first_epoch = None
     undigested_epochs = 0
     while proc_error_correction.poll() is None:
+        if proc_error_correction is None:
+            break
         # Attempt get from queue (FIFO). If no item is available, sleep a while
         # and try again.
         try:

@@ -313,7 +313,7 @@ def stop_communication():
     chopper2.stop_chopper2()
     splicer.stop_splicer()
     costream.stop_costream()
-
+    error_correction.stop_error_correction()
 
 def _start_readevents():
     '''
