@@ -29,7 +29,7 @@ SOFTWARE.
 
 __author__ = 'Mathias Alexander Seidler'
 __copyright__ = 'Copyright 2020, S-Fifteen Instruments Pte. Ltd.'
-__credits__ = ['']
+__credits__ = ['Lim Chin Chean']
 __license__ = 'MIT'
 __version__ = '0.0.1'
 __maintainer__ = 'Mathias Seidler'

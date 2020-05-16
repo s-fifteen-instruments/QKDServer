@@ -118,7 +118,7 @@ def start_communication(msg_out_callback=_local_callback):
         commhandle = subprocess.Popen((prog_transferd, *args.split()),
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.PIPE)
-        print(args)
+
         # setup read thread for the process stdout
         t = threading.Thread(target=_transferd_stdout_digest,
                          args=(commhandle.stdout, commhandle.stderr, q))

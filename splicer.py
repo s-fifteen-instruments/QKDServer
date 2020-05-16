@@ -29,7 +29,7 @@ SOFTWARE.
 
 __author__ = 'Mathias Alexander Seidler'
 __copyright__ = 'Copyright 2020, S-Fifteen Instruments Pte. Ltd.'
-__credits__ = ['']
+__credits__ = ['Lim Chin Chean']
 __license__ = 'MIT'
 __version__ = '0.0.1'
 __maintainer__ = 'Mathias Seidler'
@@ -59,7 +59,7 @@ def load_splicer_config(config_file_name: str):
 load_splicer_config('config/config.json')
 cwd = os.getcwd()
 proc_splicer = None
-sleep_time = 1
+sleep_time = 0.3  # sleep time before next file read in threads
 prog_splicer = programroot + '/splicer'
 
 
@@ -98,33 +98,39 @@ def start_splicer(splicer_callback):
 def splice_pipe_digest(splicer_callback):
     '''
     Digests the text written into splicepipe and genlog.
-    Runs until the splicer process is closed.
+    Runs until the splicer process closes.
     '''
     global dataroot, proc_splicer
     method_name = sys._getframe().f_code.co_name
     print(f'[{method_name}] Starting splice_pipe_digest thread.')
     splice_pipe =f'{dataroot}/splicepipe'
     genlog = f'{dataroot}/genlog'
-    fd = os.open(splice_pipe, os.O_RDWR)  # non-blocking
-    f = os.fdopen(fd, 'r')  # non-blocking
-    fd_genlog = os.open(genlog, os.O_RDWR)  # non-blocking
-    f_genlog = os.fdopen(fd_genlog, 'r')  # non-blocking
+    fd_sp = os.open(splice_pipe, os.O_RDONLY | os.O_NONBLOCK)  # non-blocking
+    f_sp = os.fdopen(fd_sp, 'rb', 0)  # non-blocking
+    fd_genlog = os.open(genlog, os.O_RDONLY | os.O_NONBLOCK)  # non-blocking
+    f_genlog = os.fdopen(fd_genlog, 'rb', 0)  # non-blocking
 
+    print(f'[{method_name}] Thread started.')
     while proc_splicer.poll() is None:
-        readers = select.select([f], [], [], sleep_time)[0]
-        if readers:
-            for r in readers:
-                message = ((f.readline()).rstrip('\n')).lstrip('\x00')
-                print(f'[{method_name}:splicepipe] {message}')
-
-        readers = select.select([f_genlog], [], [], sleep_time)[0]
-        if readers:
-            for r in readers:
-                message = ((f_genlog.readline()).rstrip('\n')).lstrip('\x00')
-                print(f'[{method_name}:genlog] {message}')
-                splicer_callback(message)
+        time.sleep(sleep_time)
         if proc_splicer is None:
             break
+        try:
+            # read from genlog
+            message = (f_genlog.readline().decode().rstrip('\n')).lstrip('\x00')
+            if len(message) == 0:
+                continue
+            else:
+                print(f'[{method_name}:genlog] {message}')
+                splicer_callback(message)
+            # read from splicepipe
+            message = ((f_sp.readline()).rstrip('\n')).lstrip('\x00')
+            if len(message) == 0:
+                continue
+            else:
+                print(f'[{method_name}:splicepipe] {message}')
+        except OSError as a:
+            pass
     print(f'[{method_name}] Thread finished.')
 
 

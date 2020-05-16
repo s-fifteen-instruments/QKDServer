@@ -30,7 +30,7 @@ SOFTWARE.
 
 __author__ = 'Mathias Alexander Seidler'
 __copyright__ = 'Copyright 2020, S-Fifteen Instruments Pte. Ltd.'
-__credits__ = ['']
+__credits__ = ['Lim Chin Chean']
 __license__ = 'MIT'
 __version__ = '0.0.1'
 __maintainer__ = 'Mathias Seidler'
@@ -56,7 +56,6 @@ def load_error_correction_config(config_file_name: str):
         config = json.load(f)
     data_root = config['data_root']
     program_root = config['program_root']
-    error_correction_program_path = config['error_correction_program_path']
     privacy_amplification = config['privacy_amplification']
     errcd_killfile_option = config['errcd_killfile_option']
     target_bit_error = config['target_bit_error']
@@ -70,11 +69,11 @@ load_error_correction_config('config/config.json')
 
 program_error_correction = program_root + '/errcd'
 program_diagbb84 = program_root + '/diagbb84'
+ec_note_pipe = data_root + '/ecnotepipe'
 proc_error_correction = None  # error correction process handle
 ec_queue = queue.Queue()  # used to queue raw key files
 servoed_QBER = default_QBER
-# counts the final key bits produced by the error correction process
-total_ec_key_bits = 0
+total_ec_key_bits = 0  # counts the final key bits produced by the error correction process
 cwd = os.getcwd()
 
 
@@ -89,9 +88,11 @@ def start_error_correction():
     erropt = ''
     if privacy_amplification is False:
         erropt = '-p'
+        print(f'[{method_name}] Privacy amplification off.')
     if errcd_killfile_option is True:
         erropt += ' -k'
     erropt += f' -B {target_bit_error}'
+    print(f'[{method_name}] Error option: {erropt}')
 
     args = f'-c {data_root}/eccmdpipe \
              -s {data_root}/ecspipe \
@@ -116,10 +117,9 @@ def _ecnotepipe_digest():
     '''
     Digests error correction activities indicated by the 'ecnotepipe' pipe
     '''
-    global proc_error_correction, total_ec_key_bits, servoed_QBER
+    global proc_error_correction, total_ec_key_bits, servoed_QBER, ec_note_pipe
     method_name = sys._getframe().f_code.co_name
-    pipe_name = f'{data_root}/ecnotepipe'
-    fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
+    fd = os.open(ec_note_pipe, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
 
     while proc_error_correction.poll() is None:
@@ -172,7 +172,6 @@ def _do_error_correction():
             # print(f'[{method_name}:Exception] {a}')
             time.sleep(0.6)
             continue
-        print(f'[{method_name}] Successfully read message {file_name}')
         # Use diagbb84 to check for raw key bits
         args = f'{data_root}/rawkey/{file_name}'
         proc_diagbb84 = subprocess.Popen([program_diagbb84, *args.split()],
@@ -194,18 +193,23 @@ def _do_error_correction():
         undigested_epochs += 1
         undigested_raw_bits += int(diagbb84_result[2])
         # for now I just implement the bit size option
-        print(f'[{method_name}] Undigested raw bits: {undigested_raw_bits}.')
+        
         if undigested_raw_bits > minimal_block_size:
             # notify the error correction process about the first epoch, number of epochs, and the servoed QBER
             _writer(ec_cmd_pipe, f'0x{first_epoch} {undigested_epochs} {float("{0:.4f}".format(servoed_QBER))}')
+            print(f'[{method_name}] Started error correction for epoch {first_epoch}, {undigested_epochs}.')
             undigested_raw_bits = 0
             undigested_epochs = 0
-            print(print(f'[{method_name}] Started error correction for epoch {first_epoch}, {undigested_epochs}.'))
+        else:
+            print(f'[{method_name}] Undigested raw bits: {undigested_raw_bits}. Undigested epochs: {undigested_epochs}.')
+ 
         ec_queue.task_done()
     print(f'[{method_name}] Thread finished.')
 
+
 def _writer(file_name, message):
     f = os.open(file_name, os.O_WRONLY)
+    print(f'Write to {file_name}: {message}')
     os.write(f, f'{message}\n'.encode())
     os.close(f)
 

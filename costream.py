@@ -28,7 +28,7 @@ SOFTWARE.
 
 __author__ = 'Mathias Alexander Seidler'
 __copyright__ = 'Copyright 2020, S-Fifteen Instruments Pte. Ltd.'
-__credits__ = ['']
+__credits__ = ['Lim Chin Chean']
 __license__ = 'MIT'
 __version__ = '0.0.1'
 __maintainer__ = 'Mathias Seidler'
@@ -113,6 +113,8 @@ def _genlog_digest():
     print(f'[{method_name}] Thread started.')
     while process_costream.poll() is None:
         time.sleep(0.05)
+        if process_costream is None:
+            break
         try:
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
             if len(message) == 0:
