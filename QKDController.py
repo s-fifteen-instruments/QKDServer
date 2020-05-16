@@ -266,19 +266,19 @@ def periode_find():
     return [float(i) for i in pfind_result.split()]
 
 
-def _reader(file_name):
-    fd = os.open(file_name, os.O_RDWR)
-    f = os.fdopen(fd, 'r')  # non-blocking
-    readers = select.select([f], [], [], 3)[0]
-    for r in readers:
-        if f == r:
-            yield ((f.readline()).rstrip('\n')).lstrip('\x00')
+# def _reader(file_name):
+#     fd = os.open(file_name, os.O_RDWR)
+#     f = os.fdopen(fd, 'r')  # non-blocking
+#     readers = select.select([f], [], [], 3)[0]
+#     for r in readers:
+#         if f == r:
+#             yield ((f.readline()).rstrip('\n')).lstrip('\x00')
 
 
-def _writer(file_name, message):
-    f = os.open(file_name, os.O_WRONLY)
-    os.write(f, f'{message}\n'.encode())
-    os.close(f)
+# def _writer(file_name, message):
+#     f = os.open(file_name, os.O_WRONLY)
+#     os.write(f, f'{message}\n'.encode())
+#     os.close(f)
 
 
 def initiate_proto_negotiation(wanted_protocol):
@@ -308,12 +308,14 @@ def start_communication():
 
 
 def stop_communication():
+    global proc_readevents
     transferd.stop_communication()
     chopper.stop_chopper()
     chopper2.stop_chopper2()
     splicer.stop_splicer()
     costream.stop_costream()
     error_correction.stop_error_correction()
+    kill_process(proc_readevents)
 
 def _start_readevents():
     '''

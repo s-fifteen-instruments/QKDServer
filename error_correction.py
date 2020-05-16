@@ -122,10 +122,10 @@ def _ecnotepipe_digest():
     fd = os.open(ec_note_pipe, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
 
-    while proc_error_correction.poll() is None:
+    while proc_error_correction is not None and  proc_error_correction.poll() is None:
         time.sleep(0.05)
-        if proc_error_correction is None:
-            break
+        # if proc_error_correction is None:
+        #     break
         try:
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
             if len(message) == 0:
@@ -165,15 +165,12 @@ def _do_error_correction():
     undigested_raw_bits = 0
     first_epoch = None
     undigested_epochs = 0
-    while proc_error_correction.poll() is None:
-        if proc_error_correction is None:
-            break
+    while proc_error_correction is not None and proc_error_correction.poll() is None:
         # Attempt get from queue (FIFO). If no item is available, sleep a while
         # and try again.
         try:
             file_name = ec_queue.get_nowait()
         except queue.Empty as a:
-            # print(f'[{method_name}:Exception] {a}')
             time.sleep(0.6)
             continue
         # Use diagbb84 to check for raw key bits
@@ -196,8 +193,9 @@ def _do_error_correction():
             first_epoch = file_name
         undigested_epochs += 1
         undigested_raw_bits += int(diagbb84_result[2])
-        # for now I just implement the bit size option
-        
+
+        # for now I just implement the bit size option.
+        # Could be also based on number of epochs.
         if undigested_raw_bits > minimal_block_size:
             # notify the error correction process about the first epoch, number of epochs, and the servoed QBER
             _writer(ec_cmd_pipe, f'0x{first_epoch} {undigested_epochs} {float("{0:.4f}".format(servoed_QBER))}')
@@ -205,8 +203,8 @@ def _do_error_correction():
             undigested_raw_bits = 0
             undigested_epochs = 0
         else:
-            print(f'[{method_name}] Undigested raw bits: {undigested_raw_bits}. Undigested epochs: {undigested_epochs}.')
- 
+            print(f'[{method_name}] Undigested raw bits:{undigested_raw_bits}.\
+                  Undigested epochs: {undigested_epochs}.')
         ec_queue.task_done()
     print(f'[{method_name}] Thread finished.')
 
