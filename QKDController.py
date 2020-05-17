@@ -337,6 +337,9 @@ def _start_readevents():
 
 if __name__ == '__main__':
     start_communication()
+    error_correction.raw_key_folder = 'data/ec_test_data/rawkeyB'
+    error_correction.errcd_killfile_option = ''
+    error_correction.start_error_correction()
     time.sleep(120)
     stop_communication()
     # kill_process(commhandle)
