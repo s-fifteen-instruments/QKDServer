@@ -1,11 +1,11 @@
 import os
 import numpy as np
 import argparse
-import timestampsimulator
 import sys
 import math
 import time
 
+import os
 
 def time_pattern_to_byte_timestamp(time, pattern, dt_units_ps=125):
     """
@@ -58,7 +58,6 @@ def write_to_stdout(time_list: list, pattern_list: list):
 
 
 def main(file_name):
-
     t, p = _data_extractor(file_name)
     start = time.time()
     write_to_stdout(t, p)

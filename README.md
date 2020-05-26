@@ -1,2 +1,2 @@
-This package implements the s-fifteen QKD business logic. 
-It ties together the quantum channel and the classical channel and creates encryption keys as a result
+This package takes care of the s-fifteen QKD-based key generation business logic. 
+It ties together the quantum channel and the classical channel and generates encryption keys ready for consumption.

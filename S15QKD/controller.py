@@ -53,12 +53,12 @@ from queue import Queue, Empty
 import json
 
 # Own modules
-import transferd
-import splicer
-import chopper
-import chopper2
-import costream
-import error_correction
+from . import transferd
+from . import splicer
+from . import chopper
+from . import chopper2
+from . import costream
+from . import error_correction
 
 
 # configuration file contains the most important paths and the target ip and port number
@@ -76,7 +76,7 @@ targetmachine = config['target_ip']
 portnum = config['port_num']
 kill_option = config['kill_option']
 extclockopt = config['clock_source']
-periode_count = config['periode_count']
+periode_count = config['pfind_epochs']
 FFT_buffer_order = config['FFT_buffer_order']
 
 cwd = os.getcwd()
@@ -85,19 +85,24 @@ remote_count_rate = -1
 testing = 1  # CHANGE to 0 if you want to run it with hardware
 if testing == 1:
     # this outputs one timestamp file in an endless loop. This is for testing only.
-    prog_readevents = 'timestampsimulator/readevents_simulator.sh'
+    print(__file__.strip('/controller.py')+'/timestampsimulator/readevents_simulator.sh')
+    prog_readevents = '/'+__file__.strip('/controller.py')+'/timestampsimulator/readevents_simulator.sh'
 else:
     prog_readevents = programroot + '/readevents3'
 
 prog_pfind = programroot + '/pfind'
 
-proc_readevents = proc_pfind = None
+proc_readevents = None
+proc_pfind = None
 low_count_side = None
 t2logpipe_digest_thread_flag = False
 t1logpipe_digest_thread_flag = False
 t1logcount = 0
-first_epoch = first_received_epoch = None
-
+first_epoch = ''
+first_received_epoch = ''
+time_diff = 0
+sig_long = 0
+sig_short = 0
 
 def kill_process(my_process):
     if my_process is not None:
@@ -146,7 +151,7 @@ def _remove_stale_comm_files():
 
 
 def msg_response(message):
-    global low_count_side, first_epoch
+    global low_count_side, first_epoch, time_diff, sig_long, sig_short
     method_name = sys._getframe().f_code.co_name
     msg_split = message.split(':')[:]
     msg_code = msg_split[0]
@@ -202,12 +207,8 @@ def _splicer_callback_start_error_correction(epoch_name: str):
     This function is used as a call back for the splicer process.
     Whenever the splicer generates a raw key, we notify the error correction process to
     convert the keys to error-corrected privacy-amplified keys.
-
-    Checks if the process is running and writes the raw key file name into the eccmdpipe.
     '''
-    # global error_corr_queue
     method_name = sys._getframe().f_code.co_name
-    # Missing: check if error correction is running
     print(f'[{method_name}] Add {epoch_name} to error correction queue')
     error_correction.ec_queue.put(epoch_name)
 
@@ -222,7 +223,7 @@ def periode_find():
     global prog_pfind, first_epoch, first_received_epoch
 
     if transferd.commhandle is None:
-        print(f'[{method_name}] transferd process has not been started.' +
+        print(f'[{method_name}] Transferd process has not been started.' +
               ' periode_find aborted.')
         return
     if transferd.commhandle.poll() is not None:
@@ -266,46 +267,64 @@ def periode_find():
     return [float(i) for i in pfind_result.split()]
 
 
-# def _reader(file_name):
-#     fd = os.open(file_name, os.O_RDWR)
-#     f = os.fdopen(fd, 'r')  # non-blocking
-#     readers = select.select([f], [], [], 3)[0]
-#     for r in readers:
-#         if f == r:
-#             yield ((f.readline()).rstrip('\n')).lstrip('\x00')
-
-
-# def _writer(file_name, message):
-#     f = os.open(file_name, os.O_WRONLY)
-#     os.write(f, f'{message}\n'.encode())
-#     os.close(f)
-
-
-def initiate_proto_negotiation(wanted_protocol):
-    global wantprotocol, protocol
-    protocol = 0  # disable protocol on asking
-    sendmsg(f'pr1:{wanted_protocol}')
-
-
 def start_raw_key_generation():
     global protocol
     method_name = sys._getframe().f_code.co_name
 
-    if transferd.low_count_side is None:
+    if transferd.low_count_side == '':
         print(f'[{method_name}] Symmetry negotiation not finished.')
-    else:
+        while True:
+            if transferd.negotiating == 1:
+                continue
+            elif transferd.negotiating == 2:
+                break
+            elif transferd.negotiating == 0:
+                return
         transferd.send_message('st1')
 
 
 def start_communication():
     '''Establishes network connection between computers.
-    
+
     [description]
     '''
     _prepare_folders()
     _remove_stale_comm_files()
     transferd.start_communication(msg_response)
+    # transferd.symmetry_negotiation()
 
+
+def get_process_states():
+    return {'transferd': not (transferd.commhandle is None or transferd.commhandle.poll() is not None),
+            'readevents': not (proc_readevents is None or proc_readevents.poll() is not None),
+            'chopper': not (chopper.proc_chopper is None or chopper.proc_chopper.poll() is not None),
+            'chopper2': not (chopper2.proc_chopper2 is None or chopper2.proc_chopper2.poll() is not None),
+            'costream': not (costream.proc_costream is None or costream.proc_costream.poll() is not None),
+            'splicer': not (splicer.proc_splicer is None or splicer.proc_splicer.poll() is not None),
+            'error_correction': not (error_correction.proc_error_correction is None or error_correction.proc_error_correction.poll() is not None)
+            }
+
+def get_status_info():
+    stats = {'connection_status': transferd.communication_status,
+             'protocol': protocol,
+             'last_received_epoch': transferd.last_received_epoch,
+             'init_time_diff': time_diff,
+             'sig_long': sig_long,
+             'sig_short': sig_short,
+             'tracked_time_diff': 'where is this info?',
+             'symmetry':transferd.low_count_side}
+    return stats
+
+def get_error_corr_info():
+    stats = {'first_epoch': error_correction.first_epoch_info,
+             'undigested_epochs': error_correction.undigested_epochs_info,
+             'ec_raw_bits': error_correction.ec_raw_bits,
+             'ec_final_bits': error_correction.ec_final_bits,
+             'ec_err_fraction': error_correction.ec_err_fraction,
+             'key_file_name': error_correction.ec_epoch,
+             'total_ec_key_bits': error_correction.total_ec_key_bits,
+             'init_QBER': error_correction.init_QBER_info}
+    return stats 
 
 def stop_communication():
     global proc_readevents
@@ -317,6 +336,7 @@ def stop_communication():
     error_correction.stop_error_correction()
     kill_process(proc_readevents)
 
+
 def _start_readevents():
     '''
     Start reader and chopper on sender side (low-count side)
@@ -327,7 +347,7 @@ def _start_readevents():
             -d {det1corr},{det2corr},{det3corr},{det4corr}'
     fd = os.open(f'{dataroot}/rawevents', os.O_RDWR)  # non-blocking
     f_stdout = os.fdopen(fd, 'w')  # non-blocking
-
+    print('starting_readevents:', prog_readevents)
     with open(f'{cwd}/{dataroot}/readeventserror', 'a+') as f_stderr:
         proc_readevents = subprocess.Popen((prog_readevents, *args.split()),
                                            stdout=f_stdout,

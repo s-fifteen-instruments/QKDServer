@@ -73,13 +73,13 @@ def load_costream_config(config_file_name: str):
 
 load_costream_config('config/config.json')
 cwd = os.getcwd()
-process_costream = None
+proc_costream = None
 program_costream = program_root + '/costream'
 
 
 def start_costream(time_difference: int, begin_epoch: str):
     method_name = sys._getframe().f_code.co_name
-    global process_costream
+    global proc_costream
     costream_thread = threading.Thread(target=_genlog_digest, args=())
 
     print(begin_epoch)
@@ -96,7 +96,7 @@ def start_costream(time_difference: int, begin_epoch: str):
              -H {costream_histo_option} -h {costream_histo_number}'
 
     with open(f'{cwd}/{data_root}/costreamerror', 'a+') as f:
-        process_costream = subprocess.Popen((program_costream, *args.split()),
+        proc_costream = subprocess.Popen((program_costream, *args.split()),
                                             stdout=subprocess.PIPE, stderr=f)
     costream_thread.start()
 
@@ -111,9 +111,9 @@ def _genlog_digest():
     fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
     print(f'[{method_name}] Thread started.')
-    while process_costream.poll() is None:
+    while proc_costream.poll() is None:
         time.sleep(0.05)
-        if process_costream is None:
+        if proc_costream is None:
             break
         try:
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
@@ -140,9 +140,9 @@ def _kill_process(my_process):
 
 
 def stop_costream():
-    global process_costream
-    _kill_process(process_costream)
-    process_costream = None
+    global proc_costream
+    _kill_process(proc_costream)
+    proc_costream = None
 
 
 # def main():

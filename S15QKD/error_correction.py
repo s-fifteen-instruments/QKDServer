@@ -51,7 +51,7 @@ import queue
 def load_error_correction_config(config_file_name: str):
     global config, error_correction_program_path, program_root, data_root
     global privacy_amplification, errcd_killfile_option, target_bit_error
-    global minimal_block_size, QBER_limit, default_QBER
+    global minimal_block_size, QBER_limit, default_QBER, servo_blocks
     with open(config_file_name, 'r') as f:
         config = json.load(f)
     data_root = config['data_root']
@@ -75,7 +75,14 @@ ec_queue = queue.Queue()  # used to queue raw key files
 servoed_QBER = default_QBER
 total_ec_key_bits = 0  # counts the final key bits produced by the error correction process
 cwd = os.getcwd()
-
+raw_key_folder = data_root + '/rawkey'
+first_epoch_info = '' 
+undigested_epochs_info = 0 
+init_QBER_info = 0
+ec_raw_bits = 0 
+ec_final_bits = 0 
+ec_err_fraction = 0
+ec_epoch = ''
 
 def start_error_correction():
     '''Starts the error correction process.
@@ -97,8 +104,8 @@ def start_error_correction():
     args = f'-c {data_root}/eccmdpipe \
              -s {data_root}/ecspipe \
              -r {data_root}/ecrpipe \
-             -d {data_root}/rawkey -f {data_root}/finalkey \
-             -l {data_root}/ecnotepipe \
+             -d {raw_key_folder} -f {data_root}/finalkey \
+             -l {ec_note_pipe} \
              -Q {data_root}/ecquery -q {data_root}/ecresp \
              -V 2 {erropt} -T 1'
 
@@ -118,11 +125,12 @@ def _ecnotepipe_digest():
     Digests error correction activities indicated by the 'ecnotepipe' pipe
     '''
     global proc_error_correction, total_ec_key_bits, servoed_QBER, ec_note_pipe
+    global ec_epoch, ec_raw_bits, ec_final_bits, ec_err_fraction
     method_name = sys._getframe().f_code.co_name
     fd = os.open(ec_note_pipe, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
 
-    while proc_error_correction is not None and  proc_error_correction.poll() is None:
+    while proc_error_correction is not None and proc_error_correction.poll() is None:
         time.sleep(0.05)
         # if proc_error_correction is None:
         #     break
@@ -145,7 +153,7 @@ def _ecnotepipe_digest():
             elif servoed_QBER > QBER_limit:
                 servoed_QBER = QBER_limit
 
-            print(f'[{method_name}] {message}')
+            print(f'[{method_name}] {message}. Total generated final bits: {total_ec_key_bits}.')
         except OSError as a:
             pass
     print(f'[{method_name}] Thread finished')
@@ -159,11 +167,11 @@ def _do_error_correction():
     This function checks each file for the bit number and once enough bits are available
     it notifies the error correction process by writing into the eccmdpipe.
     '''
-    global ec_queue, minimal_block_size
+    global ec_queue, minimal_block_size, first_epoch_info, undigested_epochs_info, init_QBER_info
     method_name = sys._getframe().f_code.co_name
     ec_cmd_pipe = f'{data_root}/eccmdpipe'
     undigested_raw_bits = 0
-    first_epoch = None
+    first_epoch = ''
     undigested_epochs = 0
     while proc_error_correction is not None and proc_error_correction.poll() is None:
         # Attempt get from queue (FIFO). If no item is available, sleep a while
@@ -174,14 +182,14 @@ def _do_error_correction():
             time.sleep(0.6)
             continue
         # Use diagbb84 to check for raw key bits
-        args = f'{data_root}/rawkey/{file_name}'
+        args = f'{raw_key_folder}/{file_name}'
         proc_diagbb84 = subprocess.Popen([program_diagbb84, *args.split()],
                                          stderr=subprocess.PIPE,
                                          stdout=subprocess.PIPE)
         proc_diagbb84.wait()
         diagbb84_result = (proc_diagbb84.stdout.read()).decode().split()
         diagbb84_error = (proc_diagbb84.stderr.read()).decode()
-        print(f'[{method_name}:diagbb84_result] {diagbb84_result}')
+        print(f'[{method_name}:diagbb84_result] {file_name} {diagbb84_result}')
         print(f'[{method_name}:diagbb84_error] {diagbb84_error}')
         # If no BB84 type OR more than one bit per entry
         # Check diagbb84 for the return values meanings
@@ -200,11 +208,13 @@ def _do_error_correction():
             # notify the error correction process about the first epoch, number of epochs, and the servoed QBER
             _writer(ec_cmd_pipe, f'0x{first_epoch} {undigested_epochs} {float("{0:.4f}".format(servoed_QBER))}')
             print(f'[{method_name}] Started error correction for epoch {first_epoch}, {undigested_epochs}.')
+            first_epoch_info = first_epoch
+            undigested_epochs_info = undigested_epochs
+            init_QBER_info = servoed_QBER
             undigested_raw_bits = 0
             undigested_epochs = 0
         else:
-            print(f'[{method_name}] Undigested raw bits:{undigested_raw_bits}.\
-                  Undigested epochs: {undigested_epochs}.')
+            print(f'[{method_name}] Undigested raw bits:{undigested_raw_bits}. Undigested epochs: {undigested_epochs}.')
         ec_queue.task_done()
     print(f'[{method_name}] Thread finished.')
 

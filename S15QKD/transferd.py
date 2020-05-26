@@ -61,20 +61,21 @@ def load_transferd_config(config_file_name: str):
 
 load_transferd_config('config/config.json')
 cwd = os.getcwd()
-proc_splicer = None
 sleep_time = 1
 prog_transferd = programroot + '/transferd'
 prog_getrate = programroot + '/getrate'
 communication_status = 0
-low_count_side = None
+low_count_side = ''
 remote_count_rate = -1
 local_count_rate = -1
 commhandle = None
-first_received_epoch = None
+first_received_epoch = ''
+last_received_epoch = ''
+
 
 testing = 1  # CHANGE to 0 if you want to run it with hardware
 if testing == 1:
-    prog_readevents = 'timestampsimulator/readevents_simulator.sh'
+    prog_readevents = '/'+__file__.strip('/transferd.py')+'/timestampsimulator/readevents_simulator.sh'
     # prog_readevents = 'helper_script/readevents_simulator.sh'
 else:
     prog_readevents = programroot + '/readevents3'
@@ -133,21 +134,21 @@ def start_communication(msg_out_callback=_local_callback):
 
 
 def _transferd_stdout_digest(out, err, queue):
-    global commhandle, commstat
+    global commhandle, communication_status
     method_name = sys._getframe().f_code.co_name
     print(f'[{method_name}] Thread started.')
     while commhandle.poll() is None:
-        time.sleep(0.05)
+        time.sleep(0.5)
         for line in iter(out.readline, b''):
             line = line.rstrip()
             print(f'[transferd:stdout] {line.decode()}')
             if line == b'connected.':
-                commstat = 2
+                communication_status = 1
             elif line == b'disconnected.':
-                commstat = 3
+                communication_status = 2
         for line in iter(err.readline, b''):
             print(f'[transferd:stderr] {line.decode()}')
-
+    communication_status = 0
     print(f'[{method_name}] Thread finished')
     # startcommunication() # this is to restart the startcomm process if it crashes
 
@@ -182,7 +183,7 @@ def _transferlog_digest():
     This function usually runs as a thread and
     watches the transferlog file.
     '''
-    global first_received_epoch, low_count_side
+    global first_received_epoch, low_count_side, last_received_epoch
     method_name = sys._getframe().f_code.co_name
     log_file_name = f'{dataroot}/transferlog'
     splicer_pipe = f'{dataroot}/splicepipe'
@@ -195,8 +196,9 @@ def _transferlog_digest():
             message = f.readline().decode().rstrip()
             if len(message) == 0:
                 continue
+            last_received_epoch = message
             print(f'[{method_name}:read] {message}')
-            if first_received_epoch is None:
+            if first_received_epoch is '':
                 first_received_epoch = message
                 print(f'[{method_name}:first_rx_epoch] {first_received_epoch}')
             if low_count_side is True:
@@ -209,6 +211,7 @@ def _transferlog_digest():
 
 def _symmetry_negotiation_messaging(message):
     global remote_count_rate, local_count_rate, low_count_side
+    global negotiating
     method_name = sys._getframe().f_code.co_name
     msg_split = message.split(':')[:]
     msg_code = msg_split[0]
@@ -230,9 +233,11 @@ def _symmetry_negotiation_messaging(message):
             else:
                 low_count_side = False
                 print(f'[{method_name}:ne2] This the high count side.')
+            negotiating = 2
         else:
             print(f'[{method_name}:ne2] Local countrates do not agree. \
                     Symmetry negotiation failed.')
+            negotiating = 0 
 
     if msg_code == 'ne3':
         if int(msg_split[2]) == local_count_rate and int(msg_split[1]) == remote_count_rate:
@@ -243,9 +248,11 @@ def _symmetry_negotiation_messaging(message):
                 low_count_side = False
                 print(f'[{method_name}:ne3] This is the high count side.')
             print(f'[{method_name}:ne3] Symmetry negotiation succeeded.')
+            negotiating = 2
         else:
             print(f'[{method_name}:ne3] Count rates in the messages do not agree. \
                 Symmetry negotiation failed')
+            negotiating = 0
 
 
 def _kill_process(proc_pid):
@@ -259,7 +266,7 @@ def _kill_process(proc_pid):
 
 
 def stop_communication():
-    if commhandle.poll() is None:
+    if commhandle is not None and commhandle.poll() is None:
         _kill_process(commhandle)
 
 
@@ -272,10 +279,12 @@ def send_message(message):
 
 def symmetry_negotiation():
     # global commhandle
+    global negotiating
     method_name = sys._getframe().f_code.co_name
     count_rate = measure_local_count_rate()
     if commhandle.poll() is None:
         send_message(f'ne1:{count_rate}')
+        negotiating = 1
     else:
         print(f'[{method_name}] Transferd process not running.')
 

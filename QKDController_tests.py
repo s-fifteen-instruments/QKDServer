@@ -2,11 +2,11 @@ import time
 import os
 import numpy as np
 
-import QKDController
-import chopper
-import chopper2
-import transferd
-import error_correction
+import S15QKD.controller as QKDController
+from S15QKD import chopper
+from S15QKD import chopper2
+from S15QKD import transferd
+from S15QKD import error_correction
 
 
 def test_raw_key_gen():
@@ -47,9 +47,10 @@ def test_error_correction_with_test_files():
 
 
 def main():
+	transferd.start_communication()
     # print(transferd.measure_local_count_rate())
     # test_raw_key_gen()
-    test_error_correction_with_test_files()
+    # test_error_correction_with_test_files()
     # QKDController.transferd.start_communication()
     # test_chopper()
     # QKDController.transferd.start_communication()
