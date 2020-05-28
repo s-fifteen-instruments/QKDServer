@@ -51,6 +51,7 @@ import threading
 import select
 from queue import Queue, Empty
 import json
+import logging
 
 # Own modules
 from . import transferd
@@ -85,7 +86,7 @@ remote_count_rate = -1
 testing = 1  # CHANGE to 0 if you want to run it with hardware
 if testing == 1:
     # this outputs one timestamp file in an endless loop. This is for testing only.
-    print(__file__.strip('/controller.py')+'/timestampsimulator/readevents_simulator.sh')
+    # print(__file__.strip('/controller.py')+'/timestampsimulator/readevents_simulator.sh')
     prog_readevents = '/'+__file__.strip('/controller.py')+'/timestampsimulator/readevents_simulator.sh'
 else:
     prog_readevents = programroot + '/readevents3'
@@ -103,6 +104,9 @@ first_received_epoch = ''
 time_diff = 0
 sig_long = 0
 sig_short = 0
+print('controller got imported')
+
+
 
 def kill_process(my_process):
     if my_process is not None:
@@ -148,6 +152,8 @@ def _remove_stale_comm_files():
     files = glob.glob(dataroot + '/sendfiles/*')
     for f in files:
         os.remove(f)
+
+
 
 
 def msg_response(message):
@@ -270,7 +276,8 @@ def periode_find():
 def start_raw_key_generation():
     global protocol
     method_name = sys._getframe().f_code.co_name
-
+    transferd.start_communication(msg_response)
+    transferd.symmetry_negotiation()
     if transferd.low_count_side == '':
         print(f'[{method_name}] Symmetry negotiation not finished.')
         while True:
@@ -281,6 +288,7 @@ def start_raw_key_generation():
             elif transferd.negotiating == 0:
                 return
         transferd.send_message('st1')
+        watchdog.start()
 
 
 def start_communication():
@@ -291,7 +299,6 @@ def start_communication():
     _prepare_folders()
     _remove_stale_comm_files()
     transferd.start_communication(msg_response)
-    # transferd.symmetry_negotiation()
 
 
 def get_process_states():
@@ -353,6 +360,60 @@ def _start_readevents():
                                            stdout=f_stdout,
                                            stderr=f_stderr)
     print(f'[{method_name}] Started readevents.')
+
+
+class ProcessWatchDog(threading.Thread):
+    '''Monitors all processes neccessary to generate QKD keys.
+
+    Basic logging of events and restart processes in case they crash.
+    
+    Arguments:
+        log_file_name {str}
+    '''
+    def __init__(self, log_file_name: str = 'process_watchdog.log'): 
+        super(ProcessWatchDog, self).__init__()
+        self._running = True
+        self._logger = logging.getLogger('processes_watchdog')
+        self._logger.setLevel(logging.DEBUG)
+        self._fh = logging.FileHandler(log_file_name, mode="a+")
+        self._fh.setLevel(logging.DEBUG)
+        self._fh.setFormatter(logging.Formatter('%(asctime)s - %(process)d - %(levelname)s - %(module)s - %(message)s'))
+        self._logger.addHandler(self._fh)
+        self._logger.info('Initialized watchdog.')
+        self.prev_proc_states = get_process_states()
+        self.prev_status = get_status_info()
+        print(self.prev_proc_states)
+
+    def terminate(self):
+        self._running = False
+
+    def run(self):
+        global proc_readevents
+        while self._running:
+            time.sleep(0.5)
+            proc_states = get_process_states()
+            status = get_status_info()
+            for key in proc_states:
+                if self.prev_proc_states[key] != proc_states[key]:
+                    if proc_states[key]:
+                        self._logger.info(f'{key} started.')
+                    else:
+                        self._logger.info(f'{key} stopped.')
+            if status['connection_status'] == 2 and self.prev_status['connection_status'] == 1:
+                self._logger.info('Disconnected.')
+                self._logger.info('Stopping all key generation processes')
+                chopper.stop_chopper()
+                chopper2.stop_chopper2()
+                splicer.stop_splicer()
+                costream.stop_costream()
+                error_correction.stop_error_correction()
+                kill_process(proc_readevents)
+            self.prev_proc_states = proc_states
+            self.prev_status = status
+
+watchdog = ProcessWatchDog()
+watchdog.daemon = True
+watchdog.start()
 
 
 if __name__ == '__main__':

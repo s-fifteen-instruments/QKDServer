@@ -75,7 +75,9 @@ last_received_epoch = ''
 
 testing = 1  # CHANGE to 0 if you want to run it with hardware
 if testing == 1:
-    prog_readevents = '/'+__file__.strip('/transferd.py')+'/timestampsimulator/readevents_simulator.sh'
+    prog_readevents = '/' + \
+        __file__.strip('/transferd.py') + \
+        '/timestampsimulator/readevents_simulator.sh'
     # prog_readevents = 'helper_script/readevents_simulator.sh'
 else:
     prog_readevents = programroot + '/readevents3'
@@ -87,7 +89,6 @@ def _local_callback(msg: str):
     Usually we let an external script manage the response to theses messages, 
     however when no response function is defined this function is used as a default response.
 
-    [description]
 
     Arguments:
         msg {str} -- Contains the messages received in the msgout pipe.
@@ -103,26 +104,24 @@ def start_communication(msg_out_callback=_local_callback):
     global portnum, targetmachine, receivenotehandle
     global commhandle
 
-    args = f'-d {cwd}/{dataroot}/sendfiles -c {cwd}/{dataroot}/cmdpipe -t {target_ip} \
+    if communication_status == 0:
+        args = f'-d {cwd}/{dataroot}/sendfiles -c {cwd}/{dataroot}/cmdpipe -t {target_ip} \
             -D {cwd}/{dataroot}/receivefiles -l {cwd}/{dataroot}/transferlog \
             -m {cwd}/{dataroot}/msgin -M {cwd}/{dataroot}/msgout -p {port_num} \
             -k -e {cwd}/{dataroot}/ecspipe -E {cwd}/{dataroot}/ecrpipe'
-    q = Queue()  # I don't know why I need this but it works
+        q = Queue()  # I don't know why I need this but it works
 
-    msg_out_thread = threading.Thread(target=_msg_out_digest,
-                                      args=[msg_out_callback])
-    transferlog_thread = threading.Thread(
-        target=_transferlog_digest, args=())
-
-    if communication_status == 0:
-        # _remove_stale_comm_files()
+        msg_out_thread = threading.Thread(target=_msg_out_digest,
+                                          args=[msg_out_callback], daemon=True)
+        transferlog_thread = threading.Thread(
+            target=_transferlog_digest, args=(), daemon=True)
         commhandle = subprocess.Popen((prog_transferd, *args.split()),
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.PIPE)
 
         # setup read thread for the process stdout
         t = threading.Thread(target=_transferd_stdout_digest,
-                         args=(commhandle.stdout, commhandle.stderr, q))
+                             args=(commhandle.stdout, commhandle.stderr, q), daemon=True)
         t.start()
 
         # setup read thread for the msgout pipe
@@ -198,7 +197,7 @@ def _transferlog_digest():
                 continue
             last_received_epoch = message
             print(f'[{method_name}:read] {message}')
-            if first_received_epoch is '':
+            if first_received_epoch == '':
                 first_received_epoch = message
                 print(f'[{method_name}:first_rx_epoch] {first_received_epoch}')
             if low_count_side is True:
@@ -237,7 +236,7 @@ def _symmetry_negotiation_messaging(message):
         else:
             print(f'[{method_name}:ne2] Local countrates do not agree. \
                     Symmetry negotiation failed.')
-            negotiating = 0 
+            negotiating = 0
 
     if msg_code == 'ne3':
         if int(msg_split[2]) == local_count_rate and int(msg_split[1]) == remote_count_rate:

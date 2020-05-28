@@ -111,7 +111,7 @@ def splice_pipe_digest(splicer_callback):
     f_genlog = os.fdopen(fd_genlog, 'rb', 0)  # non-blocking
 
     print(f'[{method_name}] Thread started.')
-    while proc_splicer.poll() is None:
+    while proc_splicer is not None and proc_splicer.poll() is None:
         time.sleep(sleep_time)
         if proc_splicer is None:
             break

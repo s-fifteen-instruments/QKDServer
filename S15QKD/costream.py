@@ -83,12 +83,15 @@ def start_costream(time_difference: int, begin_epoch: str):
     costream_thread = threading.Thread(target=_genlog_digest, args=())
 
     print(begin_epoch)
-    args = f'-d {data_root}/receivefiles -D {data_root}/t1 \
-             -f {data_root}/rawkey -F {data_root}/sendfiles \
+    args = f'-d {data_root}/receivefiles \
+             -D {data_root}/t1 \
+             -f {data_root}/rawkey \
+             -F {data_root}/sendfiles \
              -e 0x{begin_epoch} \
              {kill_option} \
              -t {time_difference} -p {protocol} \
-             -T 2 -m {data_root}/rawpacketindex \
+             -T 2 \
+             -m {data_root}/rawpacketindex \
              -M {data_root}/cmdpipe \
              -n {data_root}/genlog -V 5 \
              -G 2 -w {remote_coincidence_window} \
@@ -120,10 +123,7 @@ def _genlog_digest():
             if len(message) == 0:
                 print('.')
                 continue
-            # epoch = message.split()[0]
-            # _writer(cmd_pipe_name, epoch)
             print(f'[{method_name}] {message}')
-            # time.sleep(0.01)
         except OSError as a:
             pass
     print(f'[{method_name}] Thread finished.')
@@ -143,12 +143,3 @@ def stop_costream():
     global proc_costream
     _kill_process(proc_costream)
     proc_costream = None
-
-
-# def main():
-#     start_costream()
-#     time.sleep(10)
-#     stop_costream()
-
-# if __name__ == '__main__':
-#     main()
