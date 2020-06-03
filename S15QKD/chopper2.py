@@ -37,7 +37,7 @@ import psutil
 import select
 
 
-def load_chopper2_config(config_file_name: str):
+def _load_chopper2_config(config_file_name: str):
     '''
     Reads a JSON config file and stores the relevant information in
     global variables.
@@ -45,29 +45,32 @@ def load_chopper2_config(config_file_name: str):
     Arguments:
         config_file_name {str} -- file name of the JSON formatted configuration file
     '''
-    global dataroot, programroot, max_event_diff
+    global dataroot, programroot, max_event_diff, prog_chopper2
     with open(config_file_name, 'r') as f:
         config = json.load(f)
     dataroot = config['data_root']
     max_event_diff = config['max_event_diff']
     programroot = config['program_root']
+    prog_chopper2 = programroot + '/chopper2'
 
 
-load_chopper2_config('config/config.json')
-prog_chopper2 = programroot + '/chopper2'
-cwd = os.getcwd()
-proc_chopper2 = None
-t1_epoch_count = 0
-t1logpipe_digest_thread_flag = False
-first_epoch = None
+def initialize(config_file_name: str = 'config/config.json'):
+    global cwd, proc_chopper2, t1_epoch_count, t1logpipe_digest_thread_flag
+    global first_epoch
+    _load_chopper2_config(config_file_name)
+    cwd = os.getcwd()
+    proc_chopper2 = None
+    t1_epoch_count = 0
+    t1logpipe_digest_thread_flag = False
+    first_epoch = None
 
 
-def start_chopper2(rawevents_pipe='rawevents'):
+def start_chopper2(rawevents_pipe: str='rawevents', t1_log_pipe: str='t1logpipe', t1_file_folder: str='t1'):
     global proc_chopper2, max_event_diff
     method_name = sys._getframe().f_code.co_name
     args = f'-i {cwd}/{dataroot}/{rawevents_pipe} \
-            -l {cwd}/{dataroot}/t1logpipe -V 3 \
-            -D {cwd}/{dataroot}/t1 \
+            -l {cwd}/{dataroot}/{t1_log_pipe} -V 3 \
+            -D {cwd}/{dataroot}/{t1_file_folder} \
             -U -F -m {max_event_diff}'
     t1logpipe_thread = threading.Thread(target=_t1logpipe_digest, args=())
 
@@ -117,7 +120,7 @@ def stop_chopper2():
     t1logpipe_digest_thread_flag = False
 
 
-def _reader(file_name):
+def _reader(file_name: str):
     fd = os.open(file_name, os.O_RDWR)
     f = os.fdopen(fd, 'r')  # non-blocking
     readers = select.select([f], [], [], 3)[0]

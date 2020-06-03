@@ -46,7 +46,7 @@ import sys
 import psutil
 
 
-def load_costream_config(config_file_name: str):
+def _load_costream_config(config_file_name: str = 'config/config.json'):
     '''
     Reads a JSON config file and stores the relevant information in
     global variables.
@@ -56,13 +56,15 @@ def load_costream_config(config_file_name: str):
     '''
     global data_root, program_root, kill_option, program_costream, protocol
     global remote_coincidence_window, tracking_window, track_filter_time_constant
-    global costream_histo_number, costream_histo_option
+    global costream_histo_number, costream_histo_option, program_costream
+    global cwd, proc_costream, config
+
     with open(config_file_name, 'r') as f:
         config = json.load(f)
+
     data_root = config['data_root']
     program_root = config['program_root']
     kill_option = config['kill_option']
-
     protocol = config['protocol']
     remote_coincidence_window = config['remote_coincidence_window']
     tracking_window = config['tracking_window']
@@ -71,10 +73,13 @@ def load_costream_config(config_file_name: str):
     costream_histo_option = config['costream_histo_option']
 
 
-load_costream_config('config/config.json')
-cwd = os.getcwd()
-proc_costream = None
-program_costream = program_root + '/costream'
+def initialize(config_file_name: str = 'config/config.json'):
+    global program_costream
+    _load_costream_config(config_file_name)
+    program_costream = program_root + '/costream'
+
+
+initialize()
 
 
 def start_costream(time_difference: int, begin_epoch: str):

@@ -48,12 +48,16 @@ import time
 import queue
 
 
-def load_error_correction_config(config_file_name: str):
-    global config, error_correction_program_path, program_root, data_root
+def _load_error_correction_config(config_file_name: str):
+    global config, program_root, data_root
     global privacy_amplification, errcd_killfile_option, target_bit_error
     global minimal_block_size, QBER_limit, default_QBER, servo_blocks
+    global program_error_correction, program_diagbb84, ec_note_pipe
+    global raw_key_folder, servoed_QBER
+
     with open(config_file_name, 'r') as f:
         config = json.load(f)
+
     data_root = config['data_root']
     program_root = config['program_root']
     privacy_amplification = config['privacy_amplification']
@@ -64,25 +68,31 @@ def load_error_correction_config(config_file_name: str):
     default_QBER = config['default_QBER']
     servo_blocks = config['servo_blocks']
 
+    program_error_correction = program_root + '/errcd'
+    program_diagbb84 = program_root + '/diagbb84'
+    ec_note_pipe = data_root + '/ecnotepipe'
+    raw_key_folder = data_root + '/rawkey'
+    servoed_QBER = default_QBER
 
-load_error_correction_config('config/config.json')
 
-program_error_correction = program_root + '/errcd'
-program_diagbb84 = program_root + '/diagbb84'
-ec_note_pipe = data_root + '/ecnotepipe'
-proc_error_correction = None  # error correction process handle
-ec_queue = queue.Queue()  # used to queue raw key files
-servoed_QBER = default_QBER
-total_ec_key_bits = 0  # counts the final key bits produced by the error correction process
-cwd = os.getcwd()
-raw_key_folder = data_root + '/rawkey'
-first_epoch_info = '' 
-undigested_epochs_info = 0 
-init_QBER_info = 0
-ec_raw_bits = 0 
-ec_final_bits = 0 
-ec_err_fraction = 0
-ec_epoch = ''
+def initialize(config_file_name: str='config/config.json'):
+    _load_error_correction_config(config_file_name)
+    global ec_queue, total_ec_key_bits, cwd
+    global undigested_epochs_info, init_QBER_info, ec_raw_bits
+    global ec_epoch, ec_final_bits, ec_err_fraction, first_epoch_info
+    global proc_error_correction
+    ec_queue = queue.Queue()  # used to queue raw key files
+    total_ec_key_bits = 0  # counts the final error-corrected key bits
+    cwd = os.getcwd()
+    first_epoch_info = ''
+    undigested_epochs_info = 0
+    init_QBER_info = 0
+    ec_raw_bits = 0
+    ec_final_bits = 0
+    ec_err_fraction = 0
+    ec_epoch = ''
+    proc_error_correction = None  # error correction process handle
+
 
 def start_error_correction():
     '''Starts the error correction process.
@@ -241,6 +251,8 @@ def stop_error_correction():
     _kill_process(proc_error_correction)
     proc_error_correction = None
 
+
+initialize()
 
 if __name__ == '__main__':
     import time

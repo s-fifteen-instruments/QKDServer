@@ -72,10 +72,6 @@ for key, value in config['local_detector_skew_correction'].items():
 dataroot = config['data_root']
 programroot = config['program_root']
 protocol = config['protocol']
-max_event_diff = config['max_event_diff']
-targetmachine = config['target_ip']
-portnum = config['port_num']
-kill_option = config['kill_option']
 extclockopt = config['clock_source']
 periode_count = config['pfind_epochs']
 FFT_buffer_order = config['FFT_buffer_order']
@@ -83,10 +79,10 @@ FFT_buffer_order = config['FFT_buffer_order']
 cwd = os.getcwd()
 localcountrate = -1
 remote_count_rate = -1
+
 testing = 1  # CHANGE to 0 if you want to run it with hardware
 if testing == 1:
     # this outputs one timestamp file in an endless loop. This is for testing only.
-    # print(__file__.strip('/controller.py')+'/timestampsimulator/readevents_simulator.sh')
     prog_readevents = '/'+__file__.strip('/controller.py')+'/timestampsimulator/readevents_simulator.sh'
 else:
     prog_readevents = programroot + '/readevents3'
@@ -100,11 +96,10 @@ t2logpipe_digest_thread_flag = False
 t1logpipe_digest_thread_flag = False
 t1logcount = 0
 first_epoch = ''
-first_received_epoch = ''
+# first_received_epoch = ''
 time_diff = 0
 sig_long = 0
 sig_short = 0
-print('controller got imported')
 
 
 
@@ -152,8 +147,6 @@ def _remove_stale_comm_files():
     files = glob.glob(dataroot + '/sendfiles/*')
     for f in files:
         os.remove(f)
-
-
 
 
 def msg_response(message):
@@ -226,7 +219,7 @@ def periode_find():
     '''
     method_name = sys._getframe().f_code.co_name
     global periode_count, t1logcount, FFT_buffer_order
-    global prog_pfind, first_epoch, first_received_epoch
+    global prog_pfind, first_epoch
 
     if transferd.commhandle is None:
         print(f'[{method_name}] Transferd process has not been started.' +
@@ -238,7 +231,7 @@ def periode_find():
         return
 
     while transferd.first_received_epoch is None or chopper2.first_epoch is None:
-        print(f'[{method_name}] Waiting for more data.')
+        print(f'[{method_name}] Waiting for data.')
         time.sleep(1)
 
     # make sure there is enough epochs available
@@ -274,7 +267,7 @@ def periode_find():
 
 
 def start_raw_key_generation():
-    global protocol
+    # global protocol
     method_name = sys._getframe().f_code.co_name
     transferd.start_communication(msg_response)
     transferd.symmetry_negotiation()
@@ -287,8 +280,8 @@ def start_raw_key_generation():
                 break
             elif transferd.negotiating == 0:
                 return
-        transferd.send_message('st1')
-        watchdog.start()
+    transferd.send_message('st1')
+    watchdog.start()
 
 
 def start_communication():
@@ -311,6 +304,7 @@ def get_process_states():
             'error_correction': not (error_correction.proc_error_correction is None or error_correction.proc_error_correction.poll() is not None)
             }
 
+
 def get_status_info():
     stats = {'connection_status': transferd.communication_status,
              'protocol': protocol,
@@ -322,6 +316,7 @@ def get_status_info():
              'symmetry':transferd.low_count_side}
     return stats
 
+
 def get_error_corr_info():
     stats = {'first_epoch': error_correction.first_epoch_info,
              'undigested_epochs': error_correction.undigested_epochs_info,
@@ -331,7 +326,8 @@ def get_error_corr_info():
              'key_file_name': error_correction.ec_epoch,
              'total_ec_key_bits': error_correction.total_ec_key_bits,
              'init_QBER': error_correction.init_QBER_info}
-    return stats 
+    return stats
+
 
 def stop_communication():
     global proc_readevents

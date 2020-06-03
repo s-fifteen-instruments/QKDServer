@@ -47,46 +47,52 @@ import sys
 import psutil
 
 
-def load_transferd_config(config_file_name: str):
-    global dataroot, programroot, target_ip, port_num, extclockopt
+def _load_transferd_config(config_file_name: str):
+    global data_root, program_root, target_ip, port_num, extclockopt
+    global prog_getrate, prog_transferd
+
     with open(config_file_name, 'r') as f:
         config = json.load(f)
-    dataroot = config['data_root']
+    data_root = config['data_root']
     protocol = config['protocol']
-    programroot = config['program_root']
+    program_root = config['program_root']
     target_ip = config['target_ip']
     port_num = config['port_num']
     extclockopt = config['clock_source']
+    prog_transferd = program_root + '/transferd'
+    prog_getrate = program_root + '/getrate'
 
 
-load_transferd_config('config/config.json')
-cwd = os.getcwd()
-sleep_time = 1
-prog_transferd = programroot + '/transferd'
-prog_getrate = programroot + '/getrate'
-communication_status = 0
-low_count_side = ''
-remote_count_rate = -1
-local_count_rate = -1
-commhandle = None
-first_received_epoch = ''
-last_received_epoch = ''
+def initialize(config_file_name: str = 'config/config.json'):
+    _load_transferd_config(config_file_name)
+    global cwd, sleep_time, communication_status, low_count_side, remote_count_rate
+    global local_count_rate, commhandle, first_received_epoch, last_received_epoch
+    global prog_readevents
 
+    cwd = os.getcwd()
+    sleep_time = 1
+    communication_status = 0
+    low_count_side = ''
+    remote_count_rate = -1
+    local_count_rate = -1
+    commhandle = None
+    first_received_epoch = ''
+    last_received_epoch = ''
 
-testing = 1  # CHANGE to 0 if you want to run it with hardware
-if testing == 1:
-    prog_readevents = '/' + \
-        __file__.strip('/transferd.py') + \
-        '/timestampsimulator/readevents_simulator.sh'
-    # prog_readevents = 'helper_script/readevents_simulator.sh'
-else:
-    prog_readevents = programroot + '/readevents3'
+    testing = 1  # CHANGE to 0 if you want to run it with hardware
+    if testing == 1:
+        prog_readevents = '/' + \
+            __file__.strip('/transferd.py') + \
+            '/timestampsimulator/readevents_simulator.sh'
+        # prog_readevents = 'helper_script/readevents_simulator.sh'
+    else:
+        prog_readevents = program_root + '/readevents3'
 
 
 def _local_callback(msg: str):
     '''
     The transferd process has a msgout pipe which contains received messages.
-    Usually we let an external script manage the response to theses messages, 
+    Usually we let another script manage the response to theses messages, 
     however when no response function is defined this function is used as a default response.
 
 
@@ -100,15 +106,15 @@ def _local_callback(msg: str):
 
 
 def start_communication(msg_out_callback=_local_callback):
-    global debugval, commhandle, commstat, programroot, commprog, dataroot
+    global debugval, commhandle, commstat, program_root, commprog, data_root
     global portnum, targetmachine, receivenotehandle
     global commhandle
 
     if communication_status == 0:
-        args = f'-d {cwd}/{dataroot}/sendfiles -c {cwd}/{dataroot}/cmdpipe -t {target_ip} \
-            -D {cwd}/{dataroot}/receivefiles -l {cwd}/{dataroot}/transferlog \
-            -m {cwd}/{dataroot}/msgin -M {cwd}/{dataroot}/msgout -p {port_num} \
-            -k -e {cwd}/{dataroot}/ecspipe -E {cwd}/{dataroot}/ecrpipe'
+        args = f'-d {cwd}/{data_root}/sendfiles -c {cwd}/{data_root}/cmdpipe -t {target_ip} \
+            -D {cwd}/{data_root}/receivefiles -l {cwd}/{data_root}/transferlog \
+            -m {cwd}/{data_root}/msgin -M {cwd}/{data_root}/msgout -p {port_num} \
+            -k -e {cwd}/{data_root}/ecspipe -E {cwd}/{data_root}/ecrpipe'
         q = Queue()  # I don't know why I need this but it works
 
         msg_out_thread = threading.Thread(target=_msg_out_digest,
@@ -155,7 +161,7 @@ def _transferd_stdout_digest(out, err, queue):
 def _msg_out_digest(msg_out_callback):
     global commhandle
     method_name = sys._getframe().f_code.co_name
-    pipe_name = f'{dataroot}/msgout'
+    pipe_name = f'{data_root}/msgout'
     fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
     print(f'[{method_name}] Thread started.')
@@ -184,8 +190,8 @@ def _transferlog_digest():
     '''
     global first_received_epoch, low_count_side, last_received_epoch
     method_name = sys._getframe().f_code.co_name
-    log_file_name = f'{dataroot}/transferlog'
-    splicer_pipe = f'{dataroot}/splicepipe'
+    log_file_name = f'{data_root}/transferlog'
+    splicer_pipe = f'{data_root}/splicepipe'
     fd = os.open(log_file_name, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
     print(f'[{method_name}] Thread started.')
@@ -271,7 +277,7 @@ def stop_communication():
 
 def send_message(message):
     method_name = sys._getframe().f_code.co_name
-    _writer(f'{dataroot}/msgin', message)
+    _writer(f'{data_root}/msgin', message)
     print(f'[{method_name}:write] {message}')
     time.sleep(sleep_time)
 
@@ -292,7 +298,7 @@ def measure_local_count_rate():
     '''
     Measure local photon count rate.
     '''
-    global programroot, dataroot, localcountrate, extclockopt
+    global program_root, data_root, localcountrate, extclockopt
     localcountrate = -1
 
     p1 = subprocess.Popen((prog_readevents,
@@ -330,6 +336,8 @@ def main():
     print(time.time() - start)
     stop_communication()
 
+
+initialize()
 
 if __name__ == '__main__':
     main()

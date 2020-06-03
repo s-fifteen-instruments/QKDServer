@@ -45,23 +45,29 @@ import psutil
 import time
 
 
-def load_chopper_config(config_file_name: str):
+def _load_chopper_config(config_file_name: str):
     global dataroot, protocol, kill_option, config, prog_chopper, programroot, max_event_diff
+    global prog_chopper
     with open(config_file_name, 'r') as f:
         config = json.load(f)
     dataroot = config['data_root']
     protocol = config['protocol']
     max_event_diff = config['max_event_diff']
     programroot = config['program_root']
+    prog_chopper = programroot + '/chopper'
 
 
-load_chopper_config('config/config.json')
-prog_chopper = programroot + '/chopper'
-cwd = os.getcwd()
-proc_chopper = None
+def initialize(config_file_name: str = 'config/config.json'):
+    global cwd, proc_chopper
+    _load_chopper_config()
+    cwd = os.getcwd()
+    proc_chopper = None
 
 
-def start_chopper(rawevents_pipe='rawevents'):
+initialize()
+
+
+def start_chopper(rawevents_pipe: str='rawevents', sendfiles_folder: str='sendfiles', t3_files_folder: str='t3', t2_log_pipe: str='t2logpipe'):
     '''Starts the chopper process.
 
     Keyword Arguments:
@@ -71,9 +77,9 @@ def start_chopper(rawevents_pipe='rawevents'):
     method_name = sys._getframe().f_code.co_name  # used for logging
     t2logpipe_thread = threading.Thread(target=_t2logpipe_digest, args=())
     args = f'-i {cwd}/{dataroot}/{rawevents_pipe} \
-            -D {cwd}/{dataroot}/sendfiles \
-            -d {cwd}/{dataroot}/t3 \
-            -l {cwd}/{dataroot}/t2logpipe \
+            -D {cwd}/{dataroot}/{sendfiles_folder} \
+            -d {cwd}/{dataroot}/{t3_files_folder} \
+            -l {cwd}/{dataroot}/{t2_log_pipe} \
             -V 4 -U -p {protocol} -Q 5 -F \
             -y 20 -m {max_event_diff}'
 
@@ -131,7 +137,7 @@ def stop_chopper():
     t2logpipe_digest_thread_flag = False
 
 
-def _writer(file_name, message):
+def _writer(file_name: str, message: str):
     f = os.open(file_name, os.O_WRONLY)
     os.write(f, f'{message}\n'.encode())
     os.close(f)

@@ -46,21 +46,26 @@ import select
 import psutil
 
 
-def load_splicer_config(config_file_name: str):
-    global dataroot, programroot, protocol, kill_option
+def _load_splicer_config(config_file_name: str):
+    global data_root, program_root, protocol, kill_option
+    global prog_splicer
+
     with open(config_file_name, 'r') as f:
         config = json.load(f)
-    dataroot = config['data_root']
+
+    data_root = config['data_root']
     protocol = config['protocol']
-    programroot = config['program_root']
+    program_root = config['program_root']
     kill_option = config['kill_option']
+    prog_splicer = program_root + '/splicer'
 
 
-load_splicer_config('config/config.json')
-cwd = os.getcwd()
-proc_splicer = None
-sleep_time = 0.3  # sleep time before next file read in threads
-prog_splicer = programroot + '/splicer'
+def initialize(config_file_name: str = 'config/config.json'):
+    global cwd, proc_splicer, sleep_time
+    _load_splicer_config(config_file_name)
+    cwd = os.getcwd()
+    proc_splicer = None
+    sleep_time = 0.3  # sleep time before next file read in threads
 
 
 def _kill_process(my_process):
@@ -78,16 +83,16 @@ def start_splicer(splicer_callback):
     Starts the splicer process and attaches a thread digesting 
     the splice pipe and the genlog.
     '''
-    global dataroot, cwd, proc_splicer
+    global data_root, cwd, proc_splicer
     method_name = sys._getframe().f_code.co_name
     thread_splicepipe_digest = threading.Thread(target=splice_pipe_digest,
                                                 args=([splicer_callback]))
-    args = f'-d {cwd}/{dataroot}/t3 -D {dataroot}/receivefiles \
-            -f {cwd}/{dataroot}/rawkey \
-            -E {cwd}/{dataroot}/splicepipe \
+    args = f'-d {cwd}/{data_root}/t3 -D {data_root}/receivefiles \
+            -f {cwd}/{data_root}/rawkey \
+            -E {cwd}/{data_root}/splicepipe \
             {kill_option} \
             -p {protocol} \
-            -m {cwd}/{dataroot}/genlog'
+            -m {cwd}/{data_root}/genlog'
 
     proc_splicer = subprocess.Popen([prog_splicer, *args.split()])
     time.sleep(0.1)
@@ -100,11 +105,11 @@ def splice_pipe_digest(splicer_callback):
     Digests the text written into splicepipe and genlog.
     Runs until the splicer process closes.
     '''
-    global dataroot, proc_splicer
+    global data_root, proc_splicer
     method_name = sys._getframe().f_code.co_name
     print(f'[{method_name}] Starting splice_pipe_digest thread.')
-    splice_pipe =f'{dataroot}/splicepipe'
-    genlog = f'{dataroot}/genlog'
+    splice_pipe =f'{data_root}/splicepipe'
+    genlog = f'{data_root}/genlog'
     fd_sp = os.open(splice_pipe, os.O_RDONLY | os.O_NONBLOCK)  # non-blocking
     f_sp = os.fdopen(fd_sp, 'rb', 0)  # non-blocking
     fd_genlog = os.open(genlog, os.O_RDONLY | os.O_NONBLOCK)  # non-blocking
@@ -138,6 +143,9 @@ def stop_splicer():
     global proc_splicer
     _kill_process(proc_splicer)
     proc_splicer = None
+
+
+initialize()
 
 if __name__ == '__main__':
     start_splicer()
