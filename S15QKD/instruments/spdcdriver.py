@@ -9,7 +9,7 @@ import time
 import numpy as np
 
 
-class SPDCDriver():
+class SPDCDriver(object):
     """Module for communicating with the power meter"""
 
     DEVICE_IDENTIFIER = 'SPDC driver'
@@ -21,7 +21,7 @@ class SPDCDriver():
                 self.DEVICE_IDENTIFIER))[0]
             print('Connected to', device_path)
         self._com = serialconnection.SerialConnection(device_path)
-        self._com._reset_buffers()
+        self._com.write(b'power 3\n')
         self._com.write(b'power 3\n')
 
     def reset(self):

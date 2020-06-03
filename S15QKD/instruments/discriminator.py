@@ -21,7 +21,7 @@ def volt2power(volt, wave_length, resistance):
 
 
 
-class Discriminator():
+class Discriminator(object):
     """Module for communicating with the power meter"""
 
     DEVICE_IDENTIFIER = 'Programmable discriminator'

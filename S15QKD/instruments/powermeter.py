@@ -34,7 +34,7 @@ def volt2power(volt, wave_length, resistance):
 
 
 
-class PowerMeter():
+class PowerMeter(object):
     """Module for communicating with the power meter"""
 
     DEVICE_IDENTIFIER = 'power meter'
