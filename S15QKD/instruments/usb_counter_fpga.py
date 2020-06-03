@@ -16,22 +16,21 @@ import subprocess
 
 from time import sleep
 
-from .g2lib import g2_lib as g2lib
+from ..g2lib import g2lib
 
-from . import usb_counter
 
-from os.path import exists
+from os.path import exists, expanduser
 from tempfile import NamedTemporaryFile
 
 from . import serialconnection
 
 
-class Counter(object):
+class TimeStampTDC1(object):
     """
     The usb counter is seen as an object through this class,
     inherited from the generic serial one.
     """
-    DEVICE_IDENTIFIER = 'USB_CNT'
+    DEVICE_IDENTIFIER = 'TDC1'
 
     def __init__(self, device_path=None,
                  integration_time=1000,
@@ -50,7 +49,7 @@ class Counter(object):
         self._device_path = device_path
         self._com = serialconnection.SerialConnection(device_path)
         # timestamp readevents program path
-        self._prog = "~/programs/usbcntfpga/apps/readevents4b"
+        self._prog = expanduser("~")+"/programs/usbcntfpga/apps/readevents4"
         if not exists(self._prog):
             print('No readevents4 program installed!')
 
@@ -65,6 +64,7 @@ class Counter(object):
         self._acc_t_min, self._acc_t_max = [100, 300]
         self._g2bins_setter()
         self._acc_correction()
+        self._int_time = integration_time
 
     def off(self):
         """ Turn the device OFF"""
@@ -95,7 +95,7 @@ class Counter(object):
             print('Invalid integration time.')
         else:
             self._com.write('time {:d}\n'.format(int(value)).encode())
-            self._int_time = int(self._getresponse_1l('TIME?'))
+            self._int_time = int(self._com._getresponse_1l('TIME?'))
 
     @property
     def counts(self):
@@ -106,17 +106,19 @@ class Counter(object):
         """
         if self._mode == 3:
             self.mode = 'singles'
-            self.int_time = self._int_time
-        return super(Counter, self).counts
+        return [int(x) 
+                for x 
+                in self._com._getresponse_1l('counts?', self._int_time + 0.05).split()]
 
     @property
     def mode(self):
-        self._mode = int(self._getresponse_1l('MODE?'))
+        self._mode = int(self._com._getresponse_1l('MODE?'))
         return self._mode
 
     @mode.setter
     def mode(self, value):
         if value.lower() == 'singles':
+            self._mode = 0
             self._com.write(b'singles\n')
         if value.lower() == 'pairs':
             self._mode = 1
@@ -124,12 +126,11 @@ class Counter(object):
         if value.lower() == 'timestamp':
             self._mode = 3
             self._com.write(b'timestamp\n')
-        self.mode
 
     @property
     def level(self):
         """ Set the kind of pulses to count"""
-        return self._getresponse_1l('LEVEL?')
+        return self._com._getresponse_1l('LEVEL?')
 
     @level.setter
     def level(self, value):
@@ -143,7 +144,7 @@ class Counter(object):
     @property
     def clock(self):
         """ Choice of clock"""
-        return self._getresponse_1l('REFCLK?')
+        return self._com._getresponse_1l('REFCLK?')
 
     @clock.setter
     def clock(self, value):
@@ -165,7 +166,7 @@ class Counter(object):
         """ Write the binary output to a buffer for total measurement
         times longer than 65 seconds"""
         p1 = subprocess.Popen([self._prog,
-                               '-U', self._device,
+                               '-U', self._device_path,
                                '-a', '1',
                                '-g', '{}'.format(int(0)),
                                '-X'],
@@ -181,7 +182,7 @@ class Counter(object):
         """ Write the binary output to a buffer for total measurement
         times longer than 65 seconds"""
         subprocess.check_call([self._prog,
-                               '-U', self._device,
+                               '-U', self._device_path,
                                '-a', '1',
                                '-g', '{}'.format(int(t_acq * 1000)),
                                '-X'],
@@ -226,6 +227,13 @@ class Counter(object):
         self._binwidth = int(value)
         self._g2bins_setter()
 
+
+    def _acc_correction(self):
+        try:
+            self._acc_corr = ((self._t_max - self._t_min) / (self._acc_t_max - self._acc_t_min))
+        except ZeroDivisionError:
+            self._acc_corr = 1
+
     @property
     def coincidence_range(self):
         return [self._t_min, self._t_max]
@@ -238,13 +246,6 @@ class Counter(object):
         self._t_min, self._t_max = value
         self._g2bins_setter()
         self._acc_correction()
-
-    def _acc_correction(self):
-        try:
-            self._acc_corr = ((self._t_max - self._t_min) /
-                              (self._acc_t_max - self._acc_t_min))
-        except ZeroDivisionError:
-            self._acc_correction = 1
 
     @property
     def acc_range(self):
@@ -276,7 +277,7 @@ class Counter(object):
         with NamedTemporaryFile() as f_raw:
             e = self._timestamp_acq(t_acq, f_raw)
             if e == -1:
-                return -1
+                return e
             f_raw.seek(0)
             g2, s1, s2, time_total = g2lib.g2_extr(f_raw.name,
                                                    self._maxbins,
@@ -291,7 +292,7 @@ class Counter(object):
 
 
 if __name__ == '__main__':
-    fpga = Counter()
+    fpga = TimeStampTDC1()
 
     # record events for 1s and store it in test.raw
     fpga.timestamp_acq(1, 'test.raw')

@@ -13,6 +13,7 @@ import glob
 
 from serial import SerialException
 
+TIME_OUT_TIME = 0.5
 
 def search_for_serial_devices(device):
     '''Searches for serial devices defined in the input paremater device.
@@ -32,7 +33,7 @@ def search_for_serial_devices(device):
     result = []
     for port in ports:
         try:
-            s = serial.Serial(port, timeout=0.1)
+            s = serial.Serial(port, timeout=TIME_OUT_TIME)
             s.write(b'*idn?\n')
             id_str = (s.readline()).decode()
             s.close()
@@ -56,7 +57,7 @@ class SerialConnection(serial.Serial):
         It requires the full path to the serial device as arguments
         """
         try:
-            super(SerialConnection, self).__init__(device_path, timeout=0.1)
+            super(SerialConnection, self).__init__(device_path, timeout=TIME_OUT_TIME)
         except SerialException:
             print('Connection failed')
         self._reset_buffers()
