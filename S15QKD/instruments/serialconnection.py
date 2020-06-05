@@ -13,8 +13,6 @@ import glob
 
 from serial import SerialException
 
-TIME_OUT_TIME = 0.5
-
 def search_for_serial_devices(device):
     '''Searches for serial devices defined in the input paremater device.
     If the device identification string containes the string given in the input paramter 'device', the device path is 
@@ -33,8 +31,8 @@ def search_for_serial_devices(device):
     result = []
     for port in ports:
         try:
-            s = serial.Serial(port, timeout=TIME_OUT_TIME)
-            s.write(b'*idn?\n')
+            s = serial.Serial(port, timeout=1)
+            s.write(b'*idn?\r\n')
             id_str = (s.readline()).decode()
             s.close()
             if device in id_str:
@@ -57,7 +55,7 @@ class SerialConnection(serial.Serial):
         It requires the full path to the serial device as arguments
         """
         try:
-            super(SerialConnection, self).__init__(device_path, timeout=TIME_OUT_TIME)
+            super(SerialConnection, self).__init__(device_path, timeout=1)
         except SerialException:
             print('Connection failed')
         self._reset_buffers()
@@ -97,10 +95,10 @@ class SerialConnection(serial.Serial):
         :rtype: {string}
         """
         self._cleanup()
-        self.write((cmd + '\n').encode())
+        self.write((cmd + '\r\n').encode())
         return [k.decode().strip() for k in self.readlines()]
 
-    def _getresponse_1l(self, cmd, timeout=.5):
+    def _getresponse_1l(self, cmd, timeout=1):
         """
         Send commands and reads a single line as response from the device.
 
@@ -117,7 +115,7 @@ class SerialConnection(serial.Serial):
         :rtype: {string}
         """
         self._cleanup()
-        self.write((cmd + '\n').encode())
+        self.write((cmd + '\r\n').encode())
         t_start = time.time()
         while True:
             if self.inWaiting() > 0:
@@ -130,7 +128,7 @@ class SerialConnection(serial.Serial):
     def _stream_response_into_buffer(self, cmd, acq_time):
         # this function bypass the termination character (since there is none for timestamp mode), streams data from device for the integration time.
         self._reset_buffers()
-        self.write((cmd + '\n').encode())
+        self.write((cmd + '\r\n').encode())
         memory = b''
         time0 = time.time()
         while ((time.time() - time0) <= acq_time):  # Stream data for duration of integration time plus some delay set in usbcount_class.

@@ -23,6 +23,7 @@ from os.path import exists, expanduser
 from tempfile import NamedTemporaryFile
 
 from . import serialconnection
+# import serial
 
 
 class TimeStampTDC1(object):
@@ -52,8 +53,9 @@ class TimeStampTDC1(object):
         self._prog = expanduser("~")+"/programs/usbcntfpga/apps/readevents4"
         if not exists(self._prog):
             print('No readevents4 program installed!')
-
+        self._com.write(b'mode?\r\n'); self._com.readline()
         self.mode = mode
+        sleep(0.1)
         self.level = level
 
         # default set of parameters. the order is important
@@ -66,13 +68,6 @@ class TimeStampTDC1(object):
         self._acc_correction()
         self._int_time = integration_time
 
-    def off(self):
-        """ Turn the device OFF"""
-        self._com.write(b'OFF\n')
-
-    def on(self):
-        """ Turn the device ON"""
-        self._com.write(b'ON\n')
 
     @property
     def int_time(self):
@@ -94,8 +89,8 @@ class TimeStampTDC1(object):
         if value < 1:
             print('Invalid integration time.')
         else:
-            self._com.write('time {:d}\n'.format(int(value)).encode())
-            self._int_time = int(self._com._getresponse_1l('TIME?'))
+            self._com.write('time {:d};time?\r\n'.format(int(value)).encode())
+            self._int_time = int(self._com.readline().decode().strip())
 
     @property
     def counts(self):
@@ -119,13 +114,13 @@ class TimeStampTDC1(object):
     def mode(self, value):
         if value.lower() == 'singles':
             self._mode = 0
-            self._com.write(b'singles\n')
+            self._com.write(b'singles\r\n')
         if value.lower() == 'pairs':
             self._mode = 1
-            self._com.write(b'pairs\n')
+            self._com.write(b'pairs\r\n')
         if value.lower() == 'timestamp':
             self._mode = 3
-            self._com.write(b'timestamp\n')
+            self._com.write(b'timestamp\r\n')
 
     @property
     def level(self):
@@ -135,9 +130,9 @@ class TimeStampTDC1(object):
     @level.setter
     def level(self, value):
         if value.lower() == 'nim':
-            self._com.write(b'NIM\n')
+            self._com.write(b'NIM\r\n')
         elif value.lower() == 'ttl':
-            self._com.write(b'TTL\n')
+            self._com.write(b'TTL\r\n')
         else:
             print('Acceptable input is either \'TTL\' or \'NIM\'')
 
@@ -148,7 +143,7 @@ class TimeStampTDC1(object):
 
     @clock.setter
     def clock(self, value):
-        self._com.write('REFCLK {}\n'.format(value).encode())
+        self._com.write('REFCLK {}\r\n'.format(value).encode())
 
     """ Functions for the timestamp mode"""
 
@@ -156,6 +151,7 @@ class TimeStampTDC1(object):
         """ Write the binary output to a buffer"""
         if self._mode != 3:
             self.mode = 'timestamp'
+            sleep(0.2)
         # for short acquisition times (<65 s) we can reply on the FPGA timer
         if t_acq > 65:
             self._timestamp_acq_LT(t_acq, out_file_buffer)
@@ -306,7 +302,7 @@ if __name__ == '__main__':
     fpga.maxbins = 500
     fpga.range = [48, 54]
     fpga.acc_range = [100, 300]
-    output = fpga.count(5)
+    output = fpga.counts(5)
     print(output)
     rate1 = output['channel1'] / output['total_time']
     rate2 = output['channel2'] / output['total_time']
