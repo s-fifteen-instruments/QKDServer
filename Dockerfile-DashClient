@@ -1,0 +1,10 @@
+FROM python:3.8
+
+WORKDIR /client
+COPY ./Settings_WebClient/requirements.txt /client/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+COPY ./Settings_WebClient /client
+COPY ./S15QKD /client/S15QKD
+
+
+CMD ["python","index.py"]

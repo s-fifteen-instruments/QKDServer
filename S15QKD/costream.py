@@ -54,10 +54,10 @@ def _load_costream_config(config_file_name: str = 'config/config.json'):
     Arguments:
         config_file_name {str} -- file name of the JSON formatted configuration file
     '''
-    global data_root, program_root, kill_option, program_costream, protocol
+    global data_root, program_root, kill_option, protocol
     global remote_coincidence_window, tracking_window, track_filter_time_constant
     global costream_histo_number, costream_histo_option, program_costream
-    global cwd, proc_costream, config
+    global config
 
     with open(config_file_name, 'r') as f:
         config = json.load(f)
@@ -74,12 +74,12 @@ def _load_costream_config(config_file_name: str = 'config/config.json'):
 
 
 def initialize(config_file_name: str = 'config/config.json'):
-    global program_costream
+    global program_costream, proc_costream, cwd
     _load_costream_config(config_file_name)
     program_costream = program_root + '/costream'
+    proc_costream = None
+    cwd = os.getcwd()
 
-
-initialize()
 
 
 def start_costream(time_difference: int, begin_epoch: str):
@@ -148,3 +148,6 @@ def stop_costream():
     global proc_costream
     _kill_process(proc_costream)
     proc_costream = None
+
+
+initialize()

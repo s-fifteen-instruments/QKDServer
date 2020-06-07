@@ -45,7 +45,7 @@ import psutil
 import time
 
 
-def _load_chopper_config(config_file_name: str):
+def _load_chopper_config(config_file_name: str= 'config/config.json'):
     global dataroot, protocol, kill_option, config, prog_chopper, programroot, max_event_diff
     global prog_chopper
     with open(config_file_name, 'r') as f:
@@ -59,7 +59,7 @@ def _load_chopper_config(config_file_name: str):
 
 def initialize(config_file_name: str = 'config/config.json'):
     global cwd, proc_chopper
-    _load_chopper_config()
+    _load_chopper_config(config_file_name)
     cwd = os.getcwd()
     proc_chopper = None
 

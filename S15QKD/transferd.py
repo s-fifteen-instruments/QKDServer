@@ -54,7 +54,6 @@ def _load_transferd_config(config_file_name: str):
     with open(config_file_name, 'r') as f:
         config = json.load(f)
     data_root = config['data_root']
-    protocol = config['protocol']
     program_root = config['program_root']
     target_ip = config['target_ip']
     port_num = config['port_num']
@@ -82,7 +81,7 @@ def initialize(config_file_name: str = 'config/config.json'):
     testing = 1  # CHANGE to 0 if you want to run it with hardware
     if testing == 1:
         prog_readevents = '/' + \
-            __file__.strip('/transferd.py') + \
+            (__file__).strip('/transferd.py') + \
             '/timestampsimulator/readevents_simulator.sh'
         # prog_readevents = 'helper_script/readevents_simulator.sh'
     else:
@@ -106,9 +105,7 @@ def _local_callback(msg: str):
 
 
 def start_communication(msg_out_callback=_local_callback):
-    global debugval, commhandle, commstat, program_root, commprog, data_root
-    global portnum, targetmachine, receivenotehandle
-    global commhandle
+    global commhandle, program_root, data_root
 
     if communication_status == 0:
         args = f'-d {cwd}/{data_root}/sendfiles -c {cwd}/{data_root}/cmdpipe -t {target_ip} \
@@ -176,7 +173,7 @@ def _msg_out_digest(msg_out_callback):
                 _symmetry_negotiation_messaging(message)
             else:
                 msg_out_callback(message)
-        except OSError as a:
+        except OSError:
             pass
     print(f'[{method_name}] Thread finished')
 
@@ -262,7 +259,7 @@ def _symmetry_negotiation_messaging(message):
 
 def _kill_process(proc_pid):
     if proc_pid is not None:
-        method_name = sys._getframe().f_code.co_name
+        # method_name = sys._getframe().f_code.co_name
         # print(f'[{method_name}] Killing process: {proc_pid.pid}.')
         process = psutil.Process(proc_pid.pid)
         for proc in process.children(recursive=True):
@@ -314,7 +311,7 @@ def measure_local_count_rate():
     try:
         _kill_process(p1)
         _kill_process(p2)
-    except psutil.NoSuchProcess as a:
+    except psutil.NoSuchProcess:
         pass
     localcountrate = int((p2.stdout.read()).decode())
     return localcountrate

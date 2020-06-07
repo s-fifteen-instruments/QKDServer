@@ -128,6 +128,7 @@ def _reader(file_name: str):
         if f == r:
             yield ((f.readline()).rstrip('\n')).lstrip('\x00')
 
+initialize()
 
 if __name__ == '__main__':
     import time

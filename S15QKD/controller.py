@@ -376,9 +376,11 @@ class ProcessWatchDog(threading.Thread):
         self._fh.setFormatter(logging.Formatter('%(asctime)s - %(process)d - %(levelname)s - %(module)s - %(message)s'))
         self._logger.addHandler(self._fh)
         self._logger.info('Initialized watchdog.')
+        # store process states to obsrver changes
         self.prev_proc_states = get_process_states()
         self.prev_status = get_status_info()
-        print(self.prev_proc_states)
+        self._logger.info(self.prev_proc_states)
+        # print(self.prev_proc_states)
 
     def terminate(self):
         self._running = False
