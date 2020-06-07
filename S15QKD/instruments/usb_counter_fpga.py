@@ -55,7 +55,6 @@ class TimeStampTDC1(object):
             print('No readevents4 program installed!')
         self._com.write(b'mode?\r\n'); self._com.readline()
         self.mode = mode
-        sleep(0.1)
         self.level = level
 
         # default set of parameters. the order is important
@@ -121,6 +120,7 @@ class TimeStampTDC1(object):
         if value.lower() == 'timestamp':
             self._mode = 3
             self._com.write(b'timestamp\r\n')
+        time.sleep(0.1)
 
     @property
     def level(self):
@@ -135,6 +135,7 @@ class TimeStampTDC1(object):
             self._com.write(b'TTL\r\n')
         else:
             print('Acceptable input is either \'TTL\' or \'NIM\'')
+        time.sleep(0.1)
 
     @property
     def clock(self):
@@ -151,7 +152,6 @@ class TimeStampTDC1(object):
         """ Write the binary output to a buffer"""
         if self._mode != 3:
             self.mode = 'timestamp'
-            sleep(0.2)
         # for short acquisition times (<65 s) we can reply on the FPGA timer
         if t_acq > 65:
             self._timestamp_acq_LT(t_acq, out_file_buffer)
@@ -168,9 +168,6 @@ class TimeStampTDC1(object):
                                '-X'],
                               stdout=out_file_buffer,
                               stderr=subprocess.PIPE)
-        # for k in range(int(t_acq)):
-        #     sleep(1)
-        #     print('\r {}'.format(k), end='')
         sleep(t_acq)
         p1.kill()
 
