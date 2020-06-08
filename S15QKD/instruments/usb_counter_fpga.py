@@ -43,7 +43,7 @@ class TimeStampTDC1(object):
         otherwise it will
         initialize the first counter found in the system
         """
-        if device_path == '':
+        if device_path is None:
             device_path = (serialconnection.search_for_serial_devices(
                 self.DEVICE_IDENTIFIER))[0]
             print('Connected to', device_path)
