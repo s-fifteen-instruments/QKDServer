@@ -23,8 +23,8 @@ from os.path import exists, expanduser
 from tempfile import NamedTemporaryFile
 
 from . import serialconnection
-# import serial
 
+READEVENTS_PROG = expanduser("~")+"/programs/usbcntfpga/apps/readevents4a"
 
 class TimeStampTDC1(object):
     """
@@ -50,7 +50,7 @@ class TimeStampTDC1(object):
         self._device_path = device_path
         self._com = serialconnection.SerialConnection(device_path)
         # timestamp readevents program path
-        self._prog = expanduser("~")+"/programs/usbcntfpga/apps/readevents4"
+        self._prog = READEVENTS_PROG
         if not exists(self._prog):
             print('No readevents4 program installed!')
         self._com.write(b'mode?\r\n'); self._com.readline()
