@@ -14,7 +14,7 @@ import glob
 import numpy as np
 import subprocess
 
-from time import sleep
+import time
 
 from ..g2lib import g2lib
 
@@ -168,7 +168,7 @@ class TimeStampTDC1(object):
                                '-X'],
                               stdout=out_file_buffer,
                               stderr=subprocess.PIPE)
-        sleep(t_acq)
+        time.sleep(t_acq)
         p1.kill()
 
     def _timestamp_acq_ST(self, t_acq, out_file_buffer):
@@ -268,9 +268,7 @@ class TimeStampTDC1(object):
 
         # open a temporary file to store the processed g2
         with NamedTemporaryFile() as f_raw:
-            e = self._timestamp_acq(t_acq, f_raw)
-            if e == -1:
-                return e
+            self._timestamp_acq(t_acq, f_raw)
             f_raw.seek(0)
             g2, s1, s2, time_total = g2lib.g2_extr(f_raw.name,
                                                    self._maxbins,
