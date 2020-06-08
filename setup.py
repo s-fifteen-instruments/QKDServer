@@ -12,13 +12,13 @@ here = os.path.dirname(__file__)
 extensions = [
     setuptools.Extension(
         "s15qkd.g2lib.delta",
-        [os.path.join(here, "s15qkd", "g2lib", "delta.pyx")],
+        [os.path.join(here, "S15qkd", "g2lib", "delta.pyx")],
         include_dirs=[np.get_include()],
     ),
 ]
 
 setuptools.setup(
-    name='s15qkd',
+    name='S15qkd',
     version='0.1',
     description='S-Fifteen QKD process controller python library',
     long_description=long_description,
