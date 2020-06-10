@@ -8,7 +8,7 @@ try:
 except ImportError:
     print('delta.so module not found, using native option')
 
-    def delta_loop(t1, t2, bins: int=500, bin_width: float= 2):
+    def delta_loop(t1, t2, bins: int = 500, bin_width: float = 2):
         """
         Time difference between vectors t1 and t2
 
@@ -47,7 +47,7 @@ except ImportError:
         return histogram
 
 
-def _data_extractor(filename, highres_tscard=False):
+def _data_extractor(filename: str, highres_tscard: bool=False):
     """Reads raw timestamp into time and patterns vectors
 
     :param filename: a python file object open in binary mode
@@ -83,7 +83,7 @@ def g2_extr(filename: str, bins: int=100, bin_width: float=2, min_range: int=0,
         highres_tscard {bool} -- Setting for timestamp cards with different time resolution (default: {False})
 
     Returns:
-        [int], int, int, int} -- histogram, events in channel_start, events in channel_stop, time at last event
+        [int], [float] int, int, int -- histogram, time differences, events in channel_start, events in channel_stop, time at last event
     '''
     if channel_start not in range(4):
         raise ValueError('Selected start channel not in range')
@@ -100,11 +100,6 @@ def g2_extr(filename: str, bins: int=100, bin_width: float=2, min_range: int=0,
         t_max = 0
     dt = np.arange(0, bins * bin_width, bin_width)
     return hist, dt + min_range, len(t1), len(t2), t_max
-
-
-def g2_bins(bins=100, max_range=2000, min_range=0, retstep=False):
-    """Generates the bin vector for the histogram"""
-    return np.linspace(min_range, max_range, bins, retstep=retstep)
 
 
 if __name__ == '__main__':
