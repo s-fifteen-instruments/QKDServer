@@ -8,7 +8,7 @@ try:
 except ImportError:
     print('delta.so module not found, using native option')
 
-    def delta_loop(t1, t2, max_range=2000):
+    def delta_loop(t1, t2, bins: int=500, bin_width: float= 2):
         """
         Time difference between vectors t1 and t2
 
@@ -21,12 +21,12 @@ except ImportError:
         :returns: vector with Deltas between t1 and t2
         :rtype: {int}
         """
-        retvec = []
+        histogram = np.zeros(bins)
         idx = 0
         idx2 = 0
-        append = retvec.append
         l_t1 = len(t1)
         l_t2 = len(t2)
+        max_range = bins * bin_width
         for it_b in range(l_t1):
             b = t1[it_b]
             n = 0
@@ -41,10 +41,10 @@ except ImportError:
                     continue
                 else:
                     k = c - b
-                    if k > max_range:
+                    if k >= max_range:
                         break
-                    append(k)
-        return retvec
+                    histogram[int(k // bin_width)] += 1
+        return histogram
 
 
 def _data_extractor(filename, highres_tscard=False):
@@ -66,13 +66,13 @@ def _data_extractor(filename, highres_tscard=False):
         return t, p
 
 
-def g2_extr(filename: str, bins: int=100, max_range: int=2000, min_range: int=0,
+def g2_extr(filename: str, bins: int=100, bin_width: float=2, min_range: int=0,
             channel_start: int=0, channel_stop: int=1, c_stop_delay: int=0, highres_tscard: bool=False):
     '''Extract G2 histogram from raw timestamp file
-    
+
     Arguments:
         filename {str} -- timestamp file containing raw data
-    
+
     Keyword Arguments:
         bins {int} -- number of bins in for the histogram (default: {100})
         max_range {int} -- upper range of correlation in nsec (default: {2000})
@@ -81,11 +81,10 @@ def g2_extr(filename: str, bins: int=100, max_range: int=2000, min_range: int=0,
         channel_stop {int} -- channel of stop events (default: {1})
         c_stop_delay {int} -- introduce a delay in channel_stop (default: {0})
         highres_tscard {bool} -- Setting for timestamp cards with different time resolution (default: {False})
-    
+
     Returns:
         [int], int, int, int} -- histogram, events in channel_start, events in channel_stop, time at last event
     '''
-
     if channel_start not in range(4):
         raise ValueError('Selected start channel not in range')
     if channel_stop not in range(4):
@@ -93,15 +92,14 @@ def g2_extr(filename: str, bins: int=100, max_range: int=2000, min_range: int=0,
     t, p = _data_extractor(filename, highres_tscard)
     t1 = t[(p & (0b1 << channel_start)) == (0b1 << channel_start)]
     t2 = t[(p & (0b1 << channel_stop)) == (0b1 << channel_stop)]
-    deltas = delta_loop(t1, t2 - min_range, max_range - min_range)
-    # hist, _ = np.histogram(deltas, bins=bins, range=[0, max_range])
-    hist = histogram1d(deltas, bins=bins, range=[0, max_range - min_range])
-
+    hist = delta_loop(t1, t2 - min_range, bins=bins,
+                      bin_width=bin_width)
     try:
         t_max = t[-1]
     except IndexError:
         t_max = 0
-    return hist, len(t1), len(t2), t_max
+    dt = np.arange(0, bins * bin_width, bin_width)
+    return hist, dt + min_range, len(t1), len(t2), t_max
 
 
 def g2_bins(bins=100, max_range=2000, min_range=0, retstep=False):
