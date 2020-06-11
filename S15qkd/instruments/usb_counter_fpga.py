@@ -289,7 +289,7 @@ if __name__ == '__main__':
     fpga.timestamp_acq(1, 'test.raw')
 
     # generates the conincidence histogram from data stored in test.raw
-    histogram, s1, s2, time_total = g2lib.g2_extr('test.raw', 1000, 2000)
+    histogram, dt, s1, s2, time_total = g2lib.g2_extr('test.raw', 1000, 2000)
     print(s1, s2, time_total)
 
     # Counts singles, pairs, coincidences, and estimates accidentals
