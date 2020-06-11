@@ -74,16 +74,16 @@ def g2_extr(filename: str, bins: int=100, bin_width: float=2, min_range: int=0,
         filename {str} -- timestamp file containing raw data
 
     Keyword Arguments:
-        bins {int} -- number of bins in for the histogram (default: {100})
-        max_range {int} -- upper range of correlation in nsec (default: {2000})
-        min_range {int} -- lower range of correlation in nsec (default: {0})
+        bins {int} -- number of bins in for the coincidence histogram (default: {100})
+        bin_width {float} -- bin width of coincidence histogram in nanoseconds (default:{2})
+        min_range {int} -- lower range of correlation in nanoseconds (default: {0})
         channel_start {int} -- channel of start events (default: {0})
         channel_stop {int} -- channel of stop events (default: {1})
-        c_stop_delay {int} -- introduce a delay in channel_stop (default: {0})
+        c_stop_delay {int} -- introduce a delay in channel_stop in nanoseconds (default: {0})
         highres_tscard {bool} -- Setting for timestamp cards with different time resolution (default: {False})
 
     Returns:
-        [int], [float] int, int, int -- histogram, time differences, events in channel_start, events in channel_stop, time at last event
+        [int], [float], int, int, int -- histogram, time differences, events in channel_start, events in channel_stop, time at last event
     '''
     if channel_start not in range(4):
         raise ValueError('Selected start channel not in range')
@@ -92,7 +92,7 @@ def g2_extr(filename: str, bins: int=100, bin_width: float=2, min_range: int=0,
     t, p = _data_extractor(filename, highres_tscard)
     t1 = t[(p & (0b1 << channel_start)) == (0b1 << channel_start)]
     t2 = t[(p & (0b1 << channel_stop)) == (0b1 << channel_stop)]
-    hist = delta_loop(t1, t2 - min_range, bins=bins,
+    hist = delta_loop(t1, t2 - min_range + c_stop_delay, bins=bins,
                       bin_width=bin_width)
     try:
         t_max = t[-1]

@@ -270,16 +270,16 @@ class TimeStampTDC1(object):
         with NamedTemporaryFile() as f_raw:
             self._timestamp_acq(t_acq, f_raw)
             f_raw.seek(0)
-            g2, s1, s2, time_total = g2lib.g2_extr(f_raw.name,
-                                                   self._maxbins,
-                                                   self._max_range)
+            g2, t_bins, s1, s2, time_total = g2lib.g2_extr(f_raw.name,
+                                                           bins=self._maxbins,
+                                                   bin_width=self._binwidth)
         # calculates the pairs from the processed g2
         pairs = np.sum(g2 * self._mask_coinc)
 
         # estimates accidentals for the integration time-window
         acc = np.sum(g2 * self._mask_acc) * self._acc_corr
         return {'channel1': s1, 'channel2': s2, 'pairs': pairs,
-                'accidentals': acc, 'total_time': time_total}, self._g2bins, g2
+                'accidentals': acc, 'total_time': time_total}, t_bins, g2
 
 
 if __name__ == '__main__':
