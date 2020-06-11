@@ -11,7 +11,7 @@ here = os.path.dirname(__file__)
 
 extensions = [
     setuptools.Extension(
-        "s15qkd.g2lib.delta",
+        "S15qkd.g2lib.delta",
         [os.path.join(here, "S15qkd", "g2lib", "delta.pyx")],
         include_dirs=[np.get_include()],
     ),
