@@ -45,6 +45,8 @@ import time
 import select
 import psutil
 
+from . import qkd_globals
+from .qkd_globals import logger
 
 def _load_splicer_config(config_file_name: str):
     global data_root, program_root, protocol, kill_option
@@ -60,22 +62,13 @@ def _load_splicer_config(config_file_name: str):
     prog_splicer = program_root + '/splicer'
 
 
-def initialize(config_file_name: str = 'config/config.json'):
+def initialize(config_file_name: str = qkd_globals.config_file):
     global cwd, proc_splicer, sleep_time
     _load_splicer_config(config_file_name)
     cwd = os.getcwd()
     proc_splicer = None
     sleep_time = 0.3  # sleep time before next file read in threads
 
-
-def _kill_process(my_process):
-    if my_process is not None:
-        method_name = sys._getframe().f_code.co_name
-        print(f'[{method_name}] Killing process: {my_process.pid}.')
-        process = psutil.Process(my_process.pid)
-        for proc in process.children(recursive=True):
-            proc.kill()
-        process.kill()
 
 
 def start_splicer(splicer_callback):
@@ -96,7 +89,7 @@ def start_splicer(splicer_callback):
 
     proc_splicer = subprocess.Popen([prog_splicer, *args.split()])
     time.sleep(0.1)
-    print(f'[{method_name}] Started splicer process.')
+    logger.info(f'[{method_name}] Started splicer process.')
     thread_splicepipe_digest.start()
 
 
@@ -107,7 +100,7 @@ def splice_pipe_digest(splicer_callback):
     '''
     global data_root, proc_splicer
     method_name = sys._getframe().f_code.co_name
-    print(f'[{method_name}] Starting splice_pipe_digest thread.')
+    logger.info(f'[{method_name}] Starting splice_pipe_digest thread.')
     splice_pipe =f'{data_root}/splicepipe'
     genlog = f'{data_root}/genlog'
     fd_sp = os.open(splice_pipe, os.O_RDONLY | os.O_NONBLOCK)  # non-blocking
@@ -115,7 +108,7 @@ def splice_pipe_digest(splicer_callback):
     fd_genlog = os.open(genlog, os.O_RDONLY | os.O_NONBLOCK)  # non-blocking
     f_genlog = os.fdopen(fd_genlog, 'rb', 0)  # non-blocking
 
-    print(f'[{method_name}] Thread started.')
+    logger.info(f'[{method_name}] Thread started.')
     while proc_splicer is not None and proc_splicer.poll() is None:
         time.sleep(sleep_time)
         if proc_splicer is None:
@@ -123,31 +116,31 @@ def splice_pipe_digest(splicer_callback):
         try:
             # read from genlog
             message = (f_genlog.readline().decode().rstrip('\n')).lstrip('\x00')
-            if len(message) == 0:
-                continue
-            else:
-                print(f'[{method_name}:genlog] {message}')
+            if len(message) != 0:
+                logger.info(f'[{method_name}:genlog] {message}')
                 splicer_callback(message)
             # read from splicepipe
             message = ((f_sp.readline()).rstrip('\n')).lstrip('\x00')
-            if len(message) == 0:
-                continue
-            else:
-                print(f'[{method_name}:splicepipe] {message}')
+            if len(message) != 0:
+                logger.info(f'[{method_name}:splicepipe] {message}')
         except OSError as a:
             pass
-    print(f'[{method_name}] Thread finished.')
+    logger.info(f'[{method_name}] Thread finished.')
 
 
 def stop_splicer():
     global proc_splicer
-    _kill_process(proc_splicer)
+    qkd_globals.kill_process(proc_splicer)
     proc_splicer = None
 
 
 initialize()
 
-if __name__ == '__main__':
+def main()
     start_splicer()
     time.sleep(2)
     kill_splicer_process()
+
+if __name__ == '__main__':
+    main()
+

@@ -9,11 +9,12 @@ import re
 
 from app import app
 
-config_file = 'config/config.json'
+from S15qkd import qkd_globals
+
 
 def serve_layout():
     debounce = True
-    with open('config/config.json', 'r') as f:
+    with open(qkd_globals.config_file, 'r') as f:
         config = json.load(f)
     # return config
 

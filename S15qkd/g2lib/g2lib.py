@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from fast_histogram import histogram1d
+
 try:
     from .delta import delta_loop
     cflag = True

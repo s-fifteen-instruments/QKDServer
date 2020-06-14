@@ -36,6 +36,8 @@ import sys
 import psutil
 import select
 
+from . import qkd_globals
+from .qkd_globals import logger
 
 def _load_chopper2_config(config_file_name: str):
     '''
@@ -54,7 +56,7 @@ def _load_chopper2_config(config_file_name: str):
     prog_chopper2 = programroot + '/chopper2'
 
 
-def initialize(config_file_name: str = 'config/config.json'):
+def initialize(config_file_name: str = qkd_globals.config_file):
     global cwd, proc_chopper2, t1_epoch_count, t1logpipe_digest_thread_flag
     global first_epoch
     _load_chopper2_config(config_file_name)
@@ -72,13 +74,12 @@ def start_chopper2(rawevents_pipe: str='rawevents', t1_log_pipe: str='t1logpipe'
             -l {cwd}/{dataroot}/{t1_log_pipe} -V 3 \
             -D {cwd}/{dataroot}/{t1_file_folder} \
             -U -F -m {max_event_diff}'
-    t1logpipe_thread = threading.Thread(target=_t1logpipe_digest, args=())
-
+    t1logpipe_thread = threading.Thread(target=_t1logpipe_digest, args=(), daemon=True)
     t1logpipe_thread.start()
     with open(f'{cwd}/{dataroot}/chopper2error', 'a+') as f:
         proc_chopper2 = subprocess.Popen((prog_chopper2, *args.split()),
                                          stdout=subprocess.PIPE, stderr=f)
-    print(f'[{method_name}] Started chopper2.')
+    logger.info(f'[{method_name}] Started chopper2.')
 
 
 def _t1logpipe_digest():
@@ -95,27 +96,17 @@ def _t1logpipe_digest():
 
     while t1logpipe_digest_thread_flag is True:
         for message in _reader(pipe_name):
-            print(f'[{method_name}:read] {message}')
+            logger.info(f'[{method_name}:read] {message}')
             if t1_epoch_count == 0:
                 first_epoch = message.split()[0]
-                print(f'[{method_name}:first_epoch] {first_epoch}')
+                logger.info(f'[{method_name}:first_epoch] {first_epoch}')
             t1_epoch_count += 1
-    print(f'[{method_name}] Thread finished.')
-
-
-def _kill_process(my_process):
-    if my_process is not None:
-        method_name = sys._getframe().f_code.co_name
-        print(f'[{method_name}] Killing process: {my_process.pid}.')
-        process = psutil.Process(my_process.pid)
-        for proc in process.children(recursive=True):
-            proc.kill()
-        process.kill()
+    logger.info(f'[{method_name}] Thread finished.')
 
 
 def stop_chopper2():
     global proc_chopper2, t1logpipe_digest_thread_flag
-    _kill_process(proc_chopper2)
+    qkd_globals.kill_process(proc_chopper2)
     proc_chopper2 = None
     t1logpipe_digest_thread_flag = False
 

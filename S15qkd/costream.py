@@ -45,8 +45,12 @@ import json
 import sys
 import psutil
 
+# Own modules
+from . import qkd_globals
+from .qkd_globals import logger
 
-def _load_costream_config(config_file_name: str = 'config/config.json'):
+
+def _load_costream_config(config_file_name: str):
     '''
     Reads a JSON config file and stores the relevant information in
     global variables.
@@ -73,7 +77,7 @@ def _load_costream_config(config_file_name: str = 'config/config.json'):
     costream_histo_option = config['costream_histo_option']
 
 
-def initialize(config_file_name: str = 'config/config.json'):
+def initialize(config_file_name: str = qkd_globals.config_file):
     global program_costream, proc_costream, cwd
     _load_costream_config(config_file_name)
     program_costream = program_root + '/costream'
@@ -81,13 +85,10 @@ def initialize(config_file_name: str = 'config/config.json'):
     cwd = os.getcwd()
 
 
-
 def start_costream(time_difference: int, begin_epoch: str):
     method_name = sys._getframe().f_code.co_name
     global proc_costream
-    costream_thread = threading.Thread(target=_genlog_digest, args=())
-
-    print(begin_epoch)
+    logger.info(f'[{method_name}] {begin_epoch}')
     args = f'-d {data_root}/receivefiles \
              -D {data_root}/t1 \
              -f {data_root}/rawkey \
@@ -106,6 +107,7 @@ def start_costream(time_difference: int, begin_epoch: str):
     with open(f'{cwd}/{data_root}/costreamerror', 'a+') as f:
         proc_costream = subprocess.Popen((program_costream, *args.split()),
                                             stdout=subprocess.PIPE, stderr=f)
+    costream_thread = threading.Thread(target=_genlog_digest, args=())
     costream_thread.start()
 
 
@@ -118,35 +120,21 @@ def _genlog_digest():
     pipe_name = f'{data_root}/genlog'
     fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
-    print(f'[{method_name}] Thread started.')
-    while proc_costream.poll() is None:
-        time.sleep(0.05)
-        if proc_costream is None:
-            break
+    logger.info(f'[{method_name}] Thread started.')
+    while proc_costream.poll() is None and proc_costream is not None:
+        time.sleep(0.1)
         try:
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
-            if len(message) == 0:
-                print('.')
-                continue
-            print(f'[{method_name}] {message}')
+            if len(message) != 0:
+                logger.info(f'[{method_name}] {message}')
         except OSError as a:
             pass
-    print(f'[{method_name}] Thread finished.')
-
-
-def _kill_process(my_process):
-    if my_process is not None:
-        method_name = sys._getframe().f_code.co_name
-        print(f'[{method_name}] Killing process: {my_process.pid}.')
-        process = psutil.Process(my_process.pid)
-        for proc in process.children(recursive=True):
-            proc.kill()
-        process.kill()
+    logger.info(f'[{method_name}] Thread finished.')
 
 
 def stop_costream():
     global proc_costream
-    _kill_process(proc_costream)
+    qkd_globals.kill_process(proc_costream)
     proc_costream = None
 
 

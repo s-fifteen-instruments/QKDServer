@@ -44,8 +44,12 @@ import sys
 import psutil
 import time
 
+from . import qkd_globals
 
-def _load_chopper_config(config_file_name: str= 'config/config.json'):
+
+def _load_chopper_config(config_file_name: str):
+    '''Loads configuration from config file
+    '''
     global dataroot, protocol, kill_option, config, prog_chopper, programroot, max_event_diff
     global prog_chopper
     with open(config_file_name, 'r') as f:
@@ -57,7 +61,12 @@ def _load_chopper_config(config_file_name: str= 'config/config.json'):
     prog_chopper = programroot + '/chopper'
 
 
-def initialize(config_file_name: str = 'config/config.json'):
+def initialize(config_file_name: str = qkd_globals.config_file):
+    '''Initializes all variables necessary to run the chopper
+    
+    Keyword Arguments:
+        config_file_name {str} -- config file to read from (default: {'config/config.json'})
+    '''
     global cwd, proc_chopper
     _load_chopper_config(config_file_name)
     cwd = os.getcwd()
@@ -67,7 +76,11 @@ def initialize(config_file_name: str = 'config/config.json'):
 initialize()
 
 
-def start_chopper(rawevents_pipe: str='rawevents', sendfiles_folder: str='sendfiles', t3_files_folder: str='t3', t2_log_pipe: str='t2logpipe'):
+def start_chopper(
+        rawevents_pipe: str='rawevents',
+        sendfiles_folder: str='sendfiles',
+        t3_files_folder: str='t3',
+        t2_log_pipe: str='t2logpipe'):
     '''Starts the chopper process.
 
     Keyword Arguments:
@@ -88,7 +101,7 @@ def start_chopper(rawevents_pipe: str='rawevents', sendfiles_folder: str='sendfi
         proc_chopper = subprocess.Popen((prog_chopper, *args.split()),
                                         stdout=subprocess.PIPE,
                                         stderr=f)
-    print(f'[{method_name}] Started chopper.')
+    logger.info(f'[{method_name}] Started chopper.')
 
 
 def _t2logpipe_digest():
@@ -106,41 +119,30 @@ def _t2logpipe_digest():
     cmd_pipe_name = f'{dataroot}/cmdpipe'
 
     while t2logpipe_digest_thread_flag is True:
-        time.sleep(0.05)
+        time.sleep(0.1)
         try:
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
             if len(message) == 0:
-                # print('.')
                 continue
             epoch = message.split()[0]
-            _writer(cmd_pipe_name, epoch)
-            print(f'[{method_name}] {message}')
+            qkd_globals.writer(cmd_pipe_name, epoch)
+            logger.info(f'[{method_name}] {message}')
         except OSError as a:
             pass
-    print(f'[{method_name}] Thread finished')
-
-
-def _kill_process(my_process):
-    if my_process is not None:
-        method_name = sys._getframe().f_code.co_name
-        print(f'[{method_name}] Killing process: {my_process.pid}.')
-        process = psutil.Process(my_process.pid)
-        for proc in process.children(recursive=True):
-            proc.kill()
-        process.kill()
+    logger.info(f'[{method_name}] Thread finished')
 
 
 def stop_chopper():
     global proc_chopper, t2logpipe_digest_thread_flag
-    _kill_process(proc_chopper)
+    qkd_globals.kill_process(proc_chopper)
     proc_chopper = None
     t2logpipe_digest_thread_flag = False
 
 
-def _writer(file_name: str, message: str):
-    f = os.open(file_name, os.O_WRONLY)
-    os.write(f, f'{message}\n'.encode())
-    os.close(f)
+# def _writer(file_name: str, message: str):
+#     f = os.open(file_name, os.O_WRONLY)
+#     os.write(f, f'{message}\n'.encode())
+#     os.close(f)
 
 if __name__ == '__main__':
     import time

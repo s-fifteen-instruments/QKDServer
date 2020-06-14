@@ -47,6 +47,9 @@ import psutil
 import time
 import queue
 
+from . import qkd_globals
+from .qkd_globals import logger
+
 
 def _load_error_correction_config(config_file_name: str):
     global config, program_root, data_root
@@ -75,7 +78,7 @@ def _load_error_correction_config(config_file_name: str):
     servoed_QBER = default_QBER
 
 
-def initialize(config_file_name: str='config/config.json'):
+def initialize(config_file_name: str=qkd_globals.config_file):
     _load_error_correction_config(config_file_name)
     global ec_queue, total_ec_key_bits, cwd
     global undigested_epochs_info, init_QBER_info, ec_raw_bits
@@ -99,17 +102,15 @@ def start_error_correction():
     '''
     global proc_error_correction
     method_name = sys._getframe().f_code.co_name  # used for logging
-    ecnotepipe_thread = threading.Thread(target=_ecnotepipe_digest, args=())
-    do_ec_thread = threading.Thread(target=_do_error_correction, args=())
-
+    # create erroroptions from settings
     erropt = ''
     if privacy_amplification is False:
         erropt = '-p'
-        print(f'[{method_name}] Privacy amplification off.')
+        logger.info(f'[{method_name}] Privacy amplification off.')
     if errcd_killfile_option is True:
         erropt += ' -k'
     erropt += f' -B {target_bit_error}'
-    print(f'[{method_name}] Error option: {erropt}')
+    logger.info(f'[{method_name}] Error option: {erropt}')
 
     args = f'-c {data_root}/eccmdpipe \
              -s {data_root}/ecspipe \
@@ -118,21 +119,24 @@ def start_error_correction():
              -l {ec_note_pipe} \
              -Q {data_root}/ecquery -q {data_root}/ecresp \
              -V 2 {erropt} -T 1'
-
     with open(f'{cwd}/{data_root}/errcd_log', 'a+') as f_stdout:
         with open(f'{cwd}/{data_root}/errcd_err', 'a+') as f_err:
             proc_error_correction = subprocess.Popen((program_error_correction,
                                                       *args.split()),
                                                      stdout=f_stdout,
                                                      stderr=f_err)
+    # start pipe digests
+    ecnotepipe_thread = threading.Thread(target=_ecnotepipe_digest, args=(), daemon=True)
     ecnotepipe_thread.start()
+    do_ec_thread = threading.Thread(target=_do_error_correction, args=(), daemon=True)
     do_ec_thread.start()
-    print(f'[{method_name}] Started error correction.')
+    logger.info(f'[{method_name}] Started error correction.')
 
 
 def _ecnotepipe_digest():
     '''
-    Digests error correction activities indicated by the 'ecnotepipe' pipe
+    Digests error correction activities indicated by the 'ecnotepipe' pipe.
+    This is getting input from the ec_note_pipe which is updated after an error correction run.
     '''
     global proc_error_correction, total_ec_key_bits, servoed_QBER, ec_note_pipe
     global ec_epoch, ec_raw_bits, ec_final_bits, ec_err_fraction
@@ -141,36 +145,32 @@ def _ecnotepipe_digest():
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
 
     while proc_error_correction is not None and proc_error_correction.poll() is None:
-        time.sleep(0.05)
-        # if proc_error_correction is None:
-        #     break
+        time.sleep(0.1)
         try:
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
-            if len(message) == 0:
-                # print('.')
-                continue
-            message = message.split()
-            ec_epoch = message[0]
-            ec_raw_bits = int(message[1])
-            ec_final_bits = int(message[2])
-            ec_err_fraction = float(message[3])
-            total_ec_key_bits += ec_final_bits
+            if len(message) != 0:
+                message = message.split()
+                ec_epoch = message[0]
+                ec_raw_bits = int(message[1])
+                ec_final_bits = int(message[2])
+                ec_err_fraction = float(message[3])
+                total_ec_key_bits += ec_final_bits
 
-            # servoing QBER
-            servoed_QBER += (ec_err_fraction - servoed_QBER) / servo_blocks
-            if servoed_QBER > 1 or servoed_QBER < 0:
-                servoed_QBER = default_QBER
-            elif servoed_QBER > QBER_limit:
-                servoed_QBER = QBER_limit
+                # servoing QBER
+                servoed_QBER += (ec_err_fraction - servoed_QBER) / servo_blocks
+                if servoed_QBER > 1 or servoed_QBER < 0:
+                    servoed_QBER = default_QBER
+                elif servoed_QBER > QBER_limit:
+                    servoed_QBER = QBER_limit
 
-            print(f'[{method_name}] {message}. Total generated final bits: {total_ec_key_bits}.')
+                logger.info(f'[{method_name}] {message}. Total generated final bits: {total_ec_key_bits}.')
         except OSError as a:
             pass
-    print(f'[{method_name}] Thread finished')
+    logger.info(f'[{method_name}] Thread finished')
 
 
 def _do_error_correction():
-    '''Executes the error correction on files in the ec_queue.
+    '''Executes the error correction on files list in the ec_queue.
     The queue consists of raw key file names generated by costream or splicer.
     Usually runs as a thread.
 
@@ -188,7 +188,7 @@ def _do_error_correction():
         # and try again.
         try:
             file_name = ec_queue.get_nowait()
-        except queue.Empty as a:
+        except queue.Empty:
             time.sleep(0.6)
             continue
         # Use diagbb84 to check for raw key bits
@@ -199,12 +199,12 @@ def _do_error_correction():
         proc_diagbb84.wait()
         diagbb84_result = (proc_diagbb84.stdout.read()).decode().split()
         diagbb84_error = (proc_diagbb84.stderr.read()).decode()
-        print(f'[{method_name}:diagbb84_result] {file_name} {diagbb84_result}')
-        print(f'[{method_name}:diagbb84_error] {diagbb84_error}')
+        logger.info(f'[{method_name}:diagbb84_result] {file_name} {diagbb84_result}')
+        logger.info(f'[{method_name}:diagbb84_error] {diagbb84_error}')
         # If no BB84 type OR more than one bit per entry
         # Check diagbb84 for the return values meanings
         if int(diagbb84_result[0]) == 0 or int(diagbb84_result[1]) != 1:
-            print(f'[{method_name}] Not BB84 file type or more than 1 bit per entry.')
+            logger.info(f'[{method_name}] Not BB84 file type or more than 1 bit per entry.')
             continue
 
         if undigested_epochs == 0:
@@ -216,39 +216,23 @@ def _do_error_correction():
         # Could be also based on number of epochs.
         if undigested_raw_bits > minimal_block_size:
             # notify the error correction process about the first epoch, number of epochs, and the servoed QBER
-            _writer(ec_cmd_pipe, f'0x{first_epoch} {undigested_epochs} {float("{0:.4f}".format(servoed_QBER))}')
-            print(f'[{method_name}] Started error correction for epoch {first_epoch}, {undigested_epochs}.')
+            qkd_globals.writer(ec_cmd_pipe, f'0x{first_epoch} {undigested_epochs} {float("{0:.4f}".format(servoed_QBER))}')
+            logger.info(f'[{method_name}] Started error correction for epoch {first_epoch}, {undigested_epochs}.')
             first_epoch_info = first_epoch
             undigested_epochs_info = undigested_epochs
             init_QBER_info = servoed_QBER
             undigested_raw_bits = 0
             undigested_epochs = 0
         else:
-            print(f'[{method_name}] Undigested raw bits:{undigested_raw_bits}. Undigested epochs: {undigested_epochs}.')
+            logger.info(f'[{method_name}] Undigested raw bits:{undigested_raw_bits}. Undigested epochs: {undigested_epochs}.')
         ec_queue.task_done()
-    print(f'[{method_name}] Thread finished.')
+    logger.info(f'[{method_name}] Thread finished.')
 
-
-def _writer(file_name, message):
-    f = os.open(file_name, os.O_WRONLY)
-    print(f'Write to {file_name}: {message}')
-    os.write(f, f'{message}\n'.encode())
-    os.close(f)
-
-
-def _kill_process(my_process):
-    if my_process is not None:
-        method_name = sys._getframe().f_code.co_name
-        print(f'[{method_name}] Killing process: {my_process.pid}.')
-        process = psutil.Process(my_process.pid)
-        for proc in process.children(recursive=True):
-            proc.kill()
-        process.kill()
 
 
 def stop_error_correction():
     global proc_error_correction
-    _kill_process(proc_error_correction)
+    qkd_globals.kill_process(proc_error_correction)
     proc_error_correction = None
 
 

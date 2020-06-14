@@ -60,10 +60,13 @@ from . import chopper
 from . import chopper2
 from . import costream
 from . import error_correction
-
+from . import qkd_globals
+from .qkd_globals import logger
 
 # configuration file contains the most important paths and the target ip and port number
-with open('config/config.json', 'r') as f:
+config_file = qkd_globals.config_file
+
+with open(config_file, 'r') as f:
     config = json.load(f)
 
 
@@ -96,57 +99,10 @@ t2logpipe_digest_thread_flag = False
 t1logpipe_digest_thread_flag = False
 t1logcount = 0
 first_epoch = ''
-# first_received_epoch = ''
 time_diff = 0
 sig_long = 0
 sig_short = 0
 
-
-
-def kill_process(my_process):
-    if my_process is not None:
-        method_name = sys._getframe().f_code.co_name
-        print(f'[{method_name}] Killing process: {my_process.pid}.')
-        process = psutil.Process(my_process.pid)
-        for proc in process.children(recursive=True):
-            proc.kill()
-        process.kill()
-
-
-def _prepare_folders():
-    global dataroot
-    if os.path.exists(dataroot):
-        shutil.rmtree(dataroot)
-    folder_list = ('/sendfiles', '/receivefiles', '/t1',
-                   '/t3', '/rawkey', '/histos', '/finalkey')
-    for i in folder_list:
-        if os.path.exists(i):
-            print('error')
-        os.makedirs(dataroot + i)
-
-    fifo_list = ('/msgin', '/msgout', '/rawevents',
-                 '/t1logpipe', '/t2logpipe', '/cmdpipe', '/genlog',
-                 '/transferlog', '/splicepipe', '/cntlogpipe',
-                 '/eccmdpipe', '/ecspipe', '/ecrpipe', '/ecnotepipe',
-                 '/ecquery', '/ecresp')
-    for i in fifo_list:
-        fifo_path = dataroot + i
-        if os.path.exists(fifo_path):
-            if stat.S_ISFIFO(os.stat(fifo_path).st_mode):
-                os.unlink(fifo_path)
-            else:
-                os.remove(fifo_path)
-        os.mkfifo(dataroot + i)
-        os.open(dataroot + i, os.O_RDWR)
-
-
-def _remove_stale_comm_files():
-    files = glob.glob(dataroot + '/receivefiles/*')
-    for f in files:
-        os.remove(f)
-    files = glob.glob(dataroot + '/sendfiles/*')
-    for f in files:
-        os.remove(f)
 
 
 def msg_response(message):
@@ -159,7 +115,7 @@ def msg_response(message):
     if msg_code == 'st1':
         _remove_stale_comm_files()
         if low_count_side is None:
-            print(f'[{method_name}:st1] Symmetry negotiation not completed yet. \
+            logger.info(f'[{method_name}:st1] Symmetry negotiation not completed yet. \
                 Key generation was not started.')
             return
         elif low_count_side is True:
@@ -175,21 +131,21 @@ def msg_response(message):
     if msg_code == 'st2':
         _remove_stale_comm_files()
         if low_count_side is None:
-            print(f'[{method_name}:st2] Symmetry negotiation not completed yet. \
+            logger.info(f'[{method_name}:st2] Symmetry negotiation not completed yet. \
                 Key generation was not started.')
             return
         elif low_count_side is True:
             chopper.start_chopper()
             splicer.start_splicer(_splicer_callback_start_error_correction)
-            _start_readevents()
             error_correction.start_error_correction()
+            _start_readevents()
             transferd.send_message('st3')  # High count side starts pfind
         elif low_count_side is False:
             chopper2.start_chopper2()
-            _start_readevents()
             time_diff, sig_long, sig_short = periode_find()
             costream.start_costream(time_diff, first_epoch)
             error_correction.start_error_correction()
+            _start_readevents()
 
     if msg_code == 'st3':
         if low_count_side is False:
@@ -197,7 +153,7 @@ def msg_response(message):
             costream.start_costream(time_diff, first_epoch)
             error_correction.start_error_correction()
         else:
-            print(f'[{method_name}:st3] Not the high count side or symmetry \
+            logger.info(f'[{method_name}:st3] Not the high count side or symmetry \
                 negotiation not completed.')
 
 
@@ -208,7 +164,7 @@ def _splicer_callback_start_error_correction(epoch_name: str):
     convert the keys to error-corrected privacy-amplified keys.
     '''
     method_name = sys._getframe().f_code.co_name
-    print(f'[{method_name}] Add {epoch_name} to error correction queue')
+    logger.info(f'[{method_name}] Add {epoch_name} to error correction queue')
     error_correction.ec_queue.put(epoch_name)
 
 
@@ -222,21 +178,21 @@ def periode_find():
     global prog_pfind, first_epoch
 
     if transferd.commhandle is None:
-        print(f'[{method_name}] Transferd process has not been started.' +
+        logger.info(f'[{method_name}] Transferd process has not been started.' +
               ' periode_find aborted.')
         return
     if transferd.commhandle.poll() is not None:
-        print(f'[{method_name}] transferd process was started but is not running. \
+        logger.info(f'[{method_name}] transferd process was started but is not running. \
             periode_find aborted.')
         return
 
     while transferd.first_received_epoch is None or chopper2.first_epoch is None:
-        print(f'[{method_name}] Waiting for data.')
+        logger.info(f'[{method_name}] Waiting for data.')
         time.sleep(1)
 
     # make sure there is enough epochs available
     while chopper2.t1_epoch_count < periode_count:
-        print(f'[{method_name}] Not enough epochs available to execute pfind.')
+        logger.info(f'[{method_name}] Not enough epochs available to execute pfind.')
         time.sleep(1)
 
     # Not sure why minus 2, but I'm following what was done in crgui_ec.
@@ -262,7 +218,7 @@ def periode_find():
                                       stdout=subprocess.PIPE)
     proc_pfind.wait()
     pfind_result = (proc_pfind.stdout.read()).decode()
-    print(f'[{method_name}:pfind_result] {pfind_result.split()}')
+    logger.info(f'[{method_name}:pfind_result] {pfind_result.split()}')
     return [float(i) for i in pfind_result.split()]
 
 
@@ -272,7 +228,7 @@ def start_raw_key_generation():
     transferd.start_communication(msg_response)
     transferd.symmetry_negotiation()
     if transferd.low_count_side == '':
-        print(f'[{method_name}] Symmetry negotiation not finished.')
+        logger.info(f'[{method_name}] Symmetry negotiation not finished.')
         while True:
             if transferd.negotiating == 1:
                 continue
@@ -289,8 +245,8 @@ def start_communication():
 
     [description]
     '''
-    _prepare_folders()
-    _remove_stale_comm_files()
+    qkd_globals.prepare_folders()
+    qkd_globals.remove_stale_comm_files()
     transferd.start_communication(msg_response)
 
 
@@ -329,7 +285,7 @@ def get_error_corr_info():
     return stats
 
 
-def stop_communication():
+def stop_all_processes():
     global proc_readevents
     transferd.stop_communication()
     chopper.stop_chopper()
@@ -337,7 +293,7 @@ def stop_communication():
     splicer.stop_splicer()
     costream.stop_costream()
     error_correction.stop_error_correction()
-    kill_process(proc_readevents)
+    qkd_globals.kill_process(proc_readevents)
 
 
 def _start_readevents():
@@ -350,12 +306,12 @@ def _start_readevents():
             -d {det1corr},{det2corr},{det3corr},{det4corr}'
     fd = os.open(f'{dataroot}/rawevents', os.O_RDWR)  # non-blocking
     f_stdout = os.fdopen(fd, 'w')  # non-blocking
-    print('starting_readevents:', prog_readevents)
+    logger.info('starting_readevents:', prog_readevents)
     with open(f'{cwd}/{dataroot}/readeventserror', 'a+') as f_stderr:
         proc_readevents = subprocess.Popen((prog_readevents, *args.split()),
                                            stdout=f_stdout,
                                            stderr=f_stderr)
-    print(f'[{method_name}] Started readevents.')
+    logger.info(f'[{method_name}] Started readevents.')
 
 
 class ProcessWatchDog(threading.Thread):
@@ -414,11 +370,15 @@ watchdog.daemon = True
 watchdog.start()
 
 
-if __name__ == '__main__':
+def main():
     start_communication()
-    error_correction.raw_key_folder = 'data/ec_test_data/rawkeyB'
-    error_correction.errcd_killfile_option = ''
+    # error_correction.raw_key_folder = 'data/ec_test_data/rawkeyB'
+    # error_correction.errcd_killfile_option = ''
     error_correction.start_error_correction()
-    time.sleep(120)
-    stop_communication()
-    # kill_process(commhandle)
+    time.sleep(10)
+    stop_all_processes()
+    # kill_process(commhandle))
+
+if __name__ == '__main__':
+    main()
+
