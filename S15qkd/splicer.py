@@ -136,7 +136,7 @@ def stop_splicer():
 
 initialize()
 
-def main()
+def main():
     start_splicer()
     time.sleep(2)
     kill_splicer_process()

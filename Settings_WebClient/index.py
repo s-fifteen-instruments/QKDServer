@@ -22,6 +22,8 @@ def display_page(pathname):
         return QKD_settings.serve_layout()
     elif pathname == '/apps/QKD_status':
         return QKD_status.serve_layout()
+    elif pathname == '/apps/test':
+        return test.serve_layout()
     else:
        return QKD_status.serve_layout()
 

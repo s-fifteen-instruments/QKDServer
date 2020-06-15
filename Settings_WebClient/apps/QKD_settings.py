@@ -9,16 +9,15 @@ import re
 
 from app import app
 
-from S15qkd import qkd_globals
+from S15qkd.qkd_globals import config_file
 
 
 def serve_layout():
     debounce = True
-    with open(qkd_globals.config_file, 'r') as f:
+    with open(config_file, 'r') as f:
         config = json.load(f)
-    # return config
 
-    # network connection settings
+    # # network connection settings
     target_ip_input = dcc.Input(id="target_ip",
                                 type='text',
                                 value=config['target_ip'])
@@ -52,7 +51,7 @@ def serve_layout():
                          type='number',
                          value=config["local_detector_skew_correction"]['det4corr'])
 
-    # error correction settings
+    # # error correction settings
     minimal_block_size = dcc.Input(id="minimal_block_size", placeholder='5000',
                                    type='number',
                                    value=config['minimal_block_size'])
@@ -60,13 +59,13 @@ def serve_layout():
                                     type='number',
                                     value=config['target_bit_error'])
 
-    # protocol_choice = dcc.RadioItems(id='protocol'
-    #     options=[
-    #         {'label': ' BBM92    ', 'value': 1},
-    #         {'label': ' Service (not implemented yet)',
-    #          'value': 0, 'disabled': True}
-    #     ],
-    #     value=config['protocol'])
+    # # protocol_choice = dcc.RadioItems(id='protocol'
+    # #     options=[
+    # #         {'label': ' BBM92    ', 'value': 1},
+    # #         {'label': ' Service (not implemented yet)',
+    # #          'value': 0, 'disabled': True}
+    # #     ],
+    # #     value=config['protocol'])
 
     clock_choice = dcc.RadioItems(id='clock_source',
                                   options=[
@@ -94,9 +93,7 @@ def serve_layout():
         dbc.Row([dbc.Col(html.Div([html.Label('Target IP', htmlFor='target_ip'), target_ip_input]), width=3),
                 dbc.Col(html.Div([html.Label('Port number', htmlFor='port_num'), port_num_input]), width=3)],
                 justify="start"),
-        # text_input,
-        # html.H4('Protocol choice'),
-        # protocol_choice,
+
         html.Br(),
         html.H4('Clock source'),
         dbc.Row(dbc.Col(clock_choice, width=4)),
@@ -115,25 +112,26 @@ def serve_layout():
             dbc.Col([html.Div([html.Label('Detector 2 timing correction', htmlFor='det2corr'), det2corr]),html.P(),
                      html.Div([html.Label('Detector 4 timing correction', htmlFor='det4corr'), det4corr])], width=3)]),
 
-        # html.Div(['Detector 2 timing correction', html.Br(), det2corr])]),
-        # html.Div(['Detector 3 timing correction', html.Br(), det3corr]),
-        # html.Div(['Detector 4 timing correction', html.Br(), det4corr]),
         html.Br(),
         html.H4('Error correction settings'),
-        dbc.Row([dbc.Col([html.Br(),html.Div([error_corr_switch, ' Error correction']), html.Br(),
-                          html.Div([privacy_ampl_switch, ' Privacy amplification'])], width=3),html.Br(),
-                dbc.Col([html.Div([html.Label('Minimal block size', htmlFor='minimal_block_size'), minimal_block_size]), html.P(),
-                         html.Div([html.Label('Target bit error', htmlFor='target_bit_error'), target_bit_error])], width=3)
-                ]),
+        dbc.Row([
+          dbc.Col([
+            html.Br(),
+            html.Div([error_corr_switch, ' Error correction']), 
+            html.Br(),
+            html.Div([privacy_ampl_switch, ' Privacy amplification'])], 
+          width=3),
+           html.Br(),
+           dbc.Col([html.Div([html.Label('Minimal block size', htmlFor='minimal_block_size'), 
+                    minimal_block_size]), 
+                    html.P(),
+                    html.Div([html.Label('Target bit error', htmlFor='target_bit_error'), target_bit_error])], width=3)
+        ]),
 
-        # html.Div(['Minimal block size', html.Br(), minimal_block_size]),
-        # html.Div(['Target bit error', html.Br(), target_bit_error]),
-        # html.Div([error_corr_switch, ' Error correction']),
-        # html.Div([privacy_ampl_switch, ' Privacy amplification']),
-        # html.Div(id='app-2-display-value'),
         html.Div(html.Br())
     ])
     return layout
+    # return target_ip_input
 
 
 # Ugly!! need to keep this updated with the input fields.
@@ -154,7 +152,6 @@ def display_value(*values):
     trigger_id = ctx.triggered[0]['prop_id']
     trigger_id = trigger_id.rstrip('on').rstrip('value').rstrip('.')
     trigger_value = dash.callback_context.triggered[0]['value']
-
     if trigger_id != '':
         with open(config_file, 'r') as f:
             config = json.load(f)

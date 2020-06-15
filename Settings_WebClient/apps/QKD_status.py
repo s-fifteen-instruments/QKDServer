@@ -6,7 +6,7 @@ from dash.dependencies import Input, Output, State
 
 from app import app
 
-import S15QKD.controller as qkd_ctrl
+import S15qkd.controller as qkd_ctrl
 
 
 qber_display = html.Div(children=['Current quantum bit error: ', html.Nobr(children='---', id='qber')])
@@ -306,5 +306,5 @@ def on_button_click(n):
 )
 def on_kill_button_click(n):
     if n is not None:
-        qkd_ctrl.stop_communication()
+        qkd_ctrl.stop_all_processes()
     return 'Start key generation'
