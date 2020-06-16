@@ -66,7 +66,7 @@ if testing == 1:
     # this outputs one timestamp file in an endless loop. This is for testing only.
     prog_readevents = '/'+__file__.strip('/controller.py')+'/timestampsimulator/readevents_simulator.sh'
 else:
-    prog_readevents = program_root + '/readevents3'
+    prog_readevents = program_root + '/readevents'
 
 # Logging
 class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
