@@ -38,6 +38,7 @@ __status__ = 'dev'
 
 # Built-in/Generic Imports
 import sys
+import stat
 import os
 import psutil
 import glob
@@ -46,6 +47,7 @@ import logging.handlers
 import time
 import json
 import shutil
+import codecs
 
 root_name, _, _ = __name__.partition('.')
 root_module = sys.modules[root_name]
@@ -57,6 +59,14 @@ with open(config_file, 'r') as f:
     config = json.load(f)
 
 data_root = config['data_root']
+program_root = config['program_root']
+
+testing = 0  # CHANGE to 0 if you want to run it with hardware
+if testing == 1:
+    # this outputs one timestamp file in an endless loop. This is for testing only.
+    prog_readevents = '/'+__file__.strip('/controller.py')+'/timestampsimulator/readevents_simulator.sh'
+else:
+    prog_readevents = program_root + '/readevents3'
 
 # Logging
 class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):

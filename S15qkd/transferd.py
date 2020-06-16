@@ -69,7 +69,6 @@ def initialize(config_file_name: str = qkd_globals.config_file):
     global cwd, sleep_time, communication_status, low_count_side, remote_count_rate
     global local_count_rate, commhandle, first_received_epoch, last_received_epoch
     global prog_readevents
-
     cwd = os.getcwd()
     sleep_time = 1
     communication_status = 0
@@ -79,15 +78,7 @@ def initialize(config_file_name: str = qkd_globals.config_file):
     commhandle = None
     first_received_epoch = ''
     last_received_epoch = ''
-
-    testing = 1  # CHANGE to 0 if you want to run it with hardware
-    if testing == 1:
-        prog_readevents = '/' + \
-            (__file__).strip('/transferd.py') + \
-            '/timestampsimulator/readevents_simulator.sh'
-        # prog_readevents = 'helper_script/readevents_simulator.sh'
-    else:
-        prog_readevents = program_root + '/readevents3'
+    prog_readevents = qkd_globals.prog_readevents
 
 
 def _local_callback(msg: str):
@@ -325,7 +316,6 @@ def measure_local_count_rate():
 
 
 def main():
-    start = time.time()
     logger.info('start communication')
     start_communication()
     time.sleep(10)

@@ -42,13 +42,8 @@ import subprocess
 import os
 import signal
 import time
-import psutil
-import glob  # for file system access
-import stat
-import shutil  # can delete complete folders with everything underneath
 import sys
 import threading
-import select
 from queue import Queue, Empty
 import json
 import logging
@@ -83,13 +78,8 @@ cwd = os.getcwd()
 localcountrate = -1
 remote_count_rate = -1
 
-testing = 1  # CHANGE to 0 if you want to run it with hardware
-if testing == 1:
-    # this outputs one timestamp file in an endless loop. This is for testing only.
-    prog_readevents = '/'+__file__.strip('/controller.py')+'/timestampsimulator/readevents_simulator.sh'
-else:
-    prog_readevents = programroot + '/readevents3'
-
+# program paths for processes used in this module
+prog_readevents = qkd_globals.prog_readevents
 prog_pfind = programroot + '/pfind'
 
 proc_readevents = None
@@ -135,13 +125,13 @@ def msg_response(message):
                 Key generation was not started.')
             return
         elif low_count_side is True:
-        	_start_readevents()
+            _start_readevents()
             chopper.start_chopper()
             splicer.start_splicer(_splicer_callback_start_error_correction)
             error_correction.start_error_correction()
             transferd.send_message('st3')  # High count side starts pfind
         elif low_count_side is False:
-        	_start_readevents()
+            _start_readevents()
             chopper2.start_chopper2()
             time_diff, sig_long, sig_short = periode_find()
             costream.start_costream(time_diff, first_epoch)
@@ -305,7 +295,7 @@ def _start_readevents():
     
     fd = os.open(f'{dataroot}/rawevents', os.O_RDWR)  # non-blocking
     f_stdout = os.fdopen(fd, 'w')  # non-blocking
-    logger.info('starting_readevents:', prog_readevents)
+    logger.info('starting_readevents:' + prog_readevents)
     args = f'-a 1 -A {extclockopt} -S 20 \
              -d {det1corr},{det2corr},{det3corr},{det4corr}'
     with open(f'{cwd}/{dataroot}/readeventserror', 'a+') as f_stderr:
@@ -362,7 +352,7 @@ class ProcessWatchDog(threading.Thread):
                 splicer.stop_splicer()
                 costream.stop_costream()
                 error_correction.stop_error_correction()
-                kill_process(proc_readevents)
+                qkd_globals.kill_process(proc_readevents)
             self.prev_proc_states = proc_states
             self.prev_status = status
 
