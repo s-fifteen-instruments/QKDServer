@@ -113,7 +113,7 @@ def msg_response(message):
     low_count_side = transferd.low_count_side
 
     if msg_code == 'st1':
-        _remove_stale_comm_files()
+        qkd_globals.remove_stale_comm_files()
         if low_count_side is None:
             logger.info(f'[{method_name}:st1] Symmetry negotiation not completed yet. \
                 Key generation was not started.')
@@ -129,23 +129,23 @@ def msg_response(message):
         transferd.send_message("st2")
 
     if msg_code == 'st2':
-        _remove_stale_comm_files()
+        qkd_globals.remove_stale_comm_files()
         if low_count_side is None:
             logger.info(f'[{method_name}:st2] Symmetry negotiation not completed yet. \
                 Key generation was not started.')
             return
         elif low_count_side is True:
+        	_start_readevents()
             chopper.start_chopper()
             splicer.start_splicer(_splicer_callback_start_error_correction)
             error_correction.start_error_correction()
-            _start_readevents()
             transferd.send_message('st3')  # High count side starts pfind
         elif low_count_side is False:
+        	_start_readevents()
             chopper2.start_chopper2()
             time_diff, sig_long, sig_short = periode_find()
             costream.start_costream(time_diff, first_epoch)
             error_correction.start_error_correction()
-            _start_readevents()
 
     if msg_code == 'st3':
         if low_count_side is False:
@@ -302,11 +302,12 @@ def _start_readevents():
     '''
     method_name = sys._getframe().f_code.co_name  # used for logging
     global proc_readevents, prog_readevents
-    args = f'-a 1 -R -A {extclockopt} -S 20 \
-            -d {det1corr},{det2corr},{det3corr},{det4corr}'
+    
     fd = os.open(f'{dataroot}/rawevents', os.O_RDWR)  # non-blocking
     f_stdout = os.fdopen(fd, 'w')  # non-blocking
     logger.info('starting_readevents:', prog_readevents)
+    args = f'-a 1 -A {extclockopt} -S 20 \
+             -d {det1corr},{det2corr},{det3corr},{det4corr}'
     with open(f'{cwd}/{dataroot}/readeventserror', 'a+') as f_stderr:
         proc_readevents = subprocess.Popen((prog_readevents, *args.split()),
                                            stdout=f_stdout,
