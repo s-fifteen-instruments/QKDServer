@@ -254,16 +254,6 @@ def _symmetry_negotiation_messaging(message):
             negotiating = 0
 
 
-# def _kill_process(proc_pid):
-#     if proc_pid is not None:
-#         # method_name = sys._getframe().f_code.co_name
-#         # print(f'[{method_name}] Killing process: {proc_pid.pid}.')
-#         process = psutil.Process(proc_pid.pid)
-#         for proc in process.children(recursive=True):
-#             proc.kill()
-#         process.kill()
-
-
 def stop_communication():
     if commhandle is not None and commhandle.poll() is None:
         qkd_globals.kill_process(commhandle)
@@ -294,13 +284,11 @@ def measure_local_count_rate():
     '''
     global program_root, data_root, localcountrate, extclockopt
     localcountrate = -1
-
-    p1 = subprocess.Popen((prog_readevents,
-                           '-a 1',
-                           '-F',
-                           f'-u {extclockopt}',
-                           '-S 20'),
+    cmd = prog_readevents
+    args = f'-a 1 -F -u {extclockopt} -S 20'
+    p1 = subprocess.Popen([cmd, *args.split()],
                           stdout=subprocess.PIPE)
+    print('started readevents')
     p2 = subprocess.Popen(prog_getrate,
                           stdin=p1.stdout,
                           stdout=subprocess.PIPE)
