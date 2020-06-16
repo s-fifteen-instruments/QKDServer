@@ -45,6 +45,7 @@ import psutil
 import time
 
 from . import qkd_globals
+from .qkd_globals import logger
 
 
 def _load_chopper_config(config_file_name: str):

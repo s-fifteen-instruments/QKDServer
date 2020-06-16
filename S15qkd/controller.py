@@ -215,6 +215,7 @@ def periode_find():
 def start_raw_key_generation():
     # global protocol
     method_name = sys._getframe().f_code.co_name
+    qkd_globals.prepare_folders()
     transferd.start_communication(msg_response)
     transferd.symmetry_negotiation()
     if transferd.low_count_side == '':
@@ -227,17 +228,16 @@ def start_raw_key_generation():
             elif transferd.negotiating == 0:
                 return
     transferd.send_message('st1')
-    watchdog.start()
 
 
-def start_communication():
-    '''Establishes network connection between computers.
+# def start_communication():
+#     '''Establishes network connection between computers.
 
-    [description]
-    '''
-    qkd_globals.prepare_folders()
-    qkd_globals.remove_stale_comm_files()
-    transferd.start_communication(msg_response)
+#     [description]
+#     '''
+#     qkd_globals.prepare_folders()
+#     qkd_globals.remove_stale_comm_files()
+#     transferd.start_communication(msg_response)
 
 
 def get_process_states():

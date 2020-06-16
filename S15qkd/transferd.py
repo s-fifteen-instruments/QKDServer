@@ -68,7 +68,7 @@ def initialize(config_file_name: str = qkd_globals.config_file):
     _load_transferd_config(config_file_name)
     global cwd, sleep_time, communication_status, low_count_side, remote_count_rate
     global local_count_rate, commhandle, first_received_epoch, last_received_epoch
-    global prog_readevents
+    global prog_readevents, negotiating
     cwd = os.getcwd()
     sleep_time = 1
     communication_status = 0
@@ -79,6 +79,7 @@ def initialize(config_file_name: str = qkd_globals.config_file):
     first_received_epoch = ''
     last_received_epoch = ''
     prog_readevents = qkd_globals.prog_readevents
+    negotiating = 0
 
 
 def _local_callback(msg: str):
@@ -160,16 +161,15 @@ def _msg_out_digest(msg_out_callback):
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
     logger.info(f'[{method_name}] Thread started.')
     while commhandle.poll() is None:
-        time.sleep(0.1)
+        time.sleep(0.05)
         try:
             message = f.readline().decode().lstrip('\x00').rstrip('\n')
-            if len(message) == 0:
-                continue
-            logger.info(f'[{method_name}:read] {message}')
-            if message.split(':')[0] in {'ne1', 'ne2', 'ne3'}:
-                _symmetry_negotiation_messaging(message)
-            else:
-                msg_out_callback(message)
+            if len(message) != 0:
+                logger.info(f'[{method_name}:read] {message}')
+                if message.split(':')[0] in {'ne1', 'ne2', 'ne3'}:
+                    _symmetry_negotiation_messaging(message)
+                else:
+                    msg_out_callback(message)
         except OSError:
             pass
     logger.info(f'[{method_name}] Thread finished')
@@ -270,7 +270,8 @@ def symmetry_negotiation():
     # global commhandle
     global negotiating, local_count_rate
     method_name = sys._getframe().f_code.co_name
-    local_count_rate = measure_local_count_rate()
+    if local_count_rate == -1:
+        local_count_rate = measure_local_count_rate()
     if commhandle.poll() is None:
         send_message(f'ne1:{local_count_rate}')
         negotiating = 1
