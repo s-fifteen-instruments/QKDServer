@@ -268,11 +268,11 @@ def send_message(message):
 
 def symmetry_negotiation():
     # global commhandle
-    global negotiating
+    global negotiating, local_count_rate
     method_name = sys._getframe().f_code.co_name
-    count_rate = measure_local_count_rate()
+    local_count_rate = measure_local_count_rate()
     if commhandle.poll() is None:
-        send_message(f'ne1:{count_rate}')
+        send_message(f'ne1:{local_count_rate}')
         negotiating = 1
     else:
         logger.info(f'[{method_name}] Transferd process not running.')
@@ -288,7 +288,7 @@ def measure_local_count_rate():
     args = f'-a 1 -F -u {extclockopt} -S 20'
     p1 = subprocess.Popen([cmd, *args.split()],
                           stdout=subprocess.PIPE)
-    print('started readevents')
+    logger.info('started readevents')
     p2 = subprocess.Popen(prog_getrate,
                           stdin=p1.stdout,
                           stdout=subprocess.PIPE)
