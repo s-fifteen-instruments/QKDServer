@@ -68,6 +68,8 @@ if testing == 1:
 else:
     prog_readevents = program_root + '/readevents'
 
+
+
 # Logging
 class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
     ''' copied from https://stackoverflow.com/questions/338450/timedrotatingfilehandler-changing-file-name
@@ -126,22 +128,34 @@ def kill_process(my_process):
         process.kill()
 
 
+fifo_list = ('/msgin', '/msgout', '/rawevents',
+                 '/t1logpipe', '/t2logpipe', '/cmdpipe', '/genlog',
+                 '/transferlog', '/splicepipe', '/cntlogpipe',
+                 '/eccmdpipe', '/ecspipe', '/ecrpipe', '/ecnotepipe',
+                 '/ecquery', '/ecresp')
+
+def drain_all_pipes():
+    for fn in fifo_list:
+        drain_pipe(fn)
+
+def drain_pipe(pipe_name):
+    fd = os.open(data_root + pipe_name, os.O_RDONLY | os.O_NONBLOCK)
+    f = os.fdopen(fd, 'rb', 0)
+    print(f.readall())
+
+folder_list = ('/sendfiles', '/receivefiles', '/t1',
+                   '/t3', '/rawkey', '/histos', '/finalkey')
+
 def prepare_folders():
     # global data_root
     if os.path.exists(data_root):
         shutil.rmtree(data_root)
-    folder_list = ('/sendfiles', '/receivefiles', '/t1',
-                   '/t3', '/rawkey', '/histos', '/finalkey')
+
     for i in folder_list:
         if os.path.exists(i):
             print('error')
         os.makedirs(data_root + i)
 
-    fifo_list = ('/msgin', '/msgout', '/rawevents',
-                 '/t1logpipe', '/t2logpipe', '/cmdpipe', '/genlog',
-                 '/transferlog', '/splicepipe', '/cntlogpipe',
-                 '/eccmdpipe', '/ecspipe', '/ecrpipe', '/ecnotepipe',
-                 '/ecquery', '/ecresp')
     for i in fifo_list:
         fifo_path = data_root + i
         if os.path.exists(fifo_path):

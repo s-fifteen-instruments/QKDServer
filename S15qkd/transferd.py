@@ -193,16 +193,15 @@ def _transferlog_digest():
         time.sleep(0.1)
         try:
             message = f.readline().decode().rstrip()
-            if len(message) == 0:
-                continue
-            last_received_epoch = message
-            logger.info(f'[{method_name}:read] {message}')
-            if first_received_epoch == '':
-                first_received_epoch = message
-                logger.info(f'[{method_name}:first_rx_epoch] {first_received_epoch}')
-            if low_count_side is True:
-                qkd_globals.writer(splicer_pipe, message)
-                logger.info(f'[{method_name}] Sent epoch name {message} to splicer.')
+            if len(message) != 0:
+                last_received_epoch = message
+                logger.info(f'[{method_name}:read] {message}')
+                if first_received_epoch == '':
+                    first_received_epoch = message
+                    logger.info(f'[{method_name}:first_rx_epoch] {first_received_epoch}')
+                if low_count_side is True:
+                    qkd_globals.writer(splicer_pipe, message)
+                    logger.info(f'[{method_name}] Sent epoch name {message} to splicer.')
         except OSError:
             pass
     logger.info(f'[{method_name}] Thread finished.')
@@ -255,8 +254,9 @@ def _symmetry_negotiation_messaging(message):
 
 
 def stop_communication():
-    if commhandle is not None and commhandle.poll() is None:
+    if is_running():
         qkd_globals.kill_process(commhandle)
+        commhandle = None
 
 
 def send_message(message):
@@ -302,6 +302,8 @@ def measure_local_count_rate():
     localcountrate = int((p2.stdout.read()).decode())
     return localcountrate
 
+def is_running():
+    return not (commhandle is None or commhandle.poll() is not None)
 
 
 def main():

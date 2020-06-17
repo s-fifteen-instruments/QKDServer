@@ -215,8 +215,10 @@ def periode_find():
 def start_raw_key_generation():
     # global protocol
     method_name = sys._getframe().f_code.co_name
-    qkd_globals.prepare_folders()
-    transferd.start_communication(msg_response)
+    if transferd.is_running() is False:
+        qkd_globals.prepare_folders()
+        transferd.start_communication(msg_response)
+    qkd_globals.drain_all_pipes()
     transferd.symmetry_negotiation()
     if transferd.low_count_side == '':
         logger.info(f'[{method_name}] Symmetry negotiation not finished.')
@@ -230,14 +232,14 @@ def start_raw_key_generation():
     transferd.send_message('st1')
 
 
-# def start_communication():
-#     '''Establishes network connection between computers.
+def start_communication():
+    '''Establishes network connection between computers.
 
-#     [description]
-#     '''
-#     qkd_globals.prepare_folders()
-#     qkd_globals.remove_stale_comm_files()
-#     transferd.start_communication(msg_response)
+    [description]
+    '''
+    transferd.stop_communication()
+    qkd_globals.prepare_folders()
+    transferd.start_communication(msg_response)
 
 
 def get_process_states():
