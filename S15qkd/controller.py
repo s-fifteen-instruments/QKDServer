@@ -177,8 +177,11 @@ def periode_find():
         logger.info(f'[{method_name}] transferd process was started but is not running. \
             periode_find aborted.')
         return
-
+    start_time = time.time()
+    timeout = 15
     while transferd.first_received_epoch is None or chopper2.first_epoch is None:
+        if (time.time() - start_time) > timeout:
+            logger.warning(f'[{method_name}] Timeout: not enough data within {timeout}s')
         logger.info(f'[{method_name}] Waiting for data.')
         time.sleep(1)
 
