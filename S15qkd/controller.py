@@ -145,6 +145,8 @@ def msg_response(message):
         else:
             logger.info(f'[{method_name}:st3] Not the high count side or symmetry \
                 negotiation not completed.')
+    if msg_code == 'stop_key_gen':
+        _reset_key_gen_processes()
 
 
 def _splicer_callback_start_error_correction(epoch_name: str):
@@ -212,26 +214,40 @@ def periode_find():
     return [float(i) for i in pfind_result.split()]
 
 
-def start_raw_key_generation():
+def start_key_generation():
     # global protocol
     method_name = sys._getframe().f_code.co_name
     if transferd.is_running() is False:
-        qkd_globals.prepare_folders()
-        transferd.start_communication(msg_response)
+        start_communication()
+    transferd.send_message('stop_key_gen')
+    _reset_key_gen_processes()
     qkd_globals.drain_all_pipes()
-    transferd.symmetry_negotiation()
-    if transferd.low_count_side == '':
-        logger.info(f'[{method_name}] Symmetry negotiation not finished.')
-        while True:
-            if transferd.negotiating == 1:
-                continue
-            elif transferd.negotiating == 2:
-                break
-            elif transferd.negotiating == 0:
-                logger.info(f'[{method_name}] No network connection established')
-                return
-    transferd.send_message('st1')
+    if transferd.is_running():
+        transferd.symmetry_negotiation()
+        if transferd.low_count_side == '':
+            logger.info(f'[{method_name}] Symmetry negotiation not finished.')
+            start_time = time.time()
+            while True:
+                if transferd.negotiating == 1:
+                    if (time.time() - start_time) > 3:
+                        logger.error(f'[{method_name}] Symmetry negotiation timeout.')
+                        return
+                    continue
+                elif transferd.negotiating == 2:
+                    break
+                elif transferd.negotiating == 0:
+                    logger.error(f'[{method_name}] No network connection established.')
+                    return
+        transferd.send_message('st1')
 
+def _reset_key_gen_processes():
+    global proc_readevents
+    chopper.stop_chopper(); chopper.initialize()
+    chopper2.stop_chopper2(); chopper2.initialize()
+    splicer.stop_splicer(); splicer.initialize()
+    costream.stop_costream(); costream.initialize()
+    error_correction.stop_error_correction(); error_correction.initialize()
+    qkd_globals.kill_process(proc_readevents)
 
 def start_communication():
     '''Establishes network connection between computers.
