@@ -137,7 +137,7 @@ def _transferd_stdout_digest(out, err, queue):
     global commhandle, communication_status
     method_name = sys._getframe().f_code.co_name
     logger.info(f'[{method_name}] Thread started.')
-    while commhandle.poll() is None:
+    while is_running():
         time.sleep(0.5)
         for line in iter(out.readline, b''):
             line = line.rstrip()
