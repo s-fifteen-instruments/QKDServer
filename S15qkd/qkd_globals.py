@@ -115,8 +115,31 @@ logger.addHandler(consoleHandler)
 logger.setLevel(logging.DEBUG)
 
 
+def kill_process_by_name(process_name):
+    '''
+    Get a list of all the PIDs of a all the running process whose name contains
+    the given string processName
+    '''
+    list_of_process_objects = []
+    #Iterate over the all the running process
+    for proc in psutil.process_iter():
+       try:
+           pinfo = proc.as_dict(attrs=['pid', 'name', 'create_time'])
+           # Check if process name contains the given name string.
+           if process_name.lower() in pinfo['name'].lower() :
+               list_of_process_objects.append(pinfo)
+               psutil.Process(pinfo['pid']).kill()
+       except (psutil.NoSuchProcess, psutil.AccessDenied , psutil.ZombieProcess) :
+           pass
+    return list_of_process_objects
 
-
+def kill_existing_qcrypto_processes():
+    process_list = [
+        'transferd', 'chopper', 'chopper2', 
+        'splicer', 'costream', 'errcd', 'pfind', 
+        'getrate', 'readevents4a', 'readevents']
+    for name in process_list:
+        kill_process_by_name(name)
 
 def kill_process(my_process):
     if my_process is not None:

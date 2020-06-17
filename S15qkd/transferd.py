@@ -313,6 +313,8 @@ def main():
     time.sleep(10)
     stop_communication()
 
+def __del__():
+    print('closing module')
 
 initialize()
 

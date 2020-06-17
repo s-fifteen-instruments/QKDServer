@@ -237,9 +237,10 @@ def start_communication():
 
     [description]
     '''
-    transferd.stop_communication()
-    qkd_globals.prepare_folders()
-    transferd.start_communication(msg_response)
+    if not transferd.is_running():
+        stop_all_processes()
+        qkd_globals.prepare_folders()
+        transferd.start_communication(msg_response)
 
 
 def get_process_states():
@@ -358,10 +359,9 @@ class ProcessWatchDog(threading.Thread):
             self.prev_proc_states = proc_states
             self.prev_status = status
 
-watchdog = ProcessWatchDog()
-watchdog.daemon = True
-watchdog.start()
 
+def initialize():
+    qkd_globals.kill_existing_qcrypto_processes()
 
 def main():
     start_communication()
@@ -371,6 +371,12 @@ def main():
     time.sleep(10)
     stop_all_processes()
     # kill_process(commhandle))
+
+initialize()
+watchdog = ProcessWatchDog()
+watchdog.daemon = True
+watchdog.start()
+
 
 if __name__ == '__main__':
     main()
