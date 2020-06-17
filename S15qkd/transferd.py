@@ -160,7 +160,7 @@ def _msg_out_digest(msg_out_callback):
     fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
     logger.info(f'[{method_name}] Thread started.')
-    while commhandle.poll() is None:
+    while is_running():
         time.sleep(0.05)
         try:
             message = f.readline().decode().lstrip('\x00').rstrip('\n')
@@ -189,7 +189,7 @@ def _transferlog_digest():
     fd = os.open(log_file_name, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
     logger.info(f'[{method_name}] Thread started.')
-    while commhandle.poll() is None:
+    while is_running():
         time.sleep(0.1)
         try:
             message = f.readline().decode().rstrip()
