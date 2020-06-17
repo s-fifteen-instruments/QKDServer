@@ -138,4 +138,7 @@ def stop_costream():
     proc_costream = None
 
 
+def is_running():
+    return not (proc_costream is None or proc_costream.poll() is not None)
+
 initialize()

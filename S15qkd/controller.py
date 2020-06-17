@@ -228,6 +228,7 @@ def start_raw_key_generation():
             elif transferd.negotiating == 2:
                 break
             elif transferd.negotiating == 0:
+                logger.info(f'[{method_name}] No network connection established')
                 return
     transferd.send_message('st1')
 
@@ -235,7 +236,6 @@ def start_raw_key_generation():
 def start_communication():
     '''Establishes network connection between computers.
 
-    [description]
     '''
     if not transferd.is_running():
         stop_all_processes()
@@ -244,13 +244,13 @@ def start_communication():
 
 
 def get_process_states():
-    return {'transferd': not (transferd.commhandle is None or transferd.commhandle.poll() is not None),
+    return {'transferd': transferd.is_running(),
             'readevents': not (proc_readevents is None or proc_readevents.poll() is not None),
-            'chopper': not (chopper.proc_chopper is None or chopper.proc_chopper.poll() is not None),
-            'chopper2': not (chopper2.proc_chopper2 is None or chopper2.proc_chopper2.poll() is not None),
-            'costream': not (costream.proc_costream is None or costream.proc_costream.poll() is not None),
-            'splicer': not (splicer.proc_splicer is None or splicer.proc_splicer.poll() is not None),
-            'error_correction': not (error_correction.proc_error_correction is None or error_correction.proc_error_correction.poll() is not None)
+            'chopper': chopper.is_running(),
+            'chopper2': chopper2.is_running(),
+            'costream': costream.is_running(),
+            'splicer': splicer.is_running(),
+            'error_correction': error_correction.is_running()
             }
 
 

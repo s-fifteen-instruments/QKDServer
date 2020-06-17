@@ -229,12 +229,14 @@ def _do_error_correction():
     logger.info(f'[{method_name}] Thread finished.')
 
 
-
 def stop_error_correction():
     global proc_error_correction
     qkd_globals.kill_process(proc_error_correction)
     proc_error_correction = None
 
+
+def is_running():
+    return not (proc_error_correction is None or proc_error_correction.poll() is not None)
 
 initialize()
 

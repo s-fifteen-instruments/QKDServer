@@ -119,10 +119,13 @@ def _reader(file_name: str):
         if f == r:
             yield ((f.readline()).rstrip('\n')).lstrip('\x00')
 
+def is_running():
+    return not (proc_chopper2 is None or proc_chopper2.poll() is not None)
+
 initialize()
 
 if __name__ == '__main__':
     import time
     start_chopper2()
     time.sleep(5)
-    kill_chopper2_process()
+    stop_chopper2()

@@ -134,7 +134,11 @@ def stop_splicer():
     proc_splicer = None
 
 
+def is_running():
+    return not (proc_splicer is None or proc_splicer.poll() is not None)
+
 initialize()
+
 
 def main():
     start_splicer()

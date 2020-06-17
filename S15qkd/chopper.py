@@ -108,7 +108,7 @@ def start_chopper(
 def _t2logpipe_digest():
     '''Digests chopper activities.
 
-    Watches t2logpipe for new epoch files and writes the epoch name into the cmdpipe of transferd.
+    Watches t2logpipe for new epoch files and writes the epoch name into the transferd cmdpipe.
     Transferd copies the corresponding epoch-file to the partnering computer.
     '''
     global t2logpipe_digest_thread_flag
@@ -139,6 +139,9 @@ def stop_chopper():
     proc_chopper = None
     t2logpipe_digest_thread_flag = False
 
+
+def is_running():
+    return not (proc_chopper is None or proc_chopper.poll() is not None)
 
 # def _writer(file_name: str, message: str):
 #     f = os.open(file_name, os.O_WRONLY)
