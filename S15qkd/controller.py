@@ -182,6 +182,7 @@ def periode_find():
     while transferd.first_received_epoch is None or chopper2.first_epoch is None:
         if (time.time() - start_time) > timeout:
             logger.warning(f'[{method_name}] Timeout: not enough data within {timeout}s')
+            raise Exception(f'periode_find timeout: not enough date within {timeout}s')
         logger.info(f'[{method_name}] Waiting for data.')
         time.sleep(1)
 
