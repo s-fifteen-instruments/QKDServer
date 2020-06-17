@@ -254,6 +254,7 @@ def _symmetry_negotiation_messaging(message):
 
 
 def stop_communication():
+    global commhandle
     if is_running():
         qkd_globals.kill_process(commhandle)
         commhandle = None
