@@ -102,7 +102,8 @@ def start_costream(time_difference: int, begin_epoch: str):
              -n {data_root}/genlog -V 5 \
              -G 2 -w {remote_coincidence_window} \
              -u {tracking_window} -Q {int(-track_filter_time_constant)} -R 5 \
-             -H {costream_histo_option} -h {costream_histo_number}'
+             {costream_histo_option} \
+             -h {costream_histo_number}'
 
     with open(f'{cwd}/{data_root}/costreamerror', 'a+') as f:
         proc_costream = subprocess.Popen((program_costream, *args.split()),

@@ -2,9 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-This modules is a wrapper of the transferd process.
-Transferd is reponsible for the communication between the two partnering nodes in a QKD protocol.
-It allows us to do messaging and file transfer.
+S15qkd init
 
 
 Copyright (c) 2020 Mathias A. Seidler, S-Fifteen Instruments Pte. Ltd.
