@@ -66,7 +66,7 @@ def _load_config(config_file_name: str):
         config = json.load(f)
     global det1corr, det2corr, det3corr, det4corr
     global dataroot, programroot, extclockopt, periode_count, FFT_buffer_order
-    global error_correction, protocol
+    global with_error_correction, protocol
     det1corr =  config['local_detector_skew_correction']['det1corr']
     det2corr = config['local_detector_skew_correction']['det2corr']
     det3corr = config['local_detector_skew_correction']['det3corr']
@@ -77,7 +77,7 @@ def _load_config(config_file_name: str):
     extclockopt = config['clock_source']
     periode_count = config['pfind_epochs']
     FFT_buffer_order = config['FFT_buffer_order']
-    error_correction = config['error_correction']
+    with_error_correction = config['error_correction']
 
 
 def initialize(config_file_name: str=config_file):
@@ -102,7 +102,7 @@ def initialize(config_file_name: str=config_file):
 
 def msg_response(message):
     global low_count_side, first_epoch, time_diff, sig_long, sig_short
-    global error_correction
+    global with_error_correction
     method_name = sys._getframe().f_code.co_name
     msg_split = message.split(':')[:]
     msg_code = msg_split[0]
@@ -117,7 +117,7 @@ def msg_response(message):
         elif low_count_side is True:
             chopper.start_chopper()
             splicer.start_splicer(_splicer_callback_start_error_correction)
-            if error_correction == True:
+            if with_error_correction == True:
                 error_correction.start_error_correction()
             _start_readevents()
         elif low_count_side is False:
@@ -135,7 +135,7 @@ def msg_response(message):
             _start_readevents()
             chopper.start_chopper()
             splicer.start_splicer(_splicer_callback_start_error_correction)
-            if error_correction == True:
+            if with_error_correction == True:
                 error_correction.start_error_correction()
             transferd.send_message('st3')  # High count side starts pfind
         elif low_count_side is False:
@@ -143,14 +143,14 @@ def msg_response(message):
             chopper2.start_chopper2()
             time_diff, sig_long, sig_short = periode_find()
             costream.start_costream(time_diff, first_epoch)
-            if error_correction == True:
+            if with_error_correction == True:
                 error_correction.start_error_correction()
 
     if msg_code == 'st3':
         if low_count_side is False:
             time_diff, sig_long, sig_short = periode_find()
             costream.start_costream(time_diff, first_epoch)
-            if error_correction == True:
+            if with_error_correction == True:
                 error_correction.start_error_correction()
         else:
             logger.info(f'[{method_name}:st3] Not the high count side or symmetry \
