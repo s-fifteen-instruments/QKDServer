@@ -61,42 +61,48 @@ from .qkd_globals import logger
 # configuration file contains the most important paths and the target ip and port number
 config_file = qkd_globals.config_file
 
-with open(config_file, 'r') as f:
-    config = json.load(f)
+def _load_config(config_file_name: str):
+    with open(config_file_name, 'r') as f:
+        config = json.load(f)
+    global det1corr, det2corr, det3corr, det4corr
+    global dataroot, programroot, extclockopt, periode_count, FFT_buffer_order
+    global error_correction, protocol
+    det1corr =  config['local_detector_skew_correction']['det1corr']
+    det2corr = config['local_detector_skew_correction']['det2corr']
+    det3corr = config['local_detector_skew_correction']['det3corr']
+    det4corr = config['local_detector_skew_correction']['det4corr']
+    dataroot = config['data_root']
+    programroot = config['program_root']
+    protocol = config['protocol']
+    extclockopt = config['clock_source']
+    periode_count = config['pfind_epochs']
+    FFT_buffer_order = config['FFT_buffer_order']
+    error_correction = config['error_correction']
 
 
-for key, value in config['local_detector_skew_correction'].items():
-    vars()[key] = value
-dataroot = config['data_root']
-programroot = config['program_root']
-protocol = config['protocol']
-extclockopt = config['clock_source']
-periode_count = config['pfind_epochs']
-FFT_buffer_order = config['FFT_buffer_order']
-
-cwd = os.getcwd()
-localcountrate = -1
-remote_count_rate = -1
-
-# program paths for processes used in this module
-prog_readevents = qkd_globals.prog_readevents
-prog_pfind = programroot + '/pfind'
-
-proc_readevents = None
-proc_pfind = None
-low_count_side = None
-t2logpipe_digest_thread_flag = False
-t1logpipe_digest_thread_flag = False
-t1logcount = 0
-first_epoch = ''
-time_diff = 0
-sig_long = 0
-sig_short = 0
-
+def initialize(config_file_name: str=config_file):
+    global prog_readevents, prog_pfind, proc_readevents, proc_pfind
+    global cwd, localcountrate, remote_count_rate
+    global low_count_side, first_epoch, time_diff, sig_long, sig_short
+    _load_config(config_file_name)
+    cwd = os.getcwd()
+    prog_readevents = qkd_globals.prog_readevents
+    prog_pfind = programroot + '/pfind'
+    proc_readevents = None
+    proc_pfind = None
+    localcountrate = -1
+    remote_count_rate = -1
+    low_count_side = None
+    first_epoch = ''
+    time_diff = 0
+    sig_long = 0
+    sig_short = 0
+    qkd_globals.kill_existing_qcrypto_processes()
 
 
 def msg_response(message):
     global low_count_side, first_epoch, time_diff, sig_long, sig_short
+    global error_correction
     method_name = sys._getframe().f_code.co_name
     msg_split = message.split(':')[:]
     msg_code = msg_split[0]
@@ -111,7 +117,8 @@ def msg_response(message):
         elif low_count_side is True:
             chopper.start_chopper()
             splicer.start_splicer(_splicer_callback_start_error_correction)
-            error_correction.start_error_correction()
+            if error_correction == True:
+                error_correction.start_error_correction()
             _start_readevents()
         elif low_count_side is False:
             chopper2.start_chopper2()
@@ -128,20 +135,23 @@ def msg_response(message):
             _start_readevents()
             chopper.start_chopper()
             splicer.start_splicer(_splicer_callback_start_error_correction)
-            error_correction.start_error_correction()
+            if error_correction == True:
+                error_correction.start_error_correction()
             transferd.send_message('st3')  # High count side starts pfind
         elif low_count_side is False:
             _start_readevents()
             chopper2.start_chopper2()
             time_diff, sig_long, sig_short = periode_find()
             costream.start_costream(time_diff, first_epoch)
-            error_correction.start_error_correction()
+            if error_correction == True:
+                error_correction.start_error_correction()
 
     if msg_code == 'st3':
         if low_count_side is False:
             time_diff, sig_long, sig_short = periode_find()
             costream.start_costream(time_diff, first_epoch)
-            error_correction.start_error_correction()
+            if error_correction == True:
+                error_correction.start_error_correction()
         else:
             logger.info(f'[{method_name}:st3] Not the high count side or symmetry \
                 negotiation not completed.')
@@ -166,7 +176,7 @@ def periode_find():
     in the combined timestamp files.
     '''
     method_name = sys._getframe().f_code.co_name
-    global periode_count, t1logcount, FFT_buffer_order
+    global periode_count, FFT_buffer_order
     global prog_pfind, first_epoch
 
     if transferd.commhandle is None:
@@ -380,8 +390,7 @@ class ProcessWatchDog(threading.Thread):
             self.prev_status = status
 
 
-def initialize():
-    qkd_globals.kill_existing_qcrypto_processes()
+
 
 def main():
     start_communication()
