@@ -119,12 +119,12 @@ def start_error_correction():
              -l {ec_note_pipe} \
              -Q {data_root}/ecquery -q {data_root}/ecresp \
              -V 2 {erropt} -T 1'
-    with open(f'{cwd}/{data_root}/errcd_log', 'a+') as f_stdout:
-        with open(f'{cwd}/{data_root}/errcd_err', 'a+') as f_err:
+    with open(f'{cwd}/{data_root}/errcd_err', 'a+') as f_err:
+        with open(f'{cwd}/{data_root}/errcd_log', 'a+') as f_stdout:
             proc_error_correction = subprocess.Popen((program_error_correction,
                                                       *args.split()),
                                                      stdout=f_stdout,
-                                                     stderr=f_err)
+                                                     stderr=subprocess.STDOUT)
     # start pipe digests
     ecnotepipe_thread = threading.Thread(target=_ecnotepipe_digest, args=(), daemon=True)
     ecnotepipe_thread.start()
@@ -158,6 +158,8 @@ def _ecnotepipe_digest():
 
                 # servoing QBER
                 servoed_QBER += (ec_err_fraction - servoed_QBER) / servo_blocks
+                if servoed_QBER < 0.005:
+                    servoed_QBER = 0.005
                 if servoed_QBER > 1 or servoed_QBER < 0:
                     servoed_QBER = default_QBER
                 elif servoed_QBER > QBER_limit:
