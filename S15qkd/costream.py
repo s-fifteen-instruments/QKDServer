@@ -95,13 +95,17 @@ def start_costream(time_difference: int, begin_epoch: str):
              -F {data_root}/sendfiles \
              -e 0x{begin_epoch} \
              {kill_option} \
-             -t {time_difference} -p {protocol} \
+             -t {time_difference} \
+             -p {protocol} \
              -T 2 \
              -m {data_root}/rawpacketindex \
              -M {data_root}/cmdpipe \
-             -n {data_root}/genlog -V 5 \
+             -n {data_root}/genlog \
+             -V 5 \
              -G 2 -w {remote_coincidence_window} \
-             -u {tracking_window} -Q {int(-track_filter_time_constant)} -R 5 \
+             -u {tracking_window} \
+             -Q {int(-track_filter_time_constant)} \
+             -R 5 \
              {costream_histo_option} \
              -h {costream_histo_number}'
 
@@ -116,19 +120,18 @@ def _genlog_digest():
     '''
     Digest the genlog pipe written by costream.
     '''
-    global process_costream
     method_name = sys._getframe().f_code.co_name
     pipe_name = f'{data_root}/genlog'
     fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
     logger.info(f'[{method_name}] Thread started.')
-    while proc_costream.poll() is None and proc_costream is not None:
+    while is_running():
         time.sleep(0.1)
         try:
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
             if len(message) != 0:
                 logger.info(f'[{method_name}] {message}')
-        except OSError as a:
+        except OSError:
             pass
     logger.info(f'[{method_name}] Thread finished.')
 

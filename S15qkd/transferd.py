@@ -108,9 +108,9 @@ def start_communication(msg_out_callback=_local_callback):
             -k -e {cwd}/{data_root}/ecspipe -E {cwd}/{data_root}/ecrpipe'
 
 
-        commhandle = subprocess.Popen((prog_transferd, *args.split()),
-                                      stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE)
+        commhandle = subprocess.Popen(
+            (prog_transferd, *args.split()),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # setup read thread for the process stdout
         q = Queue()  # I don't know why I need this but it works
@@ -180,7 +180,7 @@ def _transferlog_digest():
     Digests the transferlog which is written by the transferd process.
 
     This function usually runs as a thread and
-    watches the transferlog file.
+    watches the transferlog file. If this is the low count side this function notifies the splicer about file arrival.
     '''
     global first_received_epoch, low_count_side, last_received_epoch
     method_name = sys._getframe().f_code.co_name

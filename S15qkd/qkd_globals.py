@@ -142,13 +142,16 @@ def kill_existing_qcrypto_processes():
         kill_process_by_name(name)
 
 def kill_process(my_process):
-    if my_process is not None:
-        method_name = sys._getframe().f_code.co_name
-        logger.info(f'[{method_name}] Killing process: {my_process.pid}.')
-        process = psutil.Process(my_process.pid)
-        for proc in process.children(recursive=True):
-            proc.kill()
-        process.kill()
+    try:
+        if my_process is not None:
+            method_name = sys._getframe().f_code.co_name
+            logger.info(f'[{method_name}] Killing process: {my_process.pid}.')
+            process = psutil.Process(my_process.pid)
+            for proc in process.children(recursive=True):
+                proc.kill()
+            process.kill()
+    except Exception as a:
+        logger.warning(f'[{method_name}] {a}.')
 
 
 fifo_list = ('/msgin', '/msgout', '/rawevents',

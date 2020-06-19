@@ -140,6 +140,10 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 .DS_Store
-bin
-tmp/rawevent
+bin/
+tmp/
+Settings_WebClient/bin
+Settings_WebClient/tmp
 S15qkd/g2lib/delta.c
+Settings_WebClient/logs
+.directory
