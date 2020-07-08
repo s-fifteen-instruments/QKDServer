@@ -13,6 +13,7 @@ import glob
 
 from serial import SerialException
 
+
 def search_for_serial_devices(device):
     '''Searches for serial devices defined in the input paremater device.
     If the device identification string containes the string given in the input paramter 'device', the device path is 
@@ -40,7 +41,6 @@ def search_for_serial_devices(device):
         except (OSError, serial.SerialException):
             pass
     return result
-
 
 
 class SerialConnection(serial.Serial):
@@ -124,14 +124,15 @@ class SerialConnection(serial.Serial):
                 raise serial.SerialTimeoutException('Command timeout')
         return self.readline().decode().strip()
 
-
-    def _stream_response_into_buffer(self, cmd, acq_time):
-        # this function bypass the termination character (since there is none for timestamp mode), streams data from device for the integration time.
+    def _stream_response_into_buffer(self, cmd: str, acq_time: float):
+        # this function bypass the termination character (since there is none for timestamp mode), 
+        # streams data from device for the integration time.
         self._reset_buffers()
         self.write((cmd + '\r\n').encode())
         memory = b''
         time0 = time.time()
-        while ((time.time() - time0) <= acq_time):  # Stream data for duration of integration time plus some delay set in usbcount_class.
+        # Stream data for duration of integration time plus some delay set in usbcount_class.
+        while ((time.time() - time0) <= acq_time):
             Buffer_length = self.in_waiting
             memory = memory + self.read(Buffer_length)
         Rlength = len(memory)

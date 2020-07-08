@@ -22,7 +22,7 @@ from ..g2lib import g2lib
 from os.path import exists, expanduser
 from tempfile import NamedTemporaryFile
 
-from . import serialconnection
+from . import serial_connection
 
 READEVENTS_PROG = expanduser("~")+"/programs/usbcntfpga/apps/readevents4a"
 
@@ -44,11 +44,11 @@ class TimeStampTDC1(object):
         initialize the first counter found in the system
         """
         if device_path is None:
-            device_path = (serialconnection.search_for_serial_devices(
+            device_path = (serial_connection.search_for_serial_devices(
                 self.DEVICE_IDENTIFIER))[0]
             print('Connected to', device_path)
         self._device_path = device_path
-        self._com = serialconnection.SerialConnection(device_path)
+        self._com = serial_connection.SerialConnection(device_path)
         # timestamp readevents program path
         self._prog = READEVENTS_PROG
         if not exists(self._prog):

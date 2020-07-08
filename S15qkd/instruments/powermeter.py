@@ -4,7 +4,7 @@ by Mathias Seidler
 """
 
 import glob
-from . import serialconnection
+from . import serial_connection
 import time
 import numpy as np
 
@@ -43,7 +43,7 @@ class PowerMeter(object):
         # if no path is indicated it tries to init the first power_meter device
         self._resistors = resistors
         if device_path == '':
-            device_path = (serialconnection.search_for_serial_devices(
+            device_path = (serial_connection.search_for_serial_devices(
                 DEVICE_IDENTIFIER))[0]
             print('Connected to',  device_path)
         self._com = serialconnection.SerialConnection(device_path)
@@ -62,7 +62,7 @@ class PowerMeter(object):
         Returns:
             number -- Voltage in V
         """
-        assert type(self._com) is serialconnection.SerialConnection
+        assert type(self._com) is serial_connection.SerialConnection
         return float(self._com._getresponse_1l('VOLT?'))
 
     def get_power(self, wave_length):

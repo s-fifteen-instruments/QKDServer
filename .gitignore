@@ -147,3 +147,4 @@ Settings_WebClient/tmp
 S15qkd/g2lib/delta.c
 Settings_WebClient/logs
 .directory
+*.dat
