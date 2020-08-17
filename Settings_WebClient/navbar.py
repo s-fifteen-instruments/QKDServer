@@ -13,8 +13,10 @@ def Navbar():
           dbc.Col(dbc.NavLink(
               "Status", className="ml-2", href="/apps/QKD_status", active=True)),
           dbc.Col(dbc.NavLink(
-              "Settings", className="ml-2", href="/apps/QKD_settings", active=True)),
-      ],
+              "QKD settings", className="ml-2", href="/apps/QKD_settings", active=True)),
+          # dbc.Col(dbc.NavLink(
+          #     "Detectors", className="ml-2", href="/apps/detector_settings", active=True)),
+          ],
           align="center",
           no_gutters=True,
       ),

@@ -17,7 +17,7 @@
   "max_event_time_pause": 20000,
   "autorestart_costream": true,
   "costream_general_log": true,
-  "clock_source": "",
+  "clock_source": "-e",
   "protocol": 1,
   "max_event_diff": 20000,
   "kill_option": "-k -K",

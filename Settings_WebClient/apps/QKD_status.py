@@ -1,13 +1,15 @@
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import dash_core_components as dcc
+import plotly.graph_objects as go
+import numpy as np
 # import dash_html_components as html
 from dash.dependencies import Input, Output, State
-
 from app import app
 
 import S15qkd.controller as qkd_ctrl
 
+### QBER plot
 
 qber_display = html.Div(children=['Current quantum bit error: ', html.Nobr(children='---', id='qber')])
 ber_display = html.Div(children=['Bit error: ', html.Nobr(children='---', id='ber')])
@@ -193,6 +195,8 @@ proc_status_interval = dcc.Interval(
             id='proc_status_interval',
             interval=1000, # in milliseconds
             n_intervals=0)
+graph_qber = dcc.Graph(id='live-update-graph-qber')
+graph_final_bits = dcc.Graph(id='live-update-graph-bitrate')
 
 def serve_layout():
     layout = dbc.Container(
@@ -205,15 +209,17 @@ def serve_layout():
          # qber_display,
          # ber_display,
          dbc.Row([dbc.Col(processes)]),
+         dbc.Row([dbc.Col(graph_qber),
+                  dbc.Col(graph_final_bits)]),
          html.Br(),
          dbc.Row([dbc.Col(status_labels), dbc.Col(error_corr_labels)]),
          html.Br(),
-         transferd_log,
-         chopper2_log,
-         chopper_log,
-         splicer_log,
-         costream_log,
-         error_correction_log,
+         # transferd_log,
+         # chopper2_log,
+         # chopper_log,
+         # splicer_log,
+         # costream_log,
+         # error_correction_log,
          proc_status_interval])
     return layout
 
@@ -291,14 +297,110 @@ def load_error_correction_info(n):
     return [ec_info_dct[info] for info in ec_info_list]
 
 
+@app.callback(Output('live-update-graph-qber', 'figure'),
+              [Input("proc_status_interval", "n_intervals")])
+def update_graph_qber(n):
+    x = np.arange(11)
+    fig = go.Figure(data=go.Scatter(x=x, y=x**2))
+    fig.update_layout(title='QBER history',
+                   xaxis_title='Last 10 key generation runs',
+                   yaxis_title='Quantum bit error (%)',
+                   xaxis=dict(
+                            showline=True,
+                            showgrid=False,
+                            showticklabels=True,
+                            linecolor='rgb(204, 204, 204)',
+                            linewidth=2,
+                            ticks='inside',
+                            range=[0, 10],
+                            tickfont=dict(
+                                family='Arial',
+                                size=16,
+                                color='rgb(82, 82, 82)',
+                                ),
+                            ),
+                   yaxis=dict(
+                            showline=True,
+                            showgrid=False,
+                            zeroline=False,
+                            showticklabels=True,
+                            linecolor='rgb(204, 204, 204)',
+                            linewidth=2,
+                            range=[0, 100],
+                            ticks='inside',
+                            tickfont=dict(
+                                family='Arial',
+                                size=16,
+                                color='rgb(82, 82, 82)'),
+                            ),
+                   plot_bgcolor='white',
+                   shapes=[
+                            dict(
+                              type= 'line',
+                              yref= 'paper', y0=0.12, y1=0.12,
+                              xref= 'x', x0= 0, x1= 100
+                            )
+                        ]
+                   )
+
+    return fig
+
+@app.callback(Output('live-update-graph-bitrate', 'figure'),
+              [Input("proc_status_interval", "n_intervals")])
+def update_graph_qber(n):
+    x = np.arange(11)
+    fig = go.Figure(data=go.Scatter(x=x, y=x**2))
+    fig.update_layout(title='Key length generation history',
+                   xaxis_title='Last 10 key generation runs',
+                   yaxis_title='Key length (bits)',
+                   xaxis=dict(
+                            showline=True,
+                            showgrid=False,
+                            showticklabels=True,
+                            linecolor='rgb(204, 204, 204)',
+                            linewidth=2,
+                            ticks='inside',
+                            range=[0, 10],
+                            tickfont=dict(
+                                family='Arial',
+                                size=16,
+                                color='rgb(82, 82, 82)',
+                                ),
+                            ),
+                   yaxis=dict(
+                            showline=True,
+                            showgrid=False,
+                            zeroline=False,
+                            showticklabels=True,
+                            linecolor='rgb(204, 204, 204)',
+                            linewidth=2,
+                            range=[0, 100],
+                            ticks='inside',
+                            tickfont=dict(
+                                family='Arial',
+                                size=16,
+                                color='rgb(82, 82, 82)'),
+                            ),
+                   plot_bgcolor='white',
+                   shapes=[
+                            dict(
+                              type= 'line',
+                              yref= 'paper', y0=0.12, y1=0.12,
+                              xref= 'x', x0= 0, x1= 100
+                            )
+                        ]
+                   )
+
+    return fig
+
+
 @app.callback(Output('dump', 'children'),
-    [Input("start_raw_key_gen", "n_clicks")]
-)
+    [Input("start_raw_key_gen", "n_clicks")])
 def on_button_click(n):
     if n is not None:
         print('starting key gen')
         qkd_ctrl.start_raw_key_generation()
-        return ''
+    return ''
     
 
 @app.callback(Output('start_raw_key_gen', 'children'),
