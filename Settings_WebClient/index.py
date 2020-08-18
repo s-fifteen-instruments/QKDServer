@@ -29,4 +29,4 @@ def display_page(pathname):
        return QKD_status.serve_layout()
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port='8080', host='127.0.0.1', use_reloader=True)
+    app.run_server(debug=True, port='8080', host='0.0.0.0', use_reloader=True)
