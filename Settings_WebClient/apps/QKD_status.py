@@ -195,6 +195,7 @@ proc_status_interval = dcc.Interval(
             id='proc_status_interval',
             interval=1000, # in milliseconds
             n_intervals=0)
+
 graph_qber = dcc.Graph(id='live-update-graph-qber')
 graph_final_bits = dcc.Graph(id='live-update-graph-bitrate')
 
@@ -203,12 +204,16 @@ def serve_layout():
         [hidden_field,
          html.Br(),
          dump_output_field,
-         dbc.Col([dbc.Row(start_key_gen_button), html.P(),
-                  dbc.Row(kill_all_processes_button)]),
-         html.Br(),
+         # dbc.Col([dbc.Row(start_key_gen_button), html.P(),
+         #          dbc.Row(kill_all_processes_button)]),
+         # html.Br(),
          # qber_display,
          # ber_display,
-         dbc.Row([dbc.Col(processes)]),
+         dbc.Row([
+            dbc.Col([dbc.Row(start_key_gen_button), html.P(),
+                     dbc.Row(kill_all_processes_button)], width=2),
+            dbc.Col(processes)
+         ]),
          dbc.Row([dbc.Col(graph_qber),
                   dbc.Col(graph_final_bits)]),
          html.Br(),
@@ -300,8 +305,8 @@ def load_error_correction_info(n):
 @app.callback(Output('live-update-graph-qber', 'figure'),
               [Input("proc_status_interval", "n_intervals")])
 def update_graph_qber(n):
-    x = np.arange(11)
-    fig = go.Figure(data=go.Scatter(x=x, y=x**2))
+    x = np.arange(100)
+    fig = go.Figure(data=go.Scatter(x=x, y=np.random.rand(100)*100/4, mode='lines+markers'))
     fig.update_layout(title='QBER history',
                    xaxis_title='Last 10 key generation runs',
                    yaxis_title='Quantum bit error (%)',
@@ -312,7 +317,7 @@ def update_graph_qber(n):
                             linecolor='rgb(204, 204, 204)',
                             linewidth=2,
                             ticks='inside',
-                            range=[0, 10],
+                            range=[0, 100],
                             tickfont=dict(
                                 family='Arial',
                                 size=16,
@@ -324,9 +329,9 @@ def update_graph_qber(n):
                             showgrid=False,
                             zeroline=False,
                             showticklabels=True,
-                            linecolor='rgb(204, 204, 204)',
+                            linecolor='rgb(230, 230, 230)',
                             linewidth=2,
-                            range=[0, 100],
+                            range=[0, 100.4],
                             ticks='inside',
                             tickfont=dict(
                                 family='Arial',
@@ -347,9 +352,10 @@ def update_graph_qber(n):
 
 @app.callback(Output('live-update-graph-bitrate', 'figure'),
               [Input("proc_status_interval", "n_intervals")])
-def update_graph_qber(n):
-    x = np.arange(11)
-    fig = go.Figure(data=go.Scatter(x=x, y=x**2))
+def update_graph_bitrate(n):
+    x = np.arange(0, 100, 1)
+    y = np.random.randint(300, 500, 100)
+    fig = go.Figure(data=go.Scatter(x=x, y=y, mode='lines+markers'))
     fig.update_layout(title='Key length generation history',
                    xaxis_title='Last 10 key generation runs',
                    yaxis_title='Key length (bits)',
@@ -370,27 +376,18 @@ def update_graph_qber(n):
                    yaxis=dict(
                             showline=True,
                             showgrid=False,
-                            zeroline=False,
                             showticklabels=True,
                             linecolor='rgb(204, 204, 204)',
                             linewidth=2,
-                            range=[0, 100],
+                            range=[0, np.ceil(np.max(y)/100)*100 + 5 ],
                             ticks='inside',
                             tickfont=dict(
                                 family='Arial',
                                 size=16,
                                 color='rgb(82, 82, 82)'),
                             ),
-                   plot_bgcolor='white',
-                   shapes=[
-                            dict(
-                              type= 'line',
-                              yref= 'paper', y0=0.12, y1=0.12,
-                              xref= 'x', x0= 0, x1= 100
-                            )
-                        ]
+                   plot_bgcolor='white'
                    )
-
     return fig
 
 
