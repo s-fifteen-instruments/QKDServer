@@ -88,6 +88,10 @@ def create_callbacks():
 
 
 dev_list = glob.glob('/dev/tty.*APD*')
+if not dev_list:
+    dev_list = glob.glob('/dev/serial/by-id/*APD*')
+if not dev_list:
+    dev_list = glob.glob('/dev/serial/by_id/*SPD*')
 det_dict = {det.identity(): det for det in [SinglePhotonDetector(dev) for dev in dev_list]}
 create_callbacks()  
 
