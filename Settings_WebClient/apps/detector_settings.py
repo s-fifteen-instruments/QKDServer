@@ -11,7 +11,7 @@ import glob
 
 
 
-########
+######## Layout for one detector
 def create_det_layout(detector):
     det_id = detector.identity()
     return dbc.Card([dbc.CardHeader(html.H4(det_id)),
@@ -44,63 +44,32 @@ def create_det_layout(detector):
 
                      ])])
 
-
-
-
-
-def serve_layout():
-    global dev_list, det_dict
-    dev_list = glob.glob('/dev/tty.*APD*')
-    det_dict = {det.identity(): det for det in [SinglePhotonDetector(dev) for dev in dev_list]}
-    det_layouts = []
-    for detector in det_dict:
-        det_layouts.append(create_det_layout(det_dict[detector]))
-
-    # used for loading data at the page load
-    hidden_field_det = html.Div('.', id='hidden-div-det', style={'display': 'none'})
-    layout = dbc.Container([
-        *[i for i in det_layouts],
-        hidden_field_det,
-        # dump_output_field
-    ])
-    if det_dict:
-        create_callbacks()
-    return layout
-
-
-
 def create_callbacks():
     global display_value
     try:
         display_value
     except:
-        @app.callback(
-            Output('hidden-div-det', 'children'),
-            [*[Input(f'{det_id}_hvolt', 'value') for det_id in det_dict],
-             *[Input(f'{det_id}_threshvolt', 'value') for det_id in det_dict]])
-        def display_value(*values):
-            ctx = dash.callback_context
-            trigger_id = ctx.triggered[0]['prop_id']
-            trigger_id = trigger_id.rstrip('on').rstrip('value').rstrip('.')
-            trigger_value = dash.callback_context.triggered[0]['value']
-            if trigger_id  != '' and '_hvolt' in trigger_id:
-                det_dict[trigger_id.strip('_hvolt')].hvolt = trigger_value
-                # print(det_dict[trigger_id.strip('_hvolt')].hvolt)
-            if trigger_id  != '' and '_threshvolt' in trigger_id:
-                det_dict[trigger_id.strip('_threshvolt')].threshvolt = trigger_value
-                # print(det_dict[trigger_id.strip('_threshvolt')].threshvolt)
-                # print(type(trigger_value))
-            return f'{trigger_id}, {trigger_value}'
+        if det_dict:
+            @app.callback(
+                Output('hidden-div-det', 'children'),
+                [*[Input(f'{det_id}_hvolt', 'value') for det_id in det_dict],
+                 *[Input(f'{det_id}_threshvolt', 'value') for det_id in det_dict]])
+            def display_value(*values):
+                ctx = dash.callback_context
+                trigger_id = ctx.triggered[0]['prop_id']
+                trigger_id = trigger_id.rstrip('on').rstrip('value').rstrip('.')
+                trigger_value = dash.callback_context.triggered[0]['value']
+                if trigger_id  != '' and '_hvolt' in trigger_id:
+                    det_dict[trigger_id.strip('_hvolt')].hvolt = trigger_value
+                if trigger_id  != '' and '_threshvolt' in trigger_id:
+                    det_dict[trigger_id.strip('_threshvolt')].threshvolt = trigger_value
+                return f'{trigger_id}, {trigger_value}'
 
 
     for det_id in det_dict:
         if not det_id+"button_pressed" in globals():
             func_name = det_id+"button_pressed"
             globals()[det_id+"button_pressed"] = func_name
-            
-            @app.callback(
-                Output(f'{det_id}_counts_label', 'children'),
-                [Input(f'{det_id}_counts_button', 'n_clicks')])
             def func_name(n):
                 ctx = dash.callback_context
                 trigger_id = ctx.triggered[0]['prop_id']
@@ -115,9 +84,27 @@ def create_callbacks():
                     detector.time = 1000
                     counts = detector.counts()
                     return str(counts) + ' counts per second'
+            app.callback(Output(f'{det_id}_counts_label', 'children'), [Input(f'{det_id}_counts_button', 'n_clicks')])(func_name)
 
-# @app.callback([*[Output(f'{det.identity}_hvolt', 'children') for det in photon_detectors],
-#                *[Output(f'{det.identity}_threshvolt', 'children') for det in photon_detectors]],
-#               [Input("dump", "children")])
-# def load_det_info(n):
-#     return [det.hvolt for det in photon_detectors]
+
+dev_list = glob.glob('/dev/tty.*APD*')
+det_dict = {det.identity(): det for det in [SinglePhotonDetector(dev) for dev in dev_list]}
+create_callbacks()  
+
+def serve_layout():
+    global dev_list, det_dict
+    dev_list = glob.glob('/dev/tty.*APD*')
+    det_dict = {det.identity(): det for det in [SinglePhotonDetector(dev) for dev in dev_list]}
+    det_layouts = []
+    for detector in det_dict:
+        det_layouts.append(create_det_layout(det_dict[detector]))
+
+    # used for loading data at the page load
+    hidden_field_det = html.Div('.', id='hidden-div-det', style={'display': 'none'})
+    layout = dbc.Container([
+        *[i for i in det_layouts],
+        hidden_field_det,
+    ])
+    if det_dict:
+        create_callbacks()
+    return layout
