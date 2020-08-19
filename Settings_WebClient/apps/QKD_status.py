@@ -9,11 +9,11 @@ from app import app
 
 import S15qkd.controller as qkd_ctrl
 
-### QBER plot
 
+
+### QBER plot
 qber_display = html.Div(children=['Current quantum bit error: ', html.Nobr(children='---', id='qber')])
 ber_display = html.Div(children=['Bit error: ', html.Nobr(children='---', id='ber')])
-
 proc_style = {'padding-right':'20px'}
 
 # process status indicators
@@ -128,7 +128,7 @@ processes_row2 = dbc.Row([dbc.Col(costream_status, width=col_width),
     # dbc.Coltransferd_status, splicer_status, readevents_status,
                                     # chopper_status, html.P(),chopper2_status, costream_status,
                                     # error_correction_status, 
-processes = dbc.Card([dbc.CardHeader(html.H4("Processes")),
+processes = dbc.Card([dbc.CardHeader(html.H4(f"Processes - {qkd_ctrl.identity}")),
                       dbc.CardBody([processes_row1, processes_row2])])
 
 
@@ -184,12 +184,14 @@ error_corr_labels = dbc.Card([
 
 hidden_field = html.Div('.', id='hidden-div-status', style={'display': 'none'}) # used for loading data at the page load
 dump_output_field = html.Div('.', id='dump', style={'display': 'none'}) # used for loading data at the page load
+dump_output_field2 = html.Div('.', id='dump2', style={'display': 'none'}) # used for loading data at the page load
 
 # Buttons
 start_key_gen_button = dbc.Button(children='Start key generation',
                                   color="success", id='start_raw_key_gen')
 kill_all_processes_button = dbc.Button(children='Stop all processes',
                                   color="danger", id='kill_all_processes')
+
 
 proc_status_interval = dcc.Interval(
             id='proc_status_interval',
@@ -204,11 +206,7 @@ def serve_layout():
         [hidden_field,
          html.Br(),
          dump_output_field,
-         # dbc.Col([dbc.Row(start_key_gen_button), html.P(),
-         #          dbc.Row(kill_all_processes_button)]),
-         # html.Br(),
-         # qber_display,
-         # ber_display,
+         dump_output_field2,
          dbc.Row([
             dbc.Col([dbc.Row(start_key_gen_button), html.P(),
                      dbc.Row(kill_all_processes_button)], width=2),
@@ -219,12 +217,6 @@ def serve_layout():
          html.Br(),
          dbc.Row([dbc.Col(status_labels), dbc.Col(error_corr_labels)]),
          html.Br(),
-         # transferd_log,
-         # chopper2_log,
-         # chopper_log,
-         # splicer_log,
-         # costream_log,
-         # error_correction_log,
          proc_status_interval])
     return layout
 
@@ -294,9 +286,9 @@ def load_state_info(n):
 ec_info_list = ['first_epoch', 'undigested_epochs',
                 'ec_raw_bits', 'ec_final_bits', 'ec_err_fraction',
                 'key_file_name', 'total_ec_key_bits', 'init_QBER']
-@app.callback([*[Output(info, 'children') for info in ec_info_list]],
-             [Input("proc_status_interval", "n_intervals")]
-)
+@app.callback(
+        [*[Output(info, 'children') for info in ec_info_list]],
+        [Input("proc_status_interval", "n_intervals")])
 def load_error_correction_info(n):
     ec_info_dct = qkd_ctrl.get_error_corr_info()
     return [ec_info_dct[info] for info in ec_info_list]
@@ -305,8 +297,9 @@ def load_error_correction_info(n):
 @app.callback(Output('live-update-graph-qber', 'figure'),
               [Input("proc_status_interval", "n_intervals")])
 def update_graph_qber(n):
-    x = np.arange(100)
-    fig = go.Figure(data=go.Scatter(x=x, y=np.random.rand(100)*100/4, mode='lines+markers'))
+    x = list(qkd_ctrl.error_correction.ec_err_fraction_history)
+    y = np.arange(0, len(x), 1)
+    fig = go.Figure(data=go.Scatter(x=x, y=y, mode='lines+markers'))
     fig.update_layout(title='QBER history',
                    xaxis_title='Last 10 key generation runs',
                    yaxis_title='Quantum bit error (%)',
@@ -317,7 +310,7 @@ def update_graph_qber(n):
                             linecolor='rgb(204, 204, 204)',
                             linewidth=2,
                             ticks='inside',
-                            range=[0, 100],
+                            range=[0, len(x)-1],
                             tickfont=dict(
                                 family='Arial',
                                 size=16,
@@ -347,13 +340,13 @@ def update_graph_qber(n):
                             )
                         ]
                    )
-
     return fig
 
 @app.callback(Output('live-update-graph-bitrate', 'figure'),
               [Input("proc_status_interval", "n_intervals")])
 def update_graph_bitrate(n):
-    x = np.arange(0, 100, 1)
+    y = list(qkd_ctrl.error_correction.ec_err_key_length_history)
+    x = np.arange(0, len(y), 1)
     y = np.random.randint(300, 500, 100)
     fig = go.Figure(data=go.Scatter(x=x, y=y, mode='lines+markers'))
     fig.update_layout(title='Key length generation history',
@@ -366,7 +359,7 @@ def update_graph_bitrate(n):
                             linecolor='rgb(204, 204, 204)',
                             linewidth=2,
                             ticks='inside',
-                            range=[0, 10],
+                            range=[0, len(y)-1],
                             tickfont=dict(
                                 family='Arial',
                                 size=16,
@@ -396,9 +389,16 @@ def update_graph_bitrate(n):
 def on_button_click(n):
     if n is not None:
         print('starting key gen')
-        qkd_ctrl.start_raw_key_generation()
+        qkd_ctrl.start_key_generation()
     return ''
-    
+
+@app.callback(Output('dump2', 'children'),
+    [Input("transferd_status", "n_clicks")])
+def on_button_click(n):
+    if n is not None:
+        print('starting transferd')
+        qkd_ctrl.start_communication()
+    return ''
 
 @app.callback(Output('start_raw_key_gen', 'children'),
     [Input("kill_all_processes", "n_clicks")]

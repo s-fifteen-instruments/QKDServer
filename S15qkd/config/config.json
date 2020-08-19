@@ -7,7 +7,7 @@
   "remote_coincidence_window": 16,
   "tracking_window": 30,
   "track_filter_time_constant": 2000000,
-  "FFT_buffer_order": 19,
+  "FFT_buffer_order": 23,
   "local_detector_skew_correction": {
     "det1corr": 0,
     "det2corr": 0,
@@ -30,7 +30,7 @@
   "errcd_killfile_option": true,
   "QBER_limit": 0.12,
   "default_QBER": 0.05,
-  "minimal_block_size": 20000,
+  "minimal_block_size": 5000,
   "target_bit_error": 1e-09,
   "servo_blocks": 5
 }

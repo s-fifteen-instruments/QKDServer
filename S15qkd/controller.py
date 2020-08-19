@@ -66,7 +66,7 @@ def _load_config(config_file_name: str):
         config = json.load(f)
     global det1corr, det2corr, det3corr, det4corr
     global dataroot, programroot, extclockopt, periode_count, FFT_buffer_order
-    global with_error_correction, protocol
+    global with_error_correction, protocol, identity
     det1corr =  config['local_detector_skew_correction']['det1corr']
     det2corr = config['local_detector_skew_correction']['det2corr']
     det3corr = config['local_detector_skew_correction']['det3corr']
@@ -78,6 +78,7 @@ def _load_config(config_file_name: str):
     periode_count = config['pfind_epochs']
     FFT_buffer_order = config['FFT_buffer_order']
     with_error_correction = config['error_correction']
+    identity = config['identity']
 
 
 def initialize(config_file_name: str=config_file):
@@ -161,7 +162,7 @@ def msg_response(message):
 
 def _splicer_callback_start_error_correction(epoch_name: str):
     '''
-    This function is used as a call back for the splicer process.
+    This function is used as a callback for the splicer process.
     Whenever the splicer generates a raw key, we notify the error correction process to
     convert the keys to error-corrected privacy-amplified keys.
     '''
@@ -254,6 +255,7 @@ def start_key_generation():
                     return
         transferd.send_message('st1')
 
+
 def _reset_key_gen_processes():
     global proc_readevents
     chopper.stop_chopper(); chopper.initialize()
@@ -263,9 +265,9 @@ def _reset_key_gen_processes():
     error_correction.stop_error_correction(); error_correction.initialize()
     qkd_globals.kill_process(proc_readevents)
 
+
 def start_communication():
     '''Establishes network connection between computers.
-
     '''
     if not transferd.is_running():
         stop_all_processes()
@@ -342,9 +344,7 @@ class ProcessWatchDog(threading.Thread):
     '''Monitors all processes neccessary to generate QKD keys.
 
     Basic logging of events and restart processes in case they crash.
-    
-    Arguments:
-        log_file_name {str}
+
     '''
     def __init__(self, log_file_name: str = 'process_watchdog.log'): 
         super(ProcessWatchDog, self).__init__()
@@ -409,4 +409,3 @@ watchdog.start()
 
 if __name__ == '__main__':
     main()
-

@@ -6,7 +6,7 @@ try:
     from .delta import delta_loop
     cflag = True
 except ImportError:
-    print('delta.so module not found, using native option')
+    # print('delta.so module not found, using native option')
 
     def delta_loop(t1, t2, bins: int = 500, bin_width: float = 2):
         """

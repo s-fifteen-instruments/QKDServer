@@ -46,9 +46,12 @@ import sys
 import psutil
 import time
 import queue
+import collections
 
 from . import qkd_globals
 from .qkd_globals import logger
+
+
 
 
 def _load_error_correction_config(config_file_name: str):
@@ -83,7 +86,7 @@ def initialize(config_file_name: str=qkd_globals.config_file):
     global ec_queue, total_ec_key_bits, cwd
     global undigested_epochs_info, init_QBER_info, ec_raw_bits
     global ec_epoch, ec_final_bits, ec_err_fraction, first_epoch_info
-    global proc_error_correction
+    global proc_error_correction, ec_err_fraction_history, ec_err_key_length_history
     ec_queue = queue.Queue()  # used to queue raw key files
     total_ec_key_bits = 0  # counts the final error-corrected key bits
     cwd = os.getcwd()
@@ -95,6 +98,8 @@ def initialize(config_file_name: str=qkd_globals.config_file):
     ec_err_fraction = 0
     ec_epoch = ''
     proc_error_correction = None  # error correction process handle
+    ec_err_fraction_history = collections.deque(maxlen=100)
+    ec_err_key_length_history = collections.deque(maxlen=100)
 
 
 def start_error_correction():
@@ -140,6 +145,7 @@ def _ecnotepipe_digest():
     '''
     global proc_error_correction, total_ec_key_bits, servoed_QBER, ec_note_pipe
     global ec_epoch, ec_raw_bits, ec_final_bits, ec_err_fraction
+    global ec_err_fraction_history, ec_err_key_length_history
     method_name = sys._getframe().f_code.co_name
     fd = os.open(ec_note_pipe, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
@@ -155,6 +161,8 @@ def _ecnotepipe_digest():
                 ec_final_bits = int(message[2])
                 ec_err_fraction = float(message[3])
                 total_ec_key_bits += ec_final_bits
+                ec_err_fraction_history.append(ec_err_fraction)
+                ec_err_key_length_history.append(ec_final_bits)
 
                 # servoing QBER
                 servoed_QBER += (ec_err_fraction - servoed_QBER) / servo_blocks
