@@ -79,10 +79,19 @@ def _load_costream_config(config_file_name: str):
 
 def initialize(config_file_name: str = qkd_globals.config_file):
     global program_costream, proc_costream, cwd
+    global latest_coincidences, latest_accidentals, latest_deltat, latest_sentevents
+    global latest_compress, latest_rawevents, latest_outepoch
     _load_costream_config(config_file_name)
     program_costream = program_root + '/costream'
     proc_costream = None
     cwd = os.getcwd()
+    latest_coincidences = costream_info[6]
+    latest_accidentals = costream_info[5]
+    latest_deltat = costream_info[4]
+    latest_compress = costream_info[3]
+    latest_sentevents = costream_info[2]
+    latest_rawevents = costream_info[1]
+    latest_outepoch = costream_info[0]
 
 
 def start_costream(time_difference: int, begin_epoch: str):
@@ -118,8 +127,10 @@ def start_costream(time_difference: int, begin_epoch: str):
 
 def _genlog_digest():
     '''
-    Digest the genlog pipe written by costream.
+    Digests the genlog pipe written by costream.
     '''
+    global latest_coincidences, latest_accidentals, latest_deltat, latest_sentevents
+    global latest_compress, latest_rawevents, latest_outepoch
     method_name = sys._getframe().f_code.co_name
     pipe_name = f'{data_root}/genlog'
     fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
@@ -131,6 +142,14 @@ def _genlog_digest():
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
             if len(message) != 0:
                 logger.info(f'[{method_name}] {message}')
+                costream_info = message.split()
+                latest_coincidences = costream_info[6]
+                latest_accidentals = costream_info[5]
+                latest_deltat = costream_info[4]
+                latest_compress = costream_info[3]
+                latest_sentevents = costream_info[2]
+                latest_rawevents = costream_info[1]
+                latest_outepoch = costream_info[0]
         except OSError:
             pass
     logger.info(f'[{method_name}] Thread finished.')

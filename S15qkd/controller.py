@@ -156,6 +156,7 @@ def msg_response(message):
         else:
             logger.info(f'[{method_name}:st3] Not the high count side or symmetry \
                 negotiation not completed.')
+
     if msg_code == 'stop_key_gen':
         _reset_key_gen_processes()
 
@@ -272,6 +273,7 @@ def start_communication():
     if not transferd.is_running():
         stop_all_processes()
         qkd_globals.prepare_folders()
+        transferd.initialize()
         transferd.start_communication(msg_response)
 
 
@@ -293,8 +295,11 @@ def get_status_info():
              'init_time_diff': time_diff,
              'sig_long': sig_long,
              'sig_short': sig_short,
-             'tracked_time_diff': 'where is this info?',
-             'symmetry':transferd.low_count_side}
+             'tracked_time_diff': costream.latest_deltat,
+             'symmetry': transferd.low_count_side
+             'coincidences': costream.latest_coincidences,
+             'accidentals': costream.latest_accidentals,
+            }
     return stats
 
 
@@ -312,13 +317,11 @@ def get_error_corr_info():
 
 def stop_all_processes():
     global proc_readevents
-    transferd.stop_communication()
-    chopper.stop_chopper()
-    chopper2.stop_chopper2()
-    splicer.stop_splicer()
-    costream.stop_costream()
-    error_correction.stop_error_correction()
-    qkd_globals.kill_process(proc_readevents)
+    if transferd.is_running():
+        transferd.send_message('stop_key_gen')
+        transferd.stop_communication();
+        transferd.initialize()
+    _reset_key_gen_processes()
 
 
 def _start_readevents():

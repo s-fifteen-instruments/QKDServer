@@ -257,6 +257,7 @@ def stop_communication():
     global commhandle
     if is_running():
         qkd_globals.kill_process(commhandle)
+        communication_status = 0
         commhandle = None
 
 

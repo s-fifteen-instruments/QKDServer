@@ -141,6 +141,8 @@ received_epoch_status = html.Div(children=['Last received epoch: ', html.Nobr(ch
 init_time_diff_status = html.Div(children=['Initial time difference: ', html.Nobr(children='---', id='init_time_diff')])
 long_match_status = html.Div(children=['pfind long match (in sig): ', html.Nobr(children='---', id='sig_long')])
 short_match_status = html.Div(children=['pfind short match (in sig): ', html.Nobr(children='---', id='sig_short')])
+coincidences = html.Div(children=['coincidences per epoch: ', html.Nobr(children='---', id='coincidences')])
+accidentals = html.Div(children=['accidentals per epoch: ', html.Nobr(children='---', id='accidentals')])
 
 
 status_labels = dbc.Card([dbc.CardHeader(html.H4("Raw key generation")),
@@ -152,7 +154,9 @@ status_labels = dbc.Card([dbc.CardHeader(html.H4("Raw key generation")),
                           tracked_time_diff_status,
                           received_epoch_status,
                           long_match_status,
-                          short_match_status])
+                          short_match_status,
+                          coincidences,
+                          accidentals])
                           ])
 
 start_epoch_status = html.Div(
@@ -261,7 +265,10 @@ def load_process_states(value):
                Output('init_time_diff', 'children'),
                Output('sig_long', 'children'),
                Output('sig_short', 'children'),
-               Output('tracked_time_diff', 'children')],
+               Output('tracked_time_diff', 'children'),
+               Output('coincidences', 'children'),
+               Output('accidentals', 'children'),
+              ],
               [Input("proc_status_interval", "n_intervals")])
 def load_state_info(n):
     status_dct = qkd_ctrl.get_status_info()
@@ -280,7 +287,8 @@ def load_state_info(n):
     return [status_dct['connection_status'], symmetry,
             protocol, status_dct['last_received_epoch'],
             status_dct['init_time_diff'], status_dct['sig_long'],
-            status_dct['sig_short'], status_dct['tracked_time_diff']]
+            status_dct['sig_short'], status_dct['tracked_time_diff'],
+            status_dct['coincidences'], status_dct['accidentals']]
 
 
 ec_info_list = ['first_epoch', 'undigested_epochs',
@@ -297,11 +305,17 @@ def load_error_correction_info(n):
 @app.callback(Output('live-update-graph-qber', 'figure'),
               [Input("proc_status_interval", "n_intervals")])
 def update_graph_qber(n):
-    x = list(qkd_ctrl.error_correction.ec_err_fraction_history)
-    y = np.arange(0, len(x), 1)
-    fig = go.Figure(data=go.Scatter(x=x, y=y, mode='lines+markers'))
+    y = np.array(list(qkd_ctrl.error_correction.ec_err_fraction_history)) * 100
+    x = np.arange(0, len(y), 1)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x, y=y, mode='lines+markers', name='QBER'))
+    fig.add_trace(go.Scatter(x=x, y =np.ones(len(y))*12, mode='lines', name='Max. allowed QBER'))
+    # if len(y) > 1:
+    #     fig.add_trace(go.Scatter(x=[0, len(y)-1], y=[12, 12],
+    #                     mode='line', line=dict(color='firebrick', width=4, dash='dash')))
+    ylim = np.max(y) + 5 if len(y) > 0 else 1
     fig.update_layout(title='QBER history',
-                   xaxis_title='Last 10 key generation runs',
+                   xaxis_title=f'Last {len(y)} key generation runs',
                    yaxis_title='Quantum bit error (%)',
                    xaxis=dict(
                             showline=True,
@@ -324,33 +338,32 @@ def update_graph_qber(n):
                             showticklabels=True,
                             linecolor='rgb(230, 230, 230)',
                             linewidth=2,
-                            range=[0, 100.4],
+                            range=[0, ylim],
                             ticks='inside',
                             tickfont=dict(
                                 family='Arial',
                                 size=16,
                                 color='rgb(82, 82, 82)'),
                             ),
-                   plot_bgcolor='white',
-                   shapes=[
-                            dict(
-                              type= 'line',
-                              yref= 'paper', y0=0.12, y1=0.12,
-                              xref= 'x', x0= 0, x1= 100
-                            )
-                        ]
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1),                   
+                    plot_bgcolor='white',
                    )
     return fig
 
 @app.callback(Output('live-update-graph-bitrate', 'figure'),
               [Input("proc_status_interval", "n_intervals")])
 def update_graph_bitrate(n):
-    y = list(qkd_ctrl.error_correction.ec_err_key_length_history)
+    y = np.array(list(qkd_ctrl.error_correction.ec_err_key_length_history))
     x = np.arange(0, len(y), 1)
-    y = np.random.randint(300, 500, 100)
     fig = go.Figure(data=go.Scatter(x=x, y=y, mode='lines+markers'))
+    ylim = 1 if len(y) == 0 else np.ceil(np.max(y)/100)*100 + 5 
     fig.update_layout(title='Key length generation history',
-                   xaxis_title='Last 10 key generation runs',
+                   xaxis_title=f'Last {len(y)} key generation runs',
                    yaxis_title='Key length (bits)',
                    xaxis=dict(
                             showline=True,
@@ -372,7 +385,7 @@ def update_graph_bitrate(n):
                             showticklabels=True,
                             linecolor='rgb(204, 204, 204)',
                             linewidth=2,
-                            range=[0, np.ceil(np.max(y)/100)*100 + 5 ],
+                            range=[0, ylim],
                             ticks='inside',
                             tickfont=dict(
                                 family='Arial',

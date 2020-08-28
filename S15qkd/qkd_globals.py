@@ -74,7 +74,7 @@ else:
 class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
     ''' copied from https://stackoverflow.com/questions/338450/timedrotatingfilehandler-changing-file-name
     '''
-    timestamp_format = "%Y%d%m_%H%M%S"
+    timestamp_format = "%Y%m%d_%H%M%S"
     def __init__(self, dir_log: str='logs'):
         if os.path.exists(dir_log) is False:
             os.makedirs(dir_log)
@@ -92,7 +92,7 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
         time.strftime("%m%d%Y")+".txt".
         """
         self.stream.close()
-        self.baseFilename = self.dir_log + time.strftime(self.timestamp_format) + ".log"
+        self.baseFilename = self.dir_log + '/' + time.strftime(self.timestamp_format) + ".log"
         if self.encoding:
             self.stream = codecs.open(self.baseFilename, 'w', self.encoding)
         else:
@@ -103,7 +103,7 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
 
 logger = logging.getLogger("QKD logger")
 logFormatter = logging.Formatter(
-    "%(asctime)s [%(threadName)-12.12s]  [%(module)s] [%(levelname)-5.5s]  %(message)s")
+    "[%(asctime)s] [%(threadName)-12.12s]  [%(module)s] [%(levelname)-5.5s]  [%(message)s]")
 
 fileHandler = MyTimedRotatingFileHandler('logs')
 fileHandler.setFormatter(logFormatter)
