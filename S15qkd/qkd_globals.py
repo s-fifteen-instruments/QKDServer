@@ -64,10 +64,11 @@ program_root = config['program_root']
 testing = 0  # CHANGE to 0 if you want to run it with hardware
 if testing == 1:
     # this outputs one timestamp file in an endless loop. This is for testing only.
-    prog_readevents = '/'+__file__.strip('/controller.py')+'/timestampsimulator/readevents_simulator.sh'
+    prog_readevents = '/' + \
+        __file__.strip('/controller.py') + \
+        '/timestampsimulator/readevents_simulator.sh'
 else:
     prog_readevents = program_root + '/readevents'
-
 
 
 # Logging
@@ -75,12 +76,14 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
     ''' copied from https://stackoverflow.com/questions/338450/timedrotatingfilehandler-changing-file-name
     '''
     timestamp_format = "%Y%m%d_%H%M%S"
+
     def __init__(self, dir_log: str='logs'):
         if os.path.exists(dir_log) is False:
             os.makedirs(dir_log)
         self.dir_log = dir_log
         # dir_log here MUST be with os.sep on the end
-        filename = self.dir_log + "/" + time.strftime(self.timestamp_format) + ".log"
+        filename = self.dir_log + "/" + \
+            time.strftime(self.timestamp_format) + ".log"
         logging.handlers.TimedRotatingFileHandler.__init__(
             self, filename, when='midnight', interval=1,
             backupCount=0, encoding=None)
@@ -92,7 +95,8 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
         time.strftime("%m%d%Y")+".txt".
         """
         self.stream.close()
-        self.baseFilename = self.dir_log + '/' + time.strftime(self.timestamp_format) + ".log"
+        self.baseFilename = self.dir_log + '/' + \
+            time.strftime(self.timestamp_format) + ".log"
         if self.encoding:
             self.stream = codecs.open(self.baseFilename, 'w', self.encoding)
         else:
@@ -100,10 +104,9 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
         self.rolloverAt = self.rolloverAt + self.interval
 
 
-
 logger = logging.getLogger("QKD logger")
 logFormatter = logging.Formatter(
-    "[%(asctime)s] [%(threadName)-12.12s]  [%(module)s] [%(levelname)-5.5s]  [%(message)s]")
+    "[%(asctime)s]\t[%(levelname)-5.5s]\t[%(threadName)-12.12s]\t[%(module)s]\t[%(funcName)s]\t%(message)s")
 
 fileHandler = MyTimedRotatingFileHandler('logs')
 fileHandler.setFormatter(logFormatter)
@@ -121,56 +124,61 @@ def kill_process_by_name(process_name):
     the given string processName
     '''
     list_of_process_objects = []
-    #Iterate over the all the running process
+    # Iterate over the all the running process
     for proc in psutil.process_iter():
-       try:
-           pinfo = proc.as_dict(attrs=['pid', 'name', 'create_time'])
-           # Check if process name contains the given name string.
-           if process_name.lower() in pinfo['name'].lower() :
-               list_of_process_objects.append(pinfo)
-               psutil.Process(pinfo['pid']).kill()
-       except (psutil.NoSuchProcess, psutil.AccessDenied , psutil.ZombieProcess) :
-           pass
+        try:
+            pinfo = proc.as_dict(attrs=['pid', 'name', 'create_time'])
+            # Check if process name contains the given name string.
+            if process_name.lower() in pinfo['name'].lower():
+                list_of_process_objects.append(pinfo)
+                psutil.Process(pinfo['pid']).kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
     return list_of_process_objects
+
 
 def kill_existing_qcrypto_processes():
     process_list = [
-        'transferd', 'chopper', 'chopper2', 
-        'splicer', 'costream', 'errcd', 'pfind', 
+        'transferd', 'chopper', 'chopper2',
+        'splicer', 'costream', 'errcd', 'pfind',
         'getrate', 'readevents4a', 'readevents']
     for name in process_list:
         kill_process_by_name(name)
 
+
 def kill_process(my_process):
     try:
         if my_process is not None:
-            method_name = sys._getframe().f_code.co_name
-            logger.info(f'[{method_name}] Killing process: {my_process.pid}.')
+            logger.info(f'Killing process: {my_process.pid}.')
             process = psutil.Process(my_process.pid)
             for proc in process.children(recursive=True):
                 proc.kill()
             process.kill()
     except Exception as a:
-        logger.warning(f'[{method_name}] {a}.')
+        logger.warning(f'{a}.')
 
 
 fifo_list = ('/msgin', '/msgout', '/rawevents',
-                 '/t1logpipe', '/t2logpipe', '/cmdpipe', '/genlog',
-                 '/transferlog', '/splicepipe', '/cntlogpipe',
-                 '/eccmdpipe', '/ecspipe', '/ecrpipe', '/ecnotepipe',
-                 '/ecquery', '/ecresp')
+             '/t1logpipe', '/t2logpipe', '/cmdpipe', '/genlog',
+             '/transferlog', '/splicepipe', '/cntlogpipe',
+             '/eccmdpipe', '/ecspipe', '/ecrpipe', '/ecnotepipe',
+             '/ecquery', '/ecresp')
+
 
 def drain_all_pipes():
     for fn in fifo_list:
         drain_pipe(fn)
 
+
 def drain_pipe(pipe_name):
     fd = os.open(data_root + pipe_name, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)
-    print(f.readall())
+    f.readall()
+
 
 folder_list = ('/sendfiles', '/receivefiles', '/t1',
-                   '/t3', '/rawkey', '/histos', '/finalkey')
+               '/t3', '/rawkey', '/histos', '/finalkey')
+
 
 def prepare_folders():
     # global data_root

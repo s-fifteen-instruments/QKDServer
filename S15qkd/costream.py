@@ -85,13 +85,13 @@ def initialize(config_file_name: str = qkd_globals.config_file):
     program_costream = program_root + '/costream'
     proc_costream = None
     cwd = os.getcwd()
-    latest_coincidences = costream_info[6]
-    latest_accidentals = costream_info[5]
-    latest_deltat = costream_info[4]
-    latest_compress = costream_info[3]
-    latest_sentevents = costream_info[2]
-    latest_rawevents = costream_info[1]
-    latest_outepoch = costream_info[0]
+    latest_coincidences = -1
+    latest_accidentals = -1
+    latest_deltat = -1
+    latest_compress = ''
+    latest_sentevents = ''
+    latest_rawevents = ''
+    latest_outepoch = ''
 
 
 def start_costream(time_difference: int, begin_epoch: str):
@@ -135,7 +135,7 @@ def _genlog_digest():
     pipe_name = f'{data_root}/genlog'
     fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
-    logger.info(f'[{method_name}] Thread started.')
+    logger.info('Thread started.')
     while is_running():
         time.sleep(0.1)
         try:

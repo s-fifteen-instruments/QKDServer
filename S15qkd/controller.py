@@ -296,7 +296,7 @@ def get_status_info():
              'sig_long': sig_long,
              'sig_short': sig_short,
              'tracked_time_diff': costream.latest_deltat,
-             'symmetry': transferd.low_count_side
+             'symmetry': transferd.low_count_side,
              'coincidences': costream.latest_coincidences,
              'accidentals': costream.latest_accidentals,
             }

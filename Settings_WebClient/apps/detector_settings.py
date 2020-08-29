@@ -40,7 +40,6 @@ def create_det_layout(detector):
                                        dbc.Button(children='Get detector counts', color="success", id=f'{det_id}_counts_button'),
                                        html.Label('', id=f'{det_id}_counts_label', style={'margin-left': 10})
                                    ]),
-
                                ])]), html.P()])
 
 
@@ -65,6 +64,8 @@ def create_callbacks():
                 if trigger_id != '' and '_threshvolt' in trigger_id:
                     det_dict[trigger_id.strip(
                         '_threshvolt')].threshvolt = trigger_value
+                if trigger_id != '':
+                    det_dict[trigger_id.split('_')[0]].save_settings()
                 return f'{trigger_id}, {trigger_value}'
 
     for det_id in det_dict:
