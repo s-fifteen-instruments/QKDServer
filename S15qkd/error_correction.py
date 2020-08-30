@@ -106,16 +106,15 @@ def start_error_correction():
     '''Starts the error correction process.
     '''
     global proc_error_correction
-    method_name = sys._getframe().f_code.co_name  # used for logging
     # create erroroptions from settings
     erropt = ''
     if privacy_amplification is False:
         erropt = '-p'
-        logger.info(f'[{method_name}] Privacy amplification off.')
+        logger.info(f'Privacy amplification off.')
     if errcd_killfile_option is True:
         erropt += ' -k'
     erropt += f' -B {target_bit_error}'
-    logger.info(f'[{method_name}] Error option: {erropt}')
+    logger.info(f'Error option: {erropt}')
 
     args = f'-c {data_root}/eccmdpipe \
              -s {data_root}/ecspipe \
@@ -135,7 +134,7 @@ def start_error_correction():
     ecnotepipe_thread.start()
     do_ec_thread = threading.Thread(target=_do_error_correction, args=(), daemon=True)
     do_ec_thread.start()
-    logger.info(f'[{method_name}] Started error correction.')
+    logger.info(f'Started error correction.')
 
 
 def _ecnotepipe_digest():
@@ -146,7 +145,6 @@ def _ecnotepipe_digest():
     global proc_error_correction, total_ec_key_bits, servoed_QBER, ec_note_pipe
     global ec_epoch, ec_raw_bits, ec_final_bits, ec_err_fraction
     global ec_err_fraction_history, ec_err_key_length_history
-    method_name = sys._getframe().f_code.co_name
     fd = os.open(ec_note_pipe, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
 
@@ -173,10 +171,10 @@ def _ecnotepipe_digest():
                 elif servoed_QBER > QBER_limit:
                     servoed_QBER = QBER_limit
 
-                logger.info(f'[{method_name}] {message}. Total generated final bits: {total_ec_key_bits}.')
+                logger.info(f'{message}. Total generated final bits: {total_ec_key_bits}.')
         except OSError as a:
             pass
-    logger.info(f'[{method_name}] Thread finished')
+    logger.info(f'Thread finished')
 
 
 def _do_error_correction():
@@ -188,7 +186,6 @@ def _do_error_correction():
     it notifies the error correction process by writing into the eccmdpipe.
     '''
     global ec_queue, minimal_block_size, first_epoch_info, undigested_epochs_info, init_QBER_info
-    method_name = sys._getframe().f_code.co_name
     ec_cmd_pipe = f'{data_root}/eccmdpipe'
     undigested_raw_bits = 0
     first_epoch = ''
@@ -209,12 +206,12 @@ def _do_error_correction():
         proc_diagbb84.wait()
         diagbb84_result = (proc_diagbb84.stdout.read()).decode().split()
         diagbb84_error = (proc_diagbb84.stderr.read()).decode()
-        logger.info(f'[{method_name}:diagbb84_result] {file_name} {diagbb84_result}')
-        logger.info(f'[{method_name}:diagbb84_error] {diagbb84_error}')
+        logger.info(f'diagbb84_result: {file_name} {diagbb84_result}')
+        logger.info(f'diagbb84_error: {diagbb84_error}')
         # If no BB84 type OR more than one bit per entry
         # Check diagbb84 for the return values meanings
         if int(diagbb84_result[0]) == 0 or int(diagbb84_result[1]) != 1:
-            logger.info(f'[{method_name}] Not BB84 file type or more than 1 bit per entry.')
+            logger.info(f'Not BB84 file type or more than 1 bit per entry.')
             continue
 
         if undigested_epochs == 0:
@@ -227,16 +224,16 @@ def _do_error_correction():
         if undigested_raw_bits > minimal_block_size:
             # notify the error correction process about the first epoch, number of epochs, and the servoed QBER
             qkd_globals.writer(ec_cmd_pipe, f'0x{first_epoch} {undigested_epochs} {float("{0:.4f}".format(servoed_QBER))}')
-            logger.info(f'[{method_name}] Started error correction for epoch {first_epoch}, {undigested_epochs}.')
+            logger.info(f'Started error correction for epoch {first_epoch}, {undigested_epochs}.')
             first_epoch_info = first_epoch
             undigested_epochs_info = undigested_epochs
             init_QBER_info = servoed_QBER
             undigested_raw_bits = 0
             undigested_epochs = 0
         else:
-            logger.info(f'[{method_name}] Undigested raw bits:{undigested_raw_bits}. Undigested epochs: {undigested_epochs}.')
+            logger.info(f'Undigested raw bits:{undigested_raw_bits}. Undigested epochs: {undigested_epochs}.')
         ec_queue.task_done()
-    logger.info(f'[{method_name}] Thread finished.')
+    logger.info(f'Thread finished.')
 
 
 def stop_error_correction():
