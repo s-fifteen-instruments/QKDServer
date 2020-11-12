@@ -94,7 +94,7 @@ if not os.path.exists(config_file):
         "minimal_block_size": 5000,
         "target_bit_error": 1e-09,
         "servo_blocks": 5,
-        "do_polarization_compensation": True
+        "do_polarization_compensation": False
     }
     json_object = json.dumps(dictionary, indent=4)
     with open(config_file, "w") as outfile:
