@@ -41,6 +41,7 @@ from . import qkd_globals
 from .qkd_globals import logger, PipesQKD, FoldersQKD
 
 proc_chopper2 = None
+first_epoch = None
 
 def start_chopper2(config_file_name: str = qkd_globals.config_file):
     global proc_chopper2, first_epoch, t1logpipe_digest_thread_flag, t1_epoch_count
