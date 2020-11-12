@@ -49,6 +49,8 @@ from . import qkd_globals
 from .qkd_globals import logger, PipesQKD, FoldersQKD
 
 
+proc_chopper = None
+
 def start_chopper(qkd_protocol, config_file_name: str = qkd_globals.config_file):
     '''Starts the chopper process.
 

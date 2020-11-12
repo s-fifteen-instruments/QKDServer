@@ -66,6 +66,7 @@ from .qkd_globals import logger, PipesQKD, FoldersQKD
 #     prog_transferd = program_root + '/transferd'
 #     prog_getrate = program_root + '/getrate'
 
+transferd_proc = None
 
 def initialize(config_file_name: str = qkd_globals.config_file):
     global cwd, sleep_time, communication_status, low_count_side, remote_count_rate
@@ -301,7 +302,6 @@ def measure_local_count_rate(config_file_name: str = qkd_globals.config_file):
     localcountrate = int((p2.stdout.read()).decode())
     return localcountrate
 
-
 def is_running():
     return not (transferd_proc is None or transferd_proc.poll() is not None)
 
@@ -322,7 +322,7 @@ class SymmetryNegotiationState(int, Enum):
     PENDING = 1
     FINISHED = 2
 
-initialize()
+# initialize()
 
 if __name__ == '__main__':
     main()

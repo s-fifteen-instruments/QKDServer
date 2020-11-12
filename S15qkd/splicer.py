@@ -50,6 +50,7 @@ from . import error_correction
 from . import rawkey_diagnosis
 from .qkd_globals import logger, PipesQKD, FoldersQKD, QKDProtocol
 
+proc_splicer = None
 
 def _load_splicer_config(config_file_name: str):
     global data_root, program_root, protocol, kill_option

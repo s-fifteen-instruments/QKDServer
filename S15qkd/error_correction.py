@@ -54,6 +54,7 @@ from . import polarization_compensation
 
 EPOCH_DURATION = 0.536  # seconds
 
+proc_error_correction = None
 
 def _load_error_correction_config(config_file_name: str):
     global config, program_root, data_root

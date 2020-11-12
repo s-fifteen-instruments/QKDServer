@@ -78,6 +78,7 @@ from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD
 # costream_histo_number = config['costream_histo_number']
 # costream_histo_option = config['costream_histo_option']
 
+proc_costream = None
 
 def _initialize(config_file_name: str = qkd_globals.config_file):
     global proc_costream, cwd
