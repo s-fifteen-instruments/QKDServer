@@ -46,7 +46,10 @@ import select
 import psutil
 
 from . import qkd_globals
-from .qkd_globals import logger
+from . import error_correction
+from . import rawkey_diagnosis
+from .qkd_globals import logger, PipesQKD, FoldersQKD, QKDProtocol
+
 
 def _load_splicer_config(config_file_name: str):
     global data_root, program_root, protocol, kill_option
@@ -63,69 +66,64 @@ def _load_splicer_config(config_file_name: str):
 
 
 def initialize(config_file_name: str = qkd_globals.config_file):
-    global cwd, proc_splicer, sleep_time
+    global cwd, proc_splicer
     _load_splicer_config(config_file_name)
     cwd = os.getcwd()
     proc_splicer = None
-    sleep_time = 0.1  # sleep time before next file read in threads
+    
 
 
-
-def start_splicer(splicer_callback):
+def start_splicer(qkd_protocol: int = QKDProtocol.BBM92):
     '''
     Starts the splicer process and attaches a thread digesting 
     the splice pipe and the genlog.
     '''
     global data_root, cwd, proc_splicer
-    method_name = sys._getframe().f_code.co_name
-
-    args = f'-d {cwd}/{data_root}/t3 \
-             -D {data_root}/receivefiles \
-             -f {cwd}/{data_root}/rawkey \
-             -E {cwd}/{data_root}/splicepipe \
+    initialize()
+    args = f'-d {FoldersQKD.T3FILES} \
+             -D {FoldersQKD.RECEIVEFILES} \
+             -f {FoldersQKD.RAWKEYS} \
+             -E {PipesQKD.SPLICER} \
              {kill_option} \
-             -p {protocol} \
-             -m {cwd}/{data_root}/genlog'
+             -p {qkd_protocol} \
+             -m {PipesQKD.GENLOG}'
 
     proc_splicer = subprocess.Popen([prog_splicer, *args.split()])
     time.sleep(0.1)
-    logger.info(f'[{method_name}] Started splicer process.')
+    logger.info(f'Started splicer process.')
     thread_splicepipe_digest = threading.Thread(target=_splice_pipe_digest,
-                                                args=([splicer_callback]))
+                                                args=([qkd_protocol]))
     thread_splicepipe_digest.start()
 
 
-def _splice_pipe_digest(splicer_callback):
+def _splice_pipe_digest(qkd_protocol):
     '''
     Digests the text written into splicepipe and genlog.
     Runs until the splicer process closes.
     '''
-    global data_root, proc_splicer
-    method_name = sys._getframe().f_code.co_name
-    logger.info(f'[{method_name}] Starting splice_pipe_digest thread.')
-    # splice_pipe =f'{data_root}/splicepipe'
-    genlog = f'{data_root}/genlog'
-    # fd_sp = os.open(splice_pipe, os.O_RDONLY | os.O_NONBLOCK)  # non-blocking
-    # f_sp = os.fdopen(fd_sp, 'rb', 0)  # non-blocking
-    fd_genlog = os.open(genlog, os.O_RDONLY | os.O_NONBLOCK)  # non-blocking
+    logger.info(f'Starting _splice_pipe_digest thread.')
+    fd_genlog = os.open(PipesQKD.GENLOG, os.O_RDONLY |
+                        os.O_NONBLOCK)  # non-blocking
     f_genlog = os.fdopen(fd_genlog, 'rb', 0)  # non-blocking
 
-    logger.info(f'[{method_name}] Thread started.')
+    logger.info(f'Thread started.')
+    sleep_time = 0.1  # sleep time before next read file attempt
     while is_running():
         time.sleep(sleep_time)
         try:
-            # read from genlog
-            message = (f_genlog.readline().decode().rstrip('\n')).lstrip('\x00')
+            message = (f_genlog.readline().decode().rstrip(
+                '\n')).lstrip('\x00')
             if len(message) != 0:
-                logger.info(f'[{method_name}:genlog] {message}')
-                splicer_callback(message)
-            # read from splicepipe
-            # message = ((f_sp.readline()).rstrip('\n')).lstrip('\x00')
-            # if len(message) != 0:
-            #     logger.info(f'[{method_name}:splicepipe] {message}')
+                logger.info(f'[genlog] {message}')
+                if qkd_protocol == QKDProtocol.BBM92:
+                    logger.info(f'Add {message} to error correction queue')
+                    error_correction.ec_queue.put(message)
+                elif qkd_protocol == QKDProtocol.SERVICE:
+                    diagnosis = rawkey_diagnosis.RawKeyDiagnosis(FoldersQKD.RAWKEYS + '/' + message)
+                    logger.info(f'Service mode, QBER: {diagnosis.quantum_bit_error}, Epoch: {message}')
         except OSError:
             pass
-    logger.info(f'[{method_name}] Thread finished.')
+    logger.info(f'Thread finished.')
 
 
 def stop_splicer():
@@ -137,12 +135,10 @@ def stop_splicer():
 def is_running():
     return not (proc_splicer is None or proc_splicer.poll() is not None)
 
-initialize()
-
 
 def main():
     pass
 
+
 if __name__ == '__main__':
     main()
-

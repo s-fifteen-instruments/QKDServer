@@ -56,32 +56,34 @@ from . import chopper2
 from . import costream
 from . import error_correction
 from . import qkd_globals
-from .qkd_globals import logger
+from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD
+from .transferd import SymmetryNegotiationState
 
 # configuration file contains the most important paths and the target ip and port number
 config_file = qkd_globals.config_file
+
 
 def _load_config(config_file_name: str):
     with open(config_file_name, 'r') as f:
         config = json.load(f)
     global det1corr, det2corr, det3corr, det4corr
-    global dataroot, programroot, extclockopt, periode_count, FFT_buffer_order
-    global with_error_correction, protocol, identity
-    det1corr =  config['local_detector_skew_correction']['det1corr']
+    global dataroot, programroot, extclockopt, periode_count, fft_buffer_order
+    global with_error_correction, qkd_protocol, identity
+    det1corr = config['local_detector_skew_correction']['det1corr']
     det2corr = config['local_detector_skew_correction']['det2corr']
     det3corr = config['local_detector_skew_correction']['det3corr']
     det4corr = config['local_detector_skew_correction']['det4corr']
     dataroot = config['data_root']
     programroot = config['program_root']
-    protocol = config['protocol']
+    qkd_protocol = QKDProtocol(config['protocol'])
     extclockopt = config['clock_source']
     periode_count = config['pfind_epochs']
-    FFT_buffer_order = config['FFT_buffer_order']
+    fft_buffer_order = config['FFT_buffer_order']
     with_error_correction = config['error_correction']
     identity = config['identity']
 
 
-def initialize(config_file_name: str=config_file):
+def initialize(config_file_name: str = config_file):
     global prog_readevents, prog_pfind, proc_readevents, proc_pfind
     global cwd, localcountrate, remote_count_rate
     global low_count_side, first_epoch, time_diff, sig_long, sig_short
@@ -104,20 +106,19 @@ def initialize(config_file_name: str=config_file):
 def msg_response(message):
     global low_count_side, first_epoch, time_diff, sig_long, sig_short
     global with_error_correction
-    method_name = sys._getframe().f_code.co_name
     msg_split = message.split(':')[:]
     msg_code = msg_split[0]
     low_count_side = transferd.low_count_side
 
-    if msg_code == 'st1':
-        qkd_globals.remove_stale_comm_files()
+    if msg_code == 'st1':  # Start key generation Step 1
+        qkd_globals.FoldersQKD.remove_stale_comm_files()
         if low_count_side is None:
-            logger.info(f'[{method_name}:st1] Symmetry negotiation not completed yet. \
+            logger.info(f'{msg_code} Symmetry negotiation not completed yet. \
                 Key generation was not started.')
             return
         elif low_count_side is True:
-            chopper.start_chopper()
-            splicer.start_splicer(_splicer_callback_start_error_correction)
+            chopper.start_chopper(QKDProtocol.BBM92)
+            splicer.start_splicer()
             if with_error_correction == True:
                 error_correction.start_error_correction()
             _start_readevents()
@@ -127,15 +128,15 @@ def msg_response(message):
         transferd.send_message("st2")
 
     if msg_code == 'st2':
-        qkd_globals.remove_stale_comm_files()
+        qkd_globals.FoldersQKD.remove_stale_comm_files()
         if low_count_side is None:
-            logger.info(f'[{method_name}:st2] Symmetry negotiation not completed yet. \
+            logger.info(f'{msg_code} Symmetry negotiation not completed yet. \
                 Key generation was not started.')
             return
         elif low_count_side is True:
             _start_readevents()
-            chopper.start_chopper()
-            splicer.start_splicer(_splicer_callback_start_error_correction)
+            chopper.start_chopper(QKDProtocol.BBM92)
+            splicer.start_splicer()
             if with_error_correction == True:
                 error_correction.start_error_correction()
             transferd.send_message('st3')  # High count side starts pfind
@@ -143,68 +144,77 @@ def msg_response(message):
             _start_readevents()
             chopper2.start_chopper2()
             time_diff, sig_long, sig_short = periode_find()
-            costream.start_costream(time_diff, first_epoch)
+            costream.start_costream(time_diff, first_epoch, qkd_protocol=QKDProtocol.BBM92)
             if with_error_correction == True:
                 error_correction.start_error_correction()
 
     if msg_code == 'st3':
         if low_count_side is False:
             time_diff, sig_long, sig_short = periode_find()
-            costream.start_costream(time_diff, first_epoch)
+            costream.start_costream(
+                time_diff, first_epoch, qkd_protocol=QKDProtocol.BBM92)
             if with_error_correction == True:
                 error_correction.start_error_correction()
         else:
-            logger.info(f'[{method_name}:st3] Not the high count side or symmetry \
+            logger.info(f'{msg_code} Not the high count side or symmetry \
                 negotiation not completed.')
 
     if msg_code == 'stop_key_gen':
-        _reset_key_gen_processes()
+        _stop_key_gen_processes()
+
+    if msg_code == 'start_service_mode':
+        _stop_key_gen_processes()
+        transferd.send_message('start_service_mode_step2')
+        if low_count_side is False:
+            curr_time_diff = costream.latest_deltat + costream.initial_time_difference
+            _start_readevents()
+            chopper2.start_chopper2()
+            wait_for_epoch_files(2)
+            costream.start_costream(
+                curr_time_diff, first_epoch, qkd_protocol=QKDProtocol.SERVICE)
+        else:
+            _start_readevents()
+            chopper.start_chopper(QKDProtocol.SERVICE)
+            splicer.start_splicer(qkd_protocol=QKDProtocol.SERVICE)
+
+    if msg_code == 'start_service_mode_step2':
+        _stop_key_gen_processes()
+        if low_count_side is False:
+            curr_time_diff = costream.latest_deltat + costream.initial_time_difference
+            _start_readevents()
+            chopper2.start_chopper2()
+            wait_for_epoch_files(2)
+            costream.start_costream(
+                curr_time_diff, first_epoch, qkd_protocol=QKDProtocol.SERVICE)
+        else:
+            _start_readevents()
+            chopper.start_chopper(QKDProtocol.SERVICE)
+            splicer.start_splicer(qkd_protocol=QKDProtocol.SERVICE)
 
 
-def _splicer_callback_start_error_correction(epoch_name: str):
-    '''
-    This function is used as a callback for the splicer process.
-    Whenever the splicer generates a raw key, we notify the error correction process to
-    convert the keys to error-corrected privacy-amplified keys.
-    '''
-    method_name = sys._getframe().f_code.co_name
-    logger.info(f'[{method_name}] Add {epoch_name} to error correction queue')
-    error_correction.ec_queue.put(epoch_name)
-
-
-def periode_find():
-    '''
-    Starts pfind and searches for the photon coincidence peak
-    in the combined timestamp files.
-    '''
-    method_name = sys._getframe().f_code.co_name
-    global periode_count, FFT_buffer_order
-    global prog_pfind, first_epoch
-
-    if transferd.commhandle is None:
-        logger.info(f'[{method_name}] Transferd process has not been started.' +
-              ' periode_find aborted.')
+def wait_for_epoch_files(number_of_epochs, timeout: float = 15):
+    global first_epoch
+    if not transferd.is_running():
+        logger.error(f'Transferd process has not been started.' +
+                     ' periode_find aborted.')
         return
-    if transferd.commhandle.poll() is not None:
-        logger.info(f'[{method_name}] transferd process was started but is not running. \
+    if transferd.transferd_proc.poll() is not None:
+        logger.error(f'Transferd process was started but is not running. \
             periode_find aborted.')
         return
     start_time = time.time()
-    timeout = 15
     while transferd.first_received_epoch is None or chopper2.first_epoch is None:
         if (time.time() - start_time) > timeout:
-            logger.warning(f'[{method_name}] Timeout: not enough data within {timeout}s')
-            raise Exception(f'periode_find timeout: not enough date within {timeout}s')
-        logger.info(f'[{method_name}] Waiting for data.')
-        time.sleep(1)
+            logger.error(
+                f'Timeout: not enough data within {timeout}s')
+            raise Exception(
+                f'periode_find timeout: not enough data within {timeout}s')
+        time.sleep(0.2)
 
     # make sure there is enough epochs available
-    while chopper2.t1_epoch_count < periode_count:
-        logger.info(f'[{method_name}] Not enough epochs available to execute pfind.')
+    while chopper2.t1_epoch_count < number_of_epochs:
+        logger.info(f'Waiting for more epochs.')
         time.sleep(1)
-
-    # Not sure why minus 2, but I'm following what was done in crgui_ec.
-    use_periods = periode_count - 2
 
     epoch_diff = int(transferd.first_received_epoch, 16) - \
         int(chopper2.first_epoch, 16)
@@ -212,13 +222,29 @@ def periode_find():
         first_epoch = chopper2.first_epoch
     elif epoch_diff > 0:
         first_epoch = transferd.first_received_epoch
+    return first_epoch, epoch_diff
+
+
+def periode_find():
+    '''
+    Starts pfind and searches for the photon coincidence peak
+    in the combined timestamp files.
+    '''
+    global periode_count, fft_buffer_order
+    global prog_pfind, first_epoch
+
+    first_epoch, epoch_diff = wait_for_epoch_files(periode_count)
+
+    # Not sure why minus 2, but I'm following what was done in crgui_ec.
+    use_periods = periode_count - 2
+    if epoch_diff > 0:
         use_periods = periode_count - epoch_diff  # less periodes are available
 
     args = f'-d {cwd}/{dataroot}/receivefiles \
             -D {cwd}/{dataroot}/t1 \
             -e 0x{first_epoch} \
             -n {use_periods} -V 1 \
-            -q {FFT_buffer_order}'
+            -q {fft_buffer_order}'
 
     with open(f'{cwd}/{dataroot}/pfinderror', 'a+') as f:
         proc_pfind = subprocess.Popen([prog_pfind, *args.split()],
@@ -226,54 +252,71 @@ def periode_find():
                                       stdout=subprocess.PIPE)
     proc_pfind.wait()
     pfind_result = (proc_pfind.stdout.read()).decode()
-    logger.info(f'[{method_name}:pfind_result] {pfind_result.split()}')
+    logger.info(f'Pfind result: {pfind_result.split()}')
     return [float(i) for i in pfind_result.split()]
+
+
+def _do_symmetry_negotiation():
+    if transferd.is_running():
+        transferd.symmetry_negotiation()
+        if transferd.low_count_side == '':
+            logger.info(f'Symmetry negotiation not finished.')
+            start_time = time.time()
+            while True:
+                if transferd.negotiating == SymmetryNegotiationState.PENDING:
+                    if (time.time() - start_time) > 3:
+                        logger.error(
+                            f'Symmetry negotiation timeout.')
+                        return
+                    continue
+                elif transferd.negotiating == SymmetryNegotiationState.FINISHED:
+                    break
+                elif transferd.negotiating == SymmetryNegotiationState.NOTDONE:
+                    logger.error(
+                        f'No network connection established.')
+                    return
+    else:
+        logger.error('Symmetry negotiation failed because transferd is not running.')
 
 
 def start_key_generation():
     # global protocol
-    method_name = sys._getframe().f_code.co_name
     if transferd.is_running() is False:
         start_communication()
     transferd.send_message('stop_key_gen')
-    _reset_key_gen_processes()
-    qkd_globals.drain_all_pipes()
+    _stop_key_gen_processes()
     if transferd.is_running():
-        transferd.symmetry_negotiation()
-        if transferd.low_count_side == '':
-            logger.info(f'[{method_name}] Symmetry negotiation not finished.')
-            start_time = time.time()
-            while True:
-                if transferd.negotiating == 1:
-                    if (time.time() - start_time) > 3:
-                        logger.error(f'[{method_name}] Symmetry negotiation timeout.')
-                        return
-                    continue
-                elif transferd.negotiating == 2:
-                    break
-                elif transferd.negotiating == 0:
-                    logger.error(f'[{method_name}] No network connection established.')
-                    return
+        _do_symmetry_negotiation()
         transferd.send_message('st1')
 
 
-def _reset_key_gen_processes():
+def start_service_mode():
+    if transferd.is_running() is False:
+        start_communication()
+    transferd.send_message('stop_key_gen')
+    _stop_key_gen_processes()
+    _do_symmetry_negotiation()
+    transferd.send_message('start_service_mode')
+    qkd_globals.PipesQKD.drain_all_pipes()
+
+
+def _stop_key_gen_processes():
     global proc_readevents
-    chopper.stop_chopper(); chopper.initialize()
-    chopper2.stop_chopper2(); chopper2.initialize()
-    splicer.stop_splicer(); splicer.initialize()
-    costream.stop_costream(); costream.initialize()
-    error_correction.stop_error_correction(); error_correction.initialize()
+    chopper.stop_chopper()
+    chopper2.stop_chopper2()
+    splicer.stop_splicer()
+    costream.stop_costream()
+    error_correction.stop_error_correction()
     qkd_globals.kill_process(proc_readevents)
+    qkd_globals.PipesQKD.drain_all_pipes()
 
 
 def start_communication():
     '''Establishes network connection between computers.
     '''
     if not transferd.is_running():
-        stop_all_processes()
-        qkd_globals.prepare_folders()
-        transferd.initialize()
+        qkd_globals.FoldersQKD.prepare_folders()
+        qkd_globals.PipesQKD.prepare_pipes()
         transferd.start_communication(msg_response)
 
 
@@ -290,7 +333,7 @@ def get_process_states():
 
 def get_status_info():
     stats = {'connection_status': transferd.communication_status,
-             'protocol': protocol,
+             'protocol': qkd_protocol,
              'last_received_epoch': transferd.last_received_epoch,
              'init_time_diff': time_diff,
              'sig_long': sig_long,
@@ -299,7 +342,7 @@ def get_status_info():
              'symmetry': transferd.low_count_side,
              'coincidences': costream.latest_coincidences,
              'accidentals': costream.latest_accidentals,
-            }
+             }
     return stats
 
 
@@ -319,44 +362,43 @@ def stop_all_processes():
     global proc_readevents
     if transferd.is_running():
         transferd.send_message('stop_key_gen')
-        transferd.stop_communication();
-        transferd.initialize()
-    _reset_key_gen_processes()
+        transferd.stop_communication()
+        start_communication()
+    _stop_key_gen_processes()
 
 
 def _start_readevents():
     '''
-    Start reader and chopper on sender side (low-count side)
+    Start readevents
     '''
-    method_name = sys._getframe().f_code.co_name  # used for logging
     global proc_readevents, prog_readevents
-    
-    fd = os.open(f'{dataroot}/rawevents', os.O_RDWR)  # non-blocking
+
+    fd = os.open(PipesQKD.RAWEVENTS, os.O_RDWR)  # non-blocking
     f_stdout = os.fdopen(fd, 'w')  # non-blocking
-    logger.info('starting_readevents:' + prog_readevents)
     args = f'-a 1 -A {extclockopt} -S 20 \
              -d {det1corr},{det2corr},{det3corr},{det4corr}'
     with open(f'{cwd}/{dataroot}/readeventserror', 'a+') as f_stderr:
         proc_readevents = subprocess.Popen((prog_readevents, *args.split()),
                                            stdout=f_stdout,
                                            stderr=f_stderr)
-    logger.info(f'[{method_name}] Started readevents.')
+    logger.info(f'Started readevents.')
 
 
 class ProcessWatchDog(threading.Thread):
     '''Monitors all processes neccessary to generate QKD keys.
 
     Basic logging of events and restart processes in case they crash.
-
     '''
-    def __init__(self, log_file_name: str = 'process_watchdog.log'): 
+
+    def __init__(self, log_file_name: str = 'process_watchdog.log'):
         super(ProcessWatchDog, self).__init__()
         self._running = True
         self._logger = logging.getLogger('processes_watchdog')
         self._logger.setLevel(logging.DEBUG)
         self._fh = logging.FileHandler(log_file_name, mode="a+")
         self._fh.setLevel(logging.DEBUG)
-        self._fh.setFormatter(logging.Formatter('%(asctime)s - %(process)d - %(levelname)s - %(module)s - %(message)s'))
+        self._fh.setFormatter(logging.Formatter(
+            '%(asctime)s | %(process)d | %(levelname)s | %(module)s | %(message)s'))
         self._logger.addHandler(self._fh)
         self._logger.info('Initialized watchdog.')
         # store process states to obsrver changes
@@ -393,8 +435,6 @@ class ProcessWatchDog(threading.Thread):
             self.prev_status = status
 
 
-
-
 def main():
     start_communication()
     # error_correction.raw_key_folder = 'data/ec_test_data/rawkeyB'
@@ -403,6 +443,7 @@ def main():
     time.sleep(10)
     stop_all_processes()
     # kill_process(commhandle))
+
 
 initialize()
 watchdog = ProcessWatchDog()

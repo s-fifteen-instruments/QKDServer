@@ -148,3 +148,6 @@ S15qkd/g2lib/delta.c
 Settings_WebClient/logs
 .directory
 *.dat
+.vscode/settings.json
+Settings_WebClient/prototyping.ipynb
+S15qkd/config/Untitled.ipynb

@@ -48,7 +48,10 @@ import time
 import json
 import shutil
 import codecs
+from enum import unique, Enum
 
+
+cwd = os.getcwd()
 root_name, _, _ = __name__.partition('.')
 root_module = sys.modules[root_name]
 MODULE_ROOT_DIR = os.path.dirname(root_module.__file__)
@@ -73,11 +76,12 @@ else:
 
 # Logging
 class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
-    ''' copied from https://stackoverflow.com/questions/338450/timedrotatingfilehandler-changing-file-name
+    ''' 
+    copied from https://stackoverflow.com/questions/338450/timedrotatingfilehandler-changing-file-name
     '''
     timestamp_format = "%Y%m%d_%H%M%S"
 
-    def __init__(self, dir_log: str='logs'):
+    def __init__(self, dir_log: str = 'logs'):
         if os.path.exists(dir_log) is False:
             os.makedirs(dir_log)
         self.dir_log = dir_log
@@ -104,24 +108,12 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
         self.rolloverAt = self.rolloverAt + self.interval
 
 
-logger = logging.getLogger("QKD logger")
-logFormatter = logging.Formatter(
-    "[%(asctime)s]\t[%(levelname)-5.5s]\t[%(threadName)-12.12s]\t[%(module)s]\t[%(funcName)s]\t%(message)s")
-
-fileHandler = MyTimedRotatingFileHandler('logs')
-fileHandler.setFormatter(logFormatter)
-consoleHandler = logging.StreamHandler(sys.stdout)
-consoleHandler.setFormatter(logFormatter)
-
-logger.addHandler(fileHandler)
-logger.addHandler(consoleHandler)
-logger.setLevel(logging.DEBUG)
 
 
-def kill_process_by_name(process_name):
+
+def kill_process_by_name(process_name: str):
     '''
-    Get a list of all the PIDs of a all the running process whose name contains
-    the given string processName
+    Get a list of running PIDs named like the given process_name
     '''
     list_of_process_objects = []
     # Iterate over the all the running process
@@ -158,56 +150,68 @@ def kill_process(my_process):
         logger.warning(f'{a}.')
 
 
-fifo_list = ('/msgin', '/msgout', '/rawevents',
-             '/t1logpipe', '/t2logpipe', '/cmdpipe', '/genlog',
-             '/transferlog', '/splicepipe', '/cntlogpipe',
-             '/eccmdpipe', '/ecspipe', '/ecrpipe', '/ecnotepipe',
-             '/ecquery', '/ecresp')
+class PipesQKD(str, Enum):
+    MSGIN = cwd + data_root + '/msgin'
+    MSGOUT = cwd + data_root + '/msgout'
+    RAWEVENTS = cwd + data_root + '/rawevents'
+    T1LOG = cwd + data_root + '/t1logpipe'
+    T2LOG = cwd + data_root + '/t2logpipe'
+    CMD = cwd + data_root + '/cmdpipe'
+    GENLOG = cwd + data_root + '/genlog'
+    TRANSFERLOG = cwd + data_root + '/transferlog'
+    SPLICER = cwd + data_root + '/splicepipe'
+    CNTLOG = cwd + data_root + '/cntlogpipe'
+    ECCMD = cwd + data_root + '/eccmdpipe'
+    ECS = cwd + data_root + '/ecspipe'
+    ECR = cwd + data_root + '/ecrpipe'
+    ECNOTE = cwd + data_root + '/ecnotepipe'
+    ECQUERY = cwd + data_root + '/ecquery'
+    ECRESP = cwd + data_root + '/ecresp'
+
+    @classmethod
+    def prepare_pipes(cls):
+        for pipe in cls:
+            if os.path.exists(pipe):
+                if stat.S_ISFIFO(os.stat(pipe).st_mode):
+                    os.unlink(pipe)
+                else:
+                    os.remove(pipe)
+            os.mkfifo(pipe)
+            os.open(pipe, os.O_RDWR)
+
+    @classmethod
+    def drain_all_pipes(cls):
+        for fn in cls:
+            cls.drain_pipe(fn)
+
+    @staticmethod
+    def drain_pipe(pipe_name: str):
+        fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
+        f = os.fdopen(fd, 'rb', 0)
+        f.readall()
 
 
-def drain_all_pipes():
-    for fn in fifo_list:
-        drain_pipe(fn)
+class FoldersQKD(str, Enum):
+    DATAROOT = cwd + data_root
+    SENDFILES = DATAROOT + '/sendfiles'
+    RECEIVEFILES = DATAROOT + '/receivefiles'
+    T1FILES = DATAROOT + '/t1'
+    T3FILES = DATAROOT + '/t3'
+    RAWKEYS = DATAROOT + '/rawkey'
+    HISTOS = DATAROOT + '/histos'
+    FINALKEYS = DATAROOT + '/finalkey'
 
+    @classmethod
+    def prepare_folders(cls):
+        for folder in cls:
+            if not os.path.exists(folder):
+                os.makedirs(folder)
 
-def drain_pipe(pipe_name):
-    fd = os.open(data_root + pipe_name, os.O_RDONLY | os.O_NONBLOCK)
-    f = os.fdopen(fd, 'rb', 0)
-    f.readall()
-
-
-folder_list = ('/sendfiles', '/receivefiles', '/t1',
-               '/t3', '/rawkey', '/histos', '/finalkey')
-
-
-def prepare_folders():
-    # global data_root
-    if os.path.exists(data_root):
-        shutil.rmtree(data_root)
-
-    for i in folder_list:
-        if os.path.exists(i):
-            print('error')
-        os.makedirs(data_root + i)
-
-    for i in fifo_list:
-        fifo_path = data_root + i
-        if os.path.exists(fifo_path):
-            if stat.S_ISFIFO(os.stat(fifo_path).st_mode):
-                os.unlink(fifo_path)
-            else:
-                os.remove(fifo_path)
-        os.mkfifo(data_root + i)
-        os.open(data_root + i, os.O_RDWR)
-
-
-def remove_stale_comm_files():
-    files = glob.glob(data_root + '/receivefiles/*')
-    for f in files:
-        os.remove(f)
-    files = glob.glob(data_root + '/sendfiles/*')
-    for f in files:
-        os.remove(f)
+    @classmethod
+    def remove_stale_comm_files(cls):
+        for folder in [cls.RECEIVEFILES + '/*', cls.SENDFILES + '/*', cls.T1FILES + '/*', cls.T3FILES + '/*']:
+            for f in glob.glob(data_root + folder):
+                os.remove(f)
 
 
 def writer(file_name: str, message: str):
@@ -216,8 +220,28 @@ def writer(file_name: str, message: str):
 
     Arguments:
         file_name {str} -- Target file
-        message {str} -- Message to write
+        message {str} -- Message written into the file
     '''
     f = os.open(file_name, os.O_WRONLY)
     os.write(f, f'{message}\n'.encode())
     os.close(f)
+
+
+@unique
+class QKDProtocol(int, Enum):
+    SERVICE = 0
+    BBM92 = 1
+
+
+logger = logging.getLogger("QKD logger")
+logFormatter = logging.Formatter(
+    "%(asctime)s | %(levelname)-5.5s | %(threadName)-12.12s | %(module)s | %(funcName)s | %(message)s")
+
+fileHandler = MyTimedRotatingFileHandler('logs')
+fileHandler.setFormatter(logFormatter)
+consoleHandler = logging.StreamHandler(sys.stdout)
+consoleHandler.setFormatter(logFormatter)
+
+logger.addHandler(fileHandler)
+logger.addHandler(consoleHandler)
+logger.setLevel(logging.DEBUG)

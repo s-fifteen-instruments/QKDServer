@@ -43,81 +43,50 @@ import threading
 import sys
 import psutil
 import time
+from types import SimpleNamespace
 
 from . import qkd_globals
-from .qkd_globals import logger
+from .qkd_globals import logger, PipesQKD, FoldersQKD
 
 
-def _load_chopper_config(config_file_name: str):
-    '''Loads configuration from config file
-    '''
-    global dataroot, protocol, kill_option, config, prog_chopper, programroot, max_event_diff
-    global prog_chopper
-    with open(config_file_name, 'r') as f:
-        config = json.load(f)
-    dataroot = config['data_root']
-    protocol = config['protocol']
-    max_event_diff = config['max_event_diff']
-    programroot = config['program_root']
-    prog_chopper = programroot + '/chopper'
-
-
-def initialize(config_file_name: str = qkd_globals.config_file):
-    '''Initializes all variables necessary to run the chopper
-    
-    Keyword Arguments:
-        config_file_name {str} -- config file to read from (default: {'config/config.json'})
-    '''
-    global cwd, proc_chopper
-    _load_chopper_config(config_file_name)
-    cwd = os.getcwd()
-    proc_chopper = None
-
-
-initialize()
-
-
-def start_chopper(
-        rawevents_pipe: str='rawevents',
-        sendfiles_folder: str='sendfiles',
-        t3_files_folder: str='t3',
-        t2_log_pipe: str='t2logpipe'):
+def start_chopper(qkd_protocol, config_file_name: str = qkd_globals.config_file):
     '''Starts the chopper process.
 
     Keyword Arguments:
         rawevents_pipe {str} -- The pipe it reads to acquire timestamps. (default: {'rawevents'})
     '''
-    global proc_chopper, protocol, max_event_diff
-    method_name = sys._getframe().f_code.co_name  # used for logging
+    global proc_chopper
+    with open(config_file_name, 'r') as f:
+        config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+    prog_chopper = config.program_root + '/chopper'
+    cwd = os.getcwd()
+    proc_chopper = None
     t2logpipe_thread = threading.Thread(target=_t2logpipe_digest, args=())
-    args = f'-i {cwd}/{dataroot}/{rawevents_pipe} \
-            -D {cwd}/{dataroot}/{sendfiles_folder} \
-            -d {cwd}/{dataroot}/{t3_files_folder} \
-            -l {cwd}/{dataroot}/{t2_log_pipe} \
-            -V 4 -U -p {protocol} -Q 5 -F \
-            -y 20 -m {max_event_diff}'
+    args = f'-i {PipesQKD.RAWEVENTS} \
+             -D {FoldersQKD.SENDFILES} \
+             -d {FoldersQKD.T3FILES} \
+             -l {PipesQKD.T2LOG} \
+             -V 4 -U -p {qkd_protocol} -Q 5 -F \
+             -y 20 -m {config.max_event_diff}'
 
     t2logpipe_thread.start()
-    with open(f'{cwd}/{dataroot}/choppererror', 'a+') as f:
+    with open(f'{cwd}/{config.data_root}/choppererror', 'a+') as f:
         proc_chopper = subprocess.Popen((prog_chopper, *args.split()),
                                         stdout=subprocess.PIPE,
                                         stderr=f)
-    logger.info(f'[{method_name}] Started chopper.')
+    logger.info(f'Started chopper.')
 
 
 def _t2logpipe_digest():
     '''Digests chopper activities.
 
     Watches t2logpipe for new epoch files and writes the epoch name into the transferd cmdpipe.
-    Transferd copies the corresponding epoch-file to the partnering computer.
+    Transferd copies the corresponding epoch file to the partnering computer.
     '''
     global t2logpipe_digest_thread_flag
-    method_name = sys._getframe().f_code.co_name
     t2logpipe_digest_thread_flag = True
-    pipe_name = f'{dataroot}/t2logpipe'
-    fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
+    fd = os.open(PipesQKD.T2LOG, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
-    cmd_pipe_name = f'{dataroot}/cmdpipe'
 
     while t2logpipe_digest_thread_flag is True:
         time.sleep(0.1)
@@ -126,11 +95,11 @@ def _t2logpipe_digest():
             if len(message) == 0:
                 continue
             epoch = message.split()[0]
-            qkd_globals.writer(cmd_pipe_name, epoch)
-            logger.info(f'[{method_name}] {message}')
-        except OSError as a:
+            qkd_globals.writer(PipesQKD.CMD, epoch)
+            logger.info(f'Msg: {message}')
+        except OSError:
             pass
-    logger.info(f'[{method_name}] Thread finished')
+    logger.info(f'Thread finished')
 
 
 def stop_chopper():
@@ -143,13 +112,9 @@ def stop_chopper():
 def is_running():
     return not (proc_chopper is None or proc_chopper.poll() is not None)
 
-# def _writer(file_name: str, message: str):
-#     f = os.open(file_name, os.O_WRONLY)
-#     os.write(f, f'{message}\n'.encode())
-#     os.close(f)
 
 if __name__ == '__main__':
     import time
-    start_chopper()
+    start_chopper(0)
     time.sleep(1)
     stop_chopper()

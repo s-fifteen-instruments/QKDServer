@@ -44,45 +44,46 @@ import threading
 import json
 import sys
 import psutil
+from types import SimpleNamespace
 
 # Own modules
 from . import qkd_globals
-from .qkd_globals import logger
+from .rawkey_diagnosis import RawKeyDiagnosis
+from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD
 
 
-def _load_costream_config(config_file_name: str):
-    '''
-    Reads a JSON config file and stores the relevant information in
-    global variables.
+# def _load_costream_config(config_file_name: str):
+#     '''
+#     Reads a JSON config file and stores the relevant information in
+#     global variables.
 
-    Arguments:
-        config_file_name {str} -- file name of the JSON formatted configuration file
-    '''
-    global data_root, program_root, kill_option, protocol
-    global remote_coincidence_window, tracking_window, track_filter_time_constant
-    global costream_histo_number, costream_histo_option, program_costream
-    global config
+#     Arguments:
+#         config_file_name {str} -- file name of the JSON formatted configuration file
+#     '''
+#     global data_root, program_root, kill_option, protocol
+#     global remote_coincidence_window, tracking_window, track_filter_time_constant
+#     global costream_histo_number, costream_histo_option, program_costream
+#     global config
 
-    with open(config_file_name, 'r') as f:
-        config = json.load(f)
+#     with open(config_file_name, 'r') as f:
+#         config = json.load(f)
 
-    data_root = config['data_root']
-    program_root = config['program_root']
-    kill_option = config['kill_option']
-    protocol = config['protocol']
-    remote_coincidence_window = config['remote_coincidence_window']
-    tracking_window = config['tracking_window']
-    track_filter_time_constant = config['track_filter_time_constant']
-    costream_histo_number = config['costream_histo_number']
-    costream_histo_option = config['costream_histo_option']
+#     data_root = config['data_root']
+#     program_root = config['program_root']
+# kill_option = config['kill_option']
+# protocol = QKDProtocol(config['protocol'])
+# remote_coincidence_window = config['remote_coincidence_window']
+# tracking_window = config['tracking_window']
+# track_filter_time_constant = config['track_filter_time_constant']
+# costream_histo_number = config['costream_histo_number']
+# costream_histo_option = config['costream_histo_option']
 
 
-def initialize(config_file_name: str = qkd_globals.config_file):
-    global program_costream, proc_costream, cwd
+def _initialize(config_file_name: str = qkd_globals.config_file):
+    global proc_costream, cwd
     global latest_coincidences, latest_accidentals, latest_deltat, latest_sentevents
     global latest_compress, latest_rawevents, latest_outepoch
-    _load_costream_config(config_file_name)
-    program_costream = program_root + '/costream'
+
     proc_costream = None
     cwd = os.getcwd()
     latest_coincidences = -1
@@ -94,46 +95,52 @@ def initialize(config_file_name: str = qkd_globals.config_file):
     latest_outepoch = ''
 
 
-def start_costream(time_difference: int, begin_epoch: str):
-    method_name = sys._getframe().f_code.co_name
-    global proc_costream
-    logger.info(f'[{method_name}] {begin_epoch}')
-    args = f'-d {data_root}/receivefiles \
-             -D {data_root}/t1 \
-             -f {data_root}/rawkey \
-             -F {data_root}/sendfiles \
+def start_costream(time_difference: int,
+                   begin_epoch: str,
+                   qkd_protocol: int = QKDProtocol.BBM92,
+                   config_file_name: str = qkd_globals.config_file):
+    global proc_costream, initial_time_difference, protocol
+    initial_time_difference = time_difference
+    with open(config_file_name, 'r') as f:
+        config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+    _initialize()
+    protocol = qkd_protocol
+    logger.info(f'{begin_epoch}')
+    args = f'-d {FoldersQKD.RECEIVEFILES} \
+             -D {FoldersQKD.T1FILES} \
+             -f {FoldersQKD.RAWKEYS} \
+             -F {FoldersQKD.SENDFILES} \
              -e 0x{begin_epoch} \
-             {kill_option} \
+             {config.kill_option} \
              -t {time_difference} \
-             -p {protocol} \
+             -p {qkd_protocol} \
              -T 2 \
-             -m {data_root}/rawpacketindex \
-             -M {data_root}/cmdpipe \
-             -n {data_root}/genlog \
+             -m {config.data_root}/rawpacketindex \
+             -M {PipesQKD.CMD} \
+             -n {PipesQKD.GENLOG} \
              -V 5 \
-             -G 2 -w {remote_coincidence_window} \
-             -u {tracking_window} \
-             -Q {int(-track_filter_time_constant)} \
+             -G 2 -w {config.remote_coincidence_window} \
+             -u {config.tracking_window} \
+             -Q {int(-config.track_filter_time_constant)} \
              -R 5 \
-             {costream_histo_option} \
-             -h {costream_histo_number}'
-
-    with open(f'{cwd}/{data_root}/costreamerror', 'a+') as f:
+             {config.costream_histo_option} \
+             -h {config.costream_histo_number}'
+    program_costream = config.program_root + '/costream'
+    with open(f'{cwd}/{config.data_root}/costreamerror', 'a+') as f:
         proc_costream = subprocess.Popen((program_costream, *args.split()),
-                                            stdout=subprocess.PIPE, stderr=f)
-    costream_thread = threading.Thread(target=_genlog_digest, args=())
+                                         stdout=subprocess.PIPE, stderr=f)
+    costream_thread = threading.Thread(
+        target=_genlog_digest, args=(qkd_protocol))
     costream_thread.start()
 
 
-def _genlog_digest():
+def _genlog_digest(qkd_protocol):
     '''
     Digests the genlog pipe written by costream.
     '''
     global latest_coincidences, latest_accidentals, latest_deltat, latest_sentevents
     global latest_compress, latest_rawevents, latest_outepoch
-    method_name = sys._getframe().f_code.co_name
-    pipe_name = f'{data_root}/genlog'
-    fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
+    fd = os.open(PipesQKD.GENLOG, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
     logger.info('Thread started.')
     while is_running():
@@ -141,7 +148,7 @@ def _genlog_digest():
         try:
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
             if len(message) != 0:
-                logger.info(f'[{method_name}] {message}')
+                logger.info(message)
                 costream_info = message.split()
                 latest_coincidences = costream_info[6]
                 latest_accidentals = costream_info[5]
@@ -150,9 +157,12 @@ def _genlog_digest():
                 latest_sentevents = costream_info[2]
                 latest_rawevents = costream_info[1]
                 latest_outepoch = costream_info[0]
+                if qkd_protocol == QKDProtocol.SERVICE:
+                    diagnosis = RawKeyDiagnosis(message)
+                    logger.info(diagnosis)
         except OSError:
             pass
-    logger.info(f'[{method_name}] Thread finished.')
+    logger.info('Thread finished.')
 
 
 def stop_costream():
@@ -163,5 +173,3 @@ def stop_costream():
 
 def is_running():
     return not (proc_costream is None or proc_costream.poll() is not None)
-
-initialize()

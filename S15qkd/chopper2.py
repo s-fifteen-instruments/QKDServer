@@ -35,51 +35,35 @@ import threading
 import sys
 import psutil
 import select
+from types import SimpleNamespace
 
 from . import qkd_globals
-from .qkd_globals import logger
+from .qkd_globals import logger, PipesQKD, FoldersQKD
 
-def _load_chopper2_config(config_file_name: str):
-    '''
-    Reads a JSON config file and stores the relevant information in
-    global variables.
 
-    Arguments:
-        config_file_name {str} -- file name of the JSON formatted configuration file
-    '''
-    global dataroot, programroot, max_event_diff, prog_chopper2
+def start_chopper2(config_file_name: str = qkd_globals.config_file):
+    global proc_chopper2, first_epoch, t1logpipe_digest_thread_flag, t1_epoch_count
+    
     with open(config_file_name, 'r') as f:
-        config = json.load(f)
-    dataroot = config['data_root']
-    max_event_diff = config['max_event_diff']
-    programroot = config['program_root']
-    prog_chopper2 = programroot + '/chopper2'
-
-
-def initialize(config_file_name: str = qkd_globals.config_file):
-    global cwd, proc_chopper2, t1_epoch_count, t1logpipe_digest_thread_flag
-    global first_epoch
-    _load_chopper2_config(config_file_name)
+        config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
     cwd = os.getcwd()
     proc_chopper2 = None
     t1_epoch_count = 0
     t1logpipe_digest_thread_flag = False
     first_epoch = None
+    prog_chopper2 = config.program_root + '/chopper2'
 
-
-def start_chopper2(rawevents_pipe: str='rawevents', t1_log_pipe: str='t1logpipe', t1_file_folder: str='t1'):
-    global proc_chopper2, max_event_diff
-    method_name = sys._getframe().f_code.co_name
-    args = f'-i {cwd}/{dataroot}/{rawevents_pipe} \
-            -l {cwd}/{dataroot}/{t1_log_pipe} -V 3 \
-            -D {cwd}/{dataroot}/{t1_file_folder} \
-            -U -F -m {max_event_diff}'
-    t1logpipe_thread = threading.Thread(target=_t1logpipe_digest, args=(), daemon=True)
+    args = f'-i {PipesQKD.RAWEVENTS} \
+             -l {PipesQKD.T1LOG} -V 3 \
+             -D {FoldersQKD.T1FILES} \
+             -U -F -m {config.max_event_diff}'
+    t1logpipe_thread = threading.Thread(
+        target=_t1logpipe_digest, args=(), daemon=True)
     t1logpipe_thread.start()
-    with open(f'{cwd}/{dataroot}/chopper2error', 'a+') as f:
+    with open(f'{cwd}/{config.data_root}/chopper2error', 'a+') as f:
         proc_chopper2 = subprocess.Popen((prog_chopper2, *args.split()),
                                          stdout=subprocess.PIPE, stderr=f)
-    logger.info(f'[{method_name}] Started chopper2.')
+    logger.info('Started chopper2.')
 
 
 def _t1logpipe_digest():
@@ -89,19 +73,17 @@ def _t1logpipe_digest():
     Also counts the number of epochs recorded by chopper2.
     '''
     global t1logpipe_digest_thread_flag, t1_epoch_count, first_epoch
-    method_name = sys._getframe().f_code.co_name
     t1_epoch_count = 0
     t1logpipe_digest_thread_flag = True
-    pipe_name = f'{dataroot}/t1logpipe'
 
     while t1logpipe_digest_thread_flag is True:
-        for message in _reader(pipe_name):
-            logger.info(f'[{method_name}:read] {message}')
+        for message in _reader(PipesQKD.T1LOG):
+            logger.info(f'[read msg] {message}')
             if t1_epoch_count == 0:
                 first_epoch = message.split()[0]
-                logger.info(f'[{method_name}:first_epoch] {first_epoch}')
+                logger.info(f'First_epoch: {first_epoch}')
             t1_epoch_count += 1
-    logger.info(f'[{method_name}] Thread finished.')
+    logger.info(f'Thread finished.')
 
 
 def stop_chopper2():
@@ -119,10 +101,10 @@ def _reader(file_name: str):
         if f == r:
             yield ((f.readline()).rstrip('\n')).lstrip('\x00')
 
+
 def is_running():
     return not (proc_chopper2 is None or proc_chopper2.poll() is not None)
 
-initialize()
 
 if __name__ == '__main__':
     import time

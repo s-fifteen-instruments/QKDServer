@@ -49,9 +49,10 @@ import queue
 import collections
 
 from . import qkd_globals
-from .qkd_globals import logger
+from .qkd_globals import logger, PipesQKD, FoldersQKD
+from . import polarization_compensation
 
-
+EPOCH_DURATION = 0.536  # seconds
 
 
 def _load_error_correction_config(config_file_name: str):
@@ -60,6 +61,7 @@ def _load_error_correction_config(config_file_name: str):
     global minimal_block_size, QBER_limit, default_QBER, servo_blocks
     global program_error_correction, program_diagbb84, ec_note_pipe
     global raw_key_folder, servoed_QBER
+    global do_polarization_compensation
 
     with open(config_file_name, 'r') as f:
         config = json.load(f)
@@ -73,6 +75,7 @@ def _load_error_correction_config(config_file_name: str):
     QBER_limit = config['QBER_limit']
     default_QBER = config['default_QBER']
     servo_blocks = config['servo_blocks']
+    do_polarization_compensation = config['do_polarization_compensation']
 
     program_error_correction = program_root + '/errcd'
     program_diagbb84 = program_root + '/diagbb84'
@@ -81,12 +84,13 @@ def _load_error_correction_config(config_file_name: str):
     servoed_QBER = default_QBER
 
 
-def initialize(config_file_name: str=qkd_globals.config_file):
-    _load_error_correction_config(config_file_name)
+def initialize(config_file_name: str = qkd_globals.config_file):
     global ec_queue, total_ec_key_bits, cwd
     global undigested_epochs_info, init_QBER_info, ec_raw_bits
-    global ec_epoch, ec_final_bits, ec_err_fraction, first_epoch_info
+    global ec_epoch, ec_final_bits, ec_err_fraction, first_epoch_info, ec_key_gen_rate
     global proc_error_correction, ec_err_fraction_history, ec_err_key_length_history
+    global polarization_comp
+    _load_error_correction_config(config_file_name)
     ec_queue = queue.Queue()  # used to queue raw key files
     total_ec_key_bits = 0  # counts the final error-corrected key bits
     cwd = os.getcwd()
@@ -97,15 +101,24 @@ def initialize(config_file_name: str=qkd_globals.config_file):
     ec_final_bits = 0
     ec_err_fraction = 0
     ec_epoch = ''
+    ec_key_gen_rate = 0
     proc_error_correction = None  # error correction process handle
     ec_err_fraction_history = collections.deque(maxlen=100)
     ec_err_key_length_history = collections.deque(maxlen=100)
+    polarization_comp = None
+    if do_polarization_compensation is True:
+        polarization_comp = polarization_compensation.PolarizationDriftCompensation(
+            averaging_n=1)
 
 
-def start_error_correction():
+def start_error_correction(cmd_pipe: str = PipesQKD.ECCMD, send_pipe: str = PipesQKD.ECS,
+                           receive_pipe: str = PipesQKD.ECR, raw_keys_folder: str = FoldersQKD.RAWKEYS,
+                           final_keys_folder: str = FoldersQKD.FINALKEYS, notification_pipe: str = PipesQKD.ECNOTE,
+                           query_pipe: str = PipesQKD.ECQUERY, query_resp_pipe: str = PipesQKD.ECR):
     '''Starts the error correction process.
     '''
     global proc_error_correction
+    initialize()
     # create erroroptions from settings
     erropt = ''
     if privacy_amplification is False:
@@ -116,23 +129,27 @@ def start_error_correction():
     erropt += f' -B {target_bit_error}'
     logger.info(f'Error option: {erropt}')
 
-    args = f'-c {data_root}/eccmdpipe \
-             -s {data_root}/ecspipe \
-             -r {data_root}/ecrpipe \
-             -d {raw_key_folder} -f {data_root}/finalkey \
-             -l {ec_note_pipe} \
-             -Q {data_root}/ecquery -q {data_root}/ecresp \
+    args = f'-c {cmd_pipe} \
+             -s {send_pipe} \
+             -r {receive_pipe} \
+             -d {raw_keys_folder} \
+             -f {final_keys_folder} \
+             -l {notification_pipe} \
+             -Q {query_pipe} \
+             -q {query_resp_pipe} \
              -V 2 {erropt} -T 1'
-    with open(f'{cwd}/{data_root}/errcd_err', 'a+') as f_err:
-        with open(f'{cwd}/{data_root}/errcd_log', 'a+') as f_stdout:
+    with open(f'{FoldersQKD.DATAROOT}/errcd_err', 'a+') as f_err:
+        with open(f'{FoldersQKD.DATAROOT}/errcd_log', 'a+') as f_stdout:
             proc_error_correction = subprocess.Popen((program_error_correction,
                                                       *args.split()),
                                                      stdout=f_stdout,
-                                                     stderr=subprocess.STDOUT)
+                                                     stderr=f_err)
     # start pipe digests
-    ecnotepipe_thread = threading.Thread(target=_ecnotepipe_digest, args=(), daemon=True)
+    ecnotepipe_thread = threading.Thread(
+        target=_ecnotepipe_digest, args=(), daemon=True)
     ecnotepipe_thread.start()
-    do_ec_thread = threading.Thread(target=_do_error_correction, args=(), daemon=True)
+    do_ec_thread = threading.Thread(
+        target=_do_error_correction, args=(), daemon=True)
     do_ec_thread.start()
     logger.info(f'Started error correction.')
 
@@ -144,7 +161,7 @@ def _ecnotepipe_digest():
     '''
     global proc_error_correction, total_ec_key_bits, servoed_QBER, ec_note_pipe
     global ec_epoch, ec_raw_bits, ec_final_bits, ec_err_fraction
-    global ec_err_fraction_history, ec_err_key_length_history
+    global ec_err_fraction_history, ec_err_key_length_history, ec_key_gen_rate
     fd = os.open(ec_note_pipe, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
 
@@ -158,10 +175,13 @@ def _ecnotepipe_digest():
                 ec_raw_bits = int(message[1])
                 ec_final_bits = int(message[2])
                 ec_err_fraction = float(message[3])
+                ec_key_gen_rate = ec_final_bits / \
+                    (int(message[4]) * EPOCH_DURATION)
                 total_ec_key_bits += ec_final_bits
                 ec_err_fraction_history.append(ec_err_fraction)
                 ec_err_key_length_history.append(ec_final_bits)
-
+                if polarization_comp is not None:
+                    polarization_comp.update_QBER(ec_err_fraction)
                 # servoing QBER
                 servoed_QBER += (ec_err_fraction - servoed_QBER) / servo_blocks
                 if servoed_QBER < 0.005:
@@ -171,8 +191,9 @@ def _ecnotepipe_digest():
                 elif servoed_QBER > QBER_limit:
                     servoed_QBER = QBER_limit
 
-                logger.info(f'{message}. Total generated final bits: {total_ec_key_bits}.')
-        except OSError as a:
+                logger.info(
+                    f'{message}. Total generated final bits: {total_ec_key_bits}.')
+        except OSError:
             pass
     logger.info(f'Thread finished')
 
@@ -186,7 +207,6 @@ def _do_error_correction():
     it notifies the error correction process by writing into the eccmdpipe.
     '''
     global ec_queue, minimal_block_size, first_epoch_info, undigested_epochs_info, init_QBER_info
-    ec_cmd_pipe = f'{data_root}/eccmdpipe'
     undigested_raw_bits = 0
     first_epoch = ''
     undigested_epochs = 0
@@ -199,7 +219,7 @@ def _do_error_correction():
             time.sleep(0.6)
             continue
         # Use diagbb84 to check for raw key bits
-        args = f'{raw_key_folder}/{file_name}'
+        args = f'{FoldersQKD.RAWKEYS}/{file_name}'
         proc_diagbb84 = subprocess.Popen([program_diagbb84, *args.split()],
                                          stderr=subprocess.PIPE,
                                          stdout=subprocess.PIPE)
@@ -207,9 +227,9 @@ def _do_error_correction():
         diagbb84_result = (proc_diagbb84.stdout.read()).decode().split()
         diagbb84_error = (proc_diagbb84.stderr.read()).decode()
         logger.info(f'diagbb84_result: {file_name} {diagbb84_result}')
-        logger.info(f'diagbb84_error: {diagbb84_error}')
-        # If no BB84 type OR more than one bit per entry
-        # Check diagbb84 for the return values meanings
+        if diagbb84_error != '':
+            logger.info(f'diagbb84_error: {diagbb84_error}')
+
         if int(diagbb84_result[0]) == 0 or int(diagbb84_result[1]) != 1:
             logger.info(f'Not BB84 file type or more than 1 bit per entry.')
             continue
@@ -223,15 +243,18 @@ def _do_error_correction():
         # Could be also based on number of epochs.
         if undigested_raw_bits > minimal_block_size:
             # notify the error correction process about the first epoch, number of epochs, and the servoed QBER
-            qkd_globals.writer(ec_cmd_pipe, f'0x{first_epoch} {undigested_epochs} {float("{0:.4f}".format(servoed_QBER))}')
-            logger.info(f'Started error correction for epoch {first_epoch}, {undigested_epochs}.')
+            qkd_globals.writer(
+                PipesQKD.ECCMD, f'0x{first_epoch} {undigested_epochs} {float("{0:.4f}".format(servoed_QBER))}')
+            logger.info(
+                f'Started error correction for epoch {first_epoch}, {undigested_epochs}.')
             first_epoch_info = first_epoch
             undigested_epochs_info = undigested_epochs
             init_QBER_info = servoed_QBER
             undigested_raw_bits = 0
             undigested_epochs = 0
         else:
-            logger.info(f'Undigested raw bits:{undigested_raw_bits}. Undigested epochs: {undigested_epochs}.')
+            logger.info(
+                f'Undigested raw bits:{undigested_raw_bits}. Undigested epochs: {undigested_epochs}.')
         ec_queue.task_done()
     logger.info(f'Thread finished.')
 
@@ -245,7 +268,6 @@ def stop_error_correction():
 def is_running():
     return not (proc_error_correction is None or proc_error_correction.poll() is not None)
 
-initialize()
 
 if __name__ == '__main__':
     import time

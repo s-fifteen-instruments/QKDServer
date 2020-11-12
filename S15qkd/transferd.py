@@ -45,29 +45,31 @@ from queue import Queue, Empty
 import time
 import sys
 import psutil
+from enum import Enum
+from types import SimpleNamespace
 
 from . import qkd_globals
-from .qkd_globals import logger
+from .qkd_globals import logger, PipesQKD, FoldersQKD
 
-def _load_transferd_config(config_file_name: str):
-    global data_root, program_root, target_ip, port_num, extclockopt
-    global prog_getrate, prog_transferd
 
-    with open(config_file_name, 'r') as f:
-        config = json.load(f)
-    data_root = config['data_root']
-    program_root = config['program_root']
-    target_ip = config['target_ip']
-    port_num = config['port_num']
-    extclockopt = config['clock_source']
-    prog_transferd = program_root + '/transferd'
-    prog_getrate = program_root + '/getrate'
+# def _load_transferd_config(config_file_name: str):
+#     global data_root, program_root, target_ip, port_num, extclockopt
+#     global prog_getrate, prog_transferd
+
+#     with open(config_file_name, 'r') as f:
+#         config = json.load(f)
+#     data_root = config['data_root']
+#     program_root = config['program_root']
+#     target_ip = config['target_ip']
+#     port_num = config['port_num']
+#     extclockopt = config['clock_source']
+#     prog_transferd = program_root + '/transferd'
+#     prog_getrate = program_root + '/getrate'
 
 
 def initialize(config_file_name: str = qkd_globals.config_file):
-    _load_transferd_config(config_file_name)
     global cwd, sleep_time, communication_status, low_count_side, remote_count_rate
-    global local_count_rate, commhandle, first_received_epoch, last_received_epoch
+    global local_count_rate, transferd_proc, first_received_epoch, last_received_epoch
     global prog_readevents, negotiating
     cwd = os.getcwd()
     sleep_time = 1
@@ -75,49 +77,49 @@ def initialize(config_file_name: str = qkd_globals.config_file):
     low_count_side = ''
     remote_count_rate = -1
     local_count_rate = -1
-    commhandle = None
+    transferd_proc = None
     first_received_epoch = ''
     last_received_epoch = ''
     prog_readevents = qkd_globals.prog_readevents
-    negotiating = 0
+    negotiating = SymmetryNegotiationState.NOTDONE
 
 
 def _local_callback(msg: str):
     '''
     The transferd process has a msgout pipe which contains received messages.
-    Usually we let another script manage the response to theses messages, 
+    Usually we let another script manage the response to these messages, 
     however when no response function is defined this function is used as a default response.
 
 
     Arguments:
         msg {str} -- Contains the messages received in the msgout pipe.
     '''
-    method_name = sys._getframe().f_code.co_name
-    logger.info(f'[{method_name}] The msgout pipe is printed locally by the transferd modul.\n\
+    logger.info(f'The msgout pipe is printed locally by the transferd modul.\n\
           Define a callback function in start_communication to digest the msgout output in your custom function.')
     logger.info(msg)
 
 
-def start_communication(msg_out_callback=_local_callback):
-    global commhandle, program_root, data_root
-
+def start_communication(msg_out_callback=_local_callback, config_file_name: str = qkd_globals.config_file):
+    global transferd_proc
+    initialize()
+    with open(config_file_name, 'r') as f:
+        config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
     if communication_status == 0:
-        args = f'-d {cwd}/{data_root}/sendfiles -c {cwd}/{data_root}/cmdpipe -t {target_ip} \
-            -D {cwd}/{data_root}/receivefiles -l {cwd}/{data_root}/transferlog \
-            -m {cwd}/{data_root}/msgin -M {cwd}/{data_root}/msgout -p {port_num} \
-            -k -e {cwd}/{data_root}/ecspipe -E {cwd}/{data_root}/ecrpipe'
-
-
-        commhandle = subprocess.Popen(
+        args = f'-d {FoldersQKD.SENDFILES} -c {PipesQKD.CMD} -t {config.target_ip} \
+            -D {FoldersQKD.RECEIVEFILES} -l {PipesQKD.TRANSFERLOG} \
+            -m {PipesQKD.MSGIN} -M {PipesQKD.MSGOUT} -p {config.port_num} \
+            -k -e {PipesQKD.ECS} -E {PipesQKD.ECR}'
+        prog_transferd = config.program_root + '/transferd'
+        transferd_proc = subprocess.Popen(
             (prog_transferd, *args.split()),
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # setup read thread for the process stdout
         q = Queue()  # I don't know why I need this but it works
         t = threading.Thread(
-                target=_transferd_stdout_digest,
-                args=(commhandle.stdout, commhandle.stderr, q), 
-                daemon=True)
+            target=_transferd_stdout_digest,
+            args=(transferd_proc.stdout, transferd_proc.stderr, q),
+            daemon=True)
         t.start()
 
         # setup read thread for the msgout pipe
@@ -130,87 +132,80 @@ def start_communication(msg_out_callback=_local_callback):
             target=_transferlog_digest, args=(), daemon=True)
         transferlog_thread.start()
         time.sleep(0.2)  # give some time to connect to the partnering computer
-        return commhandle  # returns the process handle
+        return transferd_proc  # returns the process handle
 
 
 def _transferd_stdout_digest(out, err, queue):
-    global commhandle, communication_status
-    method_name = sys._getframe().f_code.co_name
-    logger.info(f'[{method_name}] Thread started.')
+    global transferd_proc, communication_status
+    logger.info(f'Thread started.')
     while is_running():
         time.sleep(0.5)
         for line in iter(out.readline, b''):
             line = line.rstrip()
-            logger.info(f'[transferd:stdout] {line.decode()}')
+            logger.info(f'[stdout] {line.decode()}')
             if line == b'connected.':
                 communication_status = 1
             elif line == b'disconnected.':
                 communication_status = 2
         for line in iter(err.readline, b''):
-            logger.info(f'[transferd:stderr] {line.decode()}')
+            logger.info(f'[stderr] {line.decode()}')
     communication_status = 0
-    logger.info(f'[{method_name}] Thread finished')
+    logger.info(f'Thread finished')
     # startcommunication() # this is to restart the startcomm process if it crashes
 
 
 def _msg_out_digest(msg_out_callback):
-    global commhandle
-    method_name = sys._getframe().f_code.co_name
-    pipe_name = f'{data_root}/msgout'
-    fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
+    global transferd_proc
+    fd = os.open(PipesQKD.MSGOUT, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
-    logger.info(f'[{method_name}] Thread started.')
+    logger.info(f'Thread started.')
     while is_running():
         time.sleep(0.05)
         try:
             message = f.readline().decode().lstrip('\x00').rstrip('\n')
             if len(message) != 0:
-                logger.info(f'[{method_name}:read] {message}')
+                logger.info(f'[read] {message}')
                 if message.split(':')[0] in {'ne1', 'ne2', 'ne3'}:
                     _symmetry_negotiation_messaging(message)
                 else:
                     msg_out_callback(message)
         except OSError:
             pass
-    logger.info(f'[{method_name}] Thread finished')
+    logger.info(f'Thread finished')
 
 
 def _transferlog_digest():
     '''
     Digests the transferlog which is written by the transferd process.
 
-    This function usually runs as a thread and
-    watches the transferlog file. If this is the low count side this function notifies the splicer about file arrival.
+    This function usually runs as a thread and watches the transferlog file. 
+    If this is the low count side this function notifies the splicer about file arrival.
     '''
     global first_received_epoch, low_count_side, last_received_epoch
-    method_name = sys._getframe().f_code.co_name
-    log_file_name = f'{data_root}/transferlog'
-    splicer_pipe = f'{data_root}/splicepipe'
-    fd = os.open(log_file_name, os.O_RDONLY | os.O_NONBLOCK)
+    fd = os.open(PipesQKD.TRANSFERLOG, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
-    logger.info(f'[{method_name}] Thread started.')
+    logger.info('Thread started.')
     while is_running():
         time.sleep(0.1)
         try:
             message = f.readline().decode().rstrip()
             if len(message) != 0:
                 last_received_epoch = message
-                logger.info(f'[{method_name}:read] {message}')
+                logger.info(f'[read msg] {message}')
                 if first_received_epoch == '':
                     first_received_epoch = message
-                    logger.info(f'[{method_name}:first_rx_epoch] {first_received_epoch}')
+                    logger.info(f'[first_rx_epoch] {first_received_epoch}')
                 if low_count_side is True:
-                    qkd_globals.writer(splicer_pipe, message)
-                    logger.info(f'[{method_name}] Sent epoch name {message} to splicer.')
+                    qkd_globals.writer(PipesQKD.SPLICER, message)
+                    logger.info(f'Sent epoch name {message} to splicer.')
         except OSError:
             pass
-    logger.info(f'[{method_name}] Thread finished.')
+    logger.info(f'Thread finished.')
 
 
-def _symmetry_negotiation_messaging(message):
+def _symmetry_negotiation_messaging(message: str):
     global remote_count_rate, local_count_rate, low_count_side
     global negotiating
-    method_name = sys._getframe().f_code.co_name
     msg_split = message.split(':')[:]
     msg_code = msg_split[0]
 
@@ -227,71 +222,73 @@ def _symmetry_negotiation_messaging(message):
             send_message(f'ne3:{local_count_rate}:{remote_count_rate}')
             if local_count_rate <= remote_count_rate:
                 low_count_side = True
-                logger.info(f'[{method_name}:ne2] This is the low count side.')
+                logger.info(f'[ne2] This is the low count side.')
             else:
                 low_count_side = False
-                logger.info(f'[{method_name}:ne2] This the high count side.')
-            negotiating = 2
+                logger.info(f'[ne2] This the high count side.')
+            negotiating = SymmetryNegotiationState.FINISHED
         else:
-            logger.info(f'[{method_name}:ne2] Local countrates do not agree. \
+            logger.info(f'[ne2] Local countrates do not agree. \
                     Symmetry negotiation failed.')
-            negotiating = 0
+            negotiating = SymmetryNegotiationState.NOTDONE
 
     if msg_code == 'ne3':
         if int(msg_split[2]) == local_count_rate and int(msg_split[1]) == remote_count_rate:
             if local_count_rate < remote_count_rate:
                 low_count_side = True
-                logger.info(f'[{method_name}:ne3] This is the low count side.')
+                logger.info(f'[ne3] This is the low count side.')
             else:
                 low_count_side = False
-                logger.info(f'[{method_name}:ne3] This is the high count side.')
-            logger.info(f'[{method_name}:ne3] Symmetry negotiation succeeded.')
-            negotiating = 2
+                logger.info(f'[ne3] This is the high count side.')
+            logger.info(f'[ne3] Symmetry negotiation succeeded.')
+            negotiating = SymmetryNegotiationState.FINISHED
         else:
-            logger.info(f'[{method_name}:ne3] Count rates in the messages do not agree. \
+            logger.info(f'[ne3] Count rates in the messages do not agree. \
                 Symmetry negotiation failed')
-            negotiating = 0
+            negotiating = SymmetryNegotiationState.NOTDONE
 
 
 def stop_communication():
-    global commhandle
+    global transferd_proc, communication_status
     if is_running():
-        qkd_globals.kill_process(commhandle)
+        qkd_globals.kill_process(transferd_proc)
         communication_status = 0
-        commhandle = None
+        transferd_proc = None
 
 
-def send_message(message):
-    method_name = sys._getframe().f_code.co_name
-    qkd_globals.writer(f'{data_root}/msgin', message)
-    logger.info(f'[{method_name}:write] {message}')
+def send_message(message: str):
+    qkd_globals.writer(PipesQKD.MSGIN, message)
+    logger.info(message)
     time.sleep(sleep_time)
 
 
 def symmetry_negotiation():
-    # global commhandle
+    global transferd_proc
     global negotiating, local_count_rate
-    method_name = sys._getframe().f_code.co_name
-    if local_count_rate == -1:
-        local_count_rate = measure_local_count_rate()
-    if commhandle.poll() is None:
-        send_message(f'ne1:{local_count_rate}')
-        negotiating = 1
-    else:
-        logger.info(f'[{method_name}] Transferd process not running.')
+    if negotiating != SymmetryNegotiationState.FINISHED:
+        if local_count_rate == -1:
+            local_count_rate = measure_local_count_rate()
+        if transferd_proc.poll() is None:
+            send_message(f'ne1:{local_count_rate}')
+            negotiating = SymmetryNegotiationState.PENDING
+        else:
+            logger.info(f'Transferd process not running.')
 
 
-def measure_local_count_rate():
+def measure_local_count_rate(config_file_name: str = qkd_globals.config_file):
     '''
     Measure local photon count rate.
     '''
-    global program_root, data_root, localcountrate, extclockopt
+    global localcountrate
+    with open(config_file_name, 'r') as f:
+        config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
     localcountrate = -1
     cmd = prog_readevents
-    args = f'-a 1 -F -u {extclockopt} -S 20'
+    args = f'-a 1 -F -u {config.clock_source} -S 20'
     p1 = subprocess.Popen([cmd, *args.split()],
                           stdout=subprocess.PIPE)
     logger.info('started readevents')
+    prog_getrate = config.program_root + '/getrate'
     p2 = subprocess.Popen(prog_getrate,
                           stdin=p1.stdout,
                           stdout=subprocess.PIPE)
@@ -304,8 +301,9 @@ def measure_local_count_rate():
     localcountrate = int((p2.stdout.read()).decode())
     return localcountrate
 
+
 def is_running():
-    return not (commhandle is None or commhandle.poll() is not None)
+    return not (transferd_proc is None or transferd_proc.poll() is not None)
 
 
 def main():
@@ -314,10 +312,16 @@ def main():
     time.sleep(10)
     stop_communication()
 
+
 def __del__():
     print('closing module')
 
-initialize()
+
+class SymmetryNegotiationState(int, Enum):
+    NOTDONE = 0
+    PENDING = 1
+    FINISHED = 2
+
 
 if __name__ == '__main__':
     main()
