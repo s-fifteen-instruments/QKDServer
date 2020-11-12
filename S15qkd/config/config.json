@@ -33,5 +33,5 @@
   "minimal_block_size": 5000,
   "target_bit_error": 1e-09,
   "servo_blocks": 5,
-  "do_polarization_comepensation": true
+  "do_polarization_compensation": true
 }
