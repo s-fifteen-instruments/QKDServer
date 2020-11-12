@@ -269,6 +269,7 @@ def stop_error_correction():
 def is_running():
     return not (proc_error_correction is None or proc_error_correction.poll() is not None)
 
+initialize()
 
 if __name__ == '__main__':
     import time
