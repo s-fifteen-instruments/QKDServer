@@ -52,11 +52,11 @@ from enum import unique, Enum
 
 
 cwd = os.getcwd()
-root_name, _, _ = __name__.partition('.')
-root_module = sys.modules[root_name]
-MODULE_ROOT_DIR = os.path.dirname(root_module.__file__)
+# root_name, _, _ = __name__.partition('.')
+# root_module = sys.modules[root_name]
+# MODULE_ROOT_DIR = os.path.dirname(root_module.__file__)
 
-config_file = MODULE_ROOT_DIR + 'config.json'
+config_file = 'qkd_engine_config.json'
 
 if not os.path.exists(config_file):
     dictionary = {
