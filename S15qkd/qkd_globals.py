@@ -56,7 +56,49 @@ root_name, _, _ = __name__.partition('.')
 root_module = sys.modules[root_name]
 MODULE_ROOT_DIR = os.path.dirname(root_module.__file__)
 
-config_file = MODULE_ROOT_DIR + '/config/config.json'
+config_file = MODULE_ROOT_DIR + 'config.json'
+
+if not os.path.exists(config_file):
+    dictionary = {
+        "target_ip": "192.168.1.20",
+        "data_root": "tmp/cryptostuff",
+        "program_root": "bin/remotecrypto",
+        "port_num": 4852,
+        "identity": "Alice",
+        "remote_coincidence_window": 16,
+        "tracking_window": 30,
+        "track_filter_time_constant": 2000000,
+        "FFT_buffer_order": 23,
+        "local_detector_skew_correction": {
+            "det1corr": 0,
+            "det2corr": 0,
+            "det3corr": 0,
+            "det4corr": 0
+        },
+        "max_event_time_pause": 20000,
+        "autorestart_costream": True,
+        "costream_general_log": True,
+        "clock_source": "-e",
+        "protocol": 1,
+        "max_event_diff": 20000,
+        "kill_option": "-k -K",
+        "pfind_epochs": 5,
+        "costream_histo_option": "",
+        "costream_histo_number": 10,
+        "error_correction_program_path": "bin/errorcorrection",
+        "error_correction": True,
+        "privacy_amplification": True,
+        "errcd_killfile_option": True,
+        "QBER_limit": 0.12,
+        "default_QBER": 0.05,
+        "minimal_block_size": 5000,
+        "target_bit_error": 1e-09,
+        "servo_blocks": 5,
+        "do_polarization_compensation": True
+    }
+    json_object = json.dumps(dictionary, indent=4)
+    with open(config_file, "w") as outfile:
+        outfile.write(json_object)
 
 with open(config_file, 'r') as f:
     config = json.load(f)

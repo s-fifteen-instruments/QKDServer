@@ -167,7 +167,6 @@ def msg_response(message):
         _stop_key_gen_processes()
         transferd.send_message('start_service_mode_step2')
         if low_count_side is False:
-
             _start_readevents()
             chopper2.start_chopper2()
             wait_for_epoch_files(2)
@@ -175,8 +174,8 @@ def msg_response(message):
                 curr_time_diff = costream.latest_deltat + costream.initial_time_difference
             else:
                 curr_time_diff, sig_long, sig_short = periode_find()
-            costream.start_costream(
-                curr_time_diff, first_epoch, qkd_protocol=QKDProtocol.SERVICE)
+            costream.start_costream(curr_time_diff, first_epoch, 
+                                    qkd_protocol=QKDProtocol.SERVICE)
         else:
             _start_readevents()
             chopper.start_chopper(QKDProtocol.SERVICE)
@@ -243,10 +242,11 @@ def periode_find():
 
     first_epoch, epoch_diff = wait_for_epoch_files(periode_count)
 
-    # Not sure why minus 2, but I'm following what was done in crgui_ec.
-    use_periods = periode_count - 2
     if epoch_diff > 0:
         use_periods = periode_count - epoch_diff  # less periodes are available
+    else:
+        # Not sure why minus 2, but I'm following what was done in crgui_ec.
+        use_periods = periode_count - 2
 
     args = f'-d {cwd}/{dataroot}/receivefiles \
             -D {cwd}/{dataroot}/t1 \
