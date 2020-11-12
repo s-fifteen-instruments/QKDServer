@@ -318,6 +318,7 @@ def _stop_key_gen_processes():
     costream.stop_costream()
     error_correction.stop_error_correction()
     qkd_globals.kill_process(proc_readevents)
+    transferd.first_received_epoch = None
     qkd_globals.PipesQKD.drain_all_pipes()
 
 

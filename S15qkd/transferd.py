@@ -194,7 +194,7 @@ def _transferlog_digest():
             if len(message) != 0:
                 last_received_epoch = message
                 logger.info(f'[read msg] {message}')
-                if first_received_epoch == '':
+                if first_received_epoch == None:
                     first_received_epoch = message
                     logger.info(f'[first_rx_epoch] {first_received_epoch}')
                 if low_count_side is True:
