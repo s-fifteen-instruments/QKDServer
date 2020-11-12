@@ -83,13 +83,14 @@ proc_costream = None
 def _initialize(config_file_name: str = qkd_globals.config_file):
     global proc_costream, cwd
     global latest_coincidences, latest_accidentals, latest_deltat, latest_sentevents
-    global latest_compress, latest_rawevents, latest_outepoch
+    global latest_compress, latest_rawevents, latest_outepoch, initial_time_difference
 
     proc_costream = None
     cwd = os.getcwd()
     latest_coincidences = -1
     latest_accidentals = -1
     latest_deltat = -1
+    initial_time_difference = None
     latest_compress = ''
     latest_sentevents = ''
     latest_rawevents = ''
@@ -174,3 +175,5 @@ def stop_costream():
 
 def is_running():
     return not (proc_costream is None or proc_costream.poll() is not None)
+
+_initialize()

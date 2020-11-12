@@ -66,8 +66,8 @@ from .qkd_globals import logger, PipesQKD, FoldersQKD
 #     prog_transferd = program_root + '/transferd'
 #     prog_getrate = program_root + '/getrate'
 
-transferd_proc = None
-communication_status = 0
+# transferd_proc = None
+# communication_status = 0
 
 def initialize(config_file_name: str = qkd_globals.config_file):
     global cwd, sleep_time, communication_status, low_count_side, remote_count_rate
@@ -323,7 +323,7 @@ class SymmetryNegotiationState(int, Enum):
     PENDING = 1
     FINISHED = 2
 
-# initialize()
+initialize()
 
 if __name__ == '__main__':
     main()

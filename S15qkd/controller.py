@@ -144,15 +144,16 @@ def msg_response(message):
             _start_readevents()
             chopper2.start_chopper2()
             time_diff, sig_long, sig_short = periode_find()
-            costream.start_costream(time_diff, first_epoch, qkd_protocol=QKDProtocol.BBM92)
+            costream.start_costream(time_diff, first_epoch,
+                                    qkd_protocol=QKDProtocol.BBM92)
             if with_error_correction == True:
                 error_correction.start_error_correction()
 
     if msg_code == 'st3':
         if low_count_side is False:
             time_diff, sig_long, sig_short = periode_find()
-            costream.start_costream(
-                time_diff, first_epoch, qkd_protocol=QKDProtocol.BBM92)
+            costream.start_costream(time_diff, first_epoch,
+                                    qkd_protocol=QKDProtocol.BBM92)
             if with_error_correction == True:
                 error_correction.start_error_correction()
         else:
@@ -166,10 +167,14 @@ def msg_response(message):
         _stop_key_gen_processes()
         transferd.send_message('start_service_mode_step2')
         if low_count_side is False:
-            curr_time_diff = costream.latest_deltat + costream.initial_time_difference
+
             _start_readevents()
             chopper2.start_chopper2()
             wait_for_epoch_files(2)
+            if costream.initial_time_difference != None:
+                curr_time_diff = costream.latest_deltat + costream.initial_time_difference
+            else:
+                curr_time_diff, sig_long, sig_short = periode_find()
             costream.start_costream(
                 curr_time_diff, first_epoch, qkd_protocol=QKDProtocol.SERVICE)
         else:
@@ -180,12 +185,15 @@ def msg_response(message):
     if msg_code == 'start_service_mode_step2':
         _stop_key_gen_processes()
         if low_count_side is False:
-            curr_time_diff = costream.latest_deltat + costream.initial_time_difference
             _start_readevents()
             chopper2.start_chopper2()
             wait_for_epoch_files(2)
-            costream.start_costream(
-                curr_time_diff, first_epoch, qkd_protocol=QKDProtocol.SERVICE)
+            if costream.initial_time_difference != None:
+                curr_time_diff = costream.latest_deltat + costream.initial_time_difference
+            else:
+                curr_time_diff, sig_long, sig_short = periode_find()
+            costream.start_costream(curr_time_diff, first_epoch, 
+                                    qkd_protocol=QKDProtocol.SERVICE)
         else:
             _start_readevents()
             chopper.start_chopper(QKDProtocol.SERVICE)
@@ -276,7 +284,8 @@ def _do_symmetry_negotiation():
                         f'No network connection established.')
                     return
     else:
-        logger.error('Symmetry negotiation failed because transferd is not running.')
+        logger.error(
+            'Symmetry negotiation failed because transferd is not running.')
 
 
 def start_key_generation():
