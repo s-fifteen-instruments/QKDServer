@@ -322,6 +322,7 @@ class SymmetryNegotiationState(int, Enum):
     PENDING = 1
     FINISHED = 2
 
+initialize()
 
 if __name__ == '__main__':
     main()
