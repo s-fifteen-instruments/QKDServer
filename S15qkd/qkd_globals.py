@@ -193,22 +193,22 @@ def kill_process(my_process):
 
 
 class PipesQKD(str, Enum):
-    MSGIN = 'tmp/cryptostuff' + '/msgin'
-    MSGOUT = 'tmp/cryptostuff' + '/msgout'
-    RAWEVENTS = 'tmp/cryptostuff' + '/rawevents'
-    T1LOG = 'tmp/cryptostuff' + '/t1logpipe'
-    T2LOG = 'tmp/cryptostuff' + '/t2logpipe'
-    CMD = 'tmp/cryptostuff' + '/cmdpipe'
-    GENLOG = 'tmp/cryptostuff' + '/genlog'
-    TRANSFERLOG = 'tmp/cryptostuff' + '/transferlog'
-    SPLICER = 'tmp/cryptostuff' + '/splicepipe'
-    CNTLOG = 'tmp/cryptostuff' + '/cntlogpipe'
-    ECCMD = 'tmp/cryptostuff' + '/eccmdpipe'
-    ECS ='tmp/cryptostuff' + '/ecspipe'
-    ECR = 'tmp/cryptostuff' + '/ecrpipe'
-    ECNOTE = 'tmp/cryptostuff' + '/ecnotepipe'
-    ECQUERY = 'tmp/cryptostuff' + '/ecquery'
-    ECRESP = 'tmp/cryptostuff' + '/ecresp'
+    MSGIN = f'{cwd}/tmp/cryptostuff' + '/msgin'
+    MSGOUT = 'f{cwd}/tmp/cryptostuff' + '/msgout'
+    RAWEVENTS = f'{cwd}/tmp/cryptostuff' + '/rawevents'
+    T1LOG = f'{cwd}/tmp/cryptostuff' + '/t1logpipe'
+    T2LOG = f'{cwd}/tmp/cryptostuff' + '/t2logpipe'
+    CMD = f'{cwd}/tmp/cryptostuff' + '/cmdpipe'
+    GENLOG = 'f{cwd}/tmp/cryptostuff' + '/genlog'
+    TRANSFERLOG = f'{cwd}/tmp/cryptostuff' + '/transferlog'
+    SPLICER = f'{cwd}/tmp/cryptostuff' + '/splicepipe'
+    CNTLOG = f'{cwd}/tmp/cryptostuff' + '/cntlogpipe'
+    ECCMD = f'{cwd}/tmp/cryptostuff' + '/eccmdpipe'
+    ECS =f'{cwd}/tmp/cryptostuff' + '/ecspipe'
+    ECR = f'{cwd}/tmp/cryptostuff' + '/ecrpipe'
+    ECNOTE = f'{cwd}/tmp/cryptostuff' + '/ecnotepipe'
+    ECQUERY = f'{cwd}/tmp/cryptostuff' + '/ecquery'
+    ECRESP = f'{cwd}/tmp/cryptostuff' + '/ecresp'
 
     @classmethod
     def prepare_pipes(cls):
