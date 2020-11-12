@@ -204,7 +204,7 @@ class PipesQKD(str, Enum):
     SPLICER = 'tmp/cryptostuff' + '/splicepipe'
     CNTLOG = 'tmp/cryptostuff' + '/cntlogpipe'
     ECCMD = 'tmp/cryptostuff' + '/eccmdpipe'
-    ECS ='tmp/cryptostuff'T + '/ecspipe'
+    ECS ='tmp/cryptostuff' + '/ecspipe'
     ECR = 'tmp/cryptostuff' + '/ecrpipe'
     ECNOTE = 'tmp/cryptostuff' + '/ecnotepipe'
     ECQUERY = 'tmp/cryptostuff' + '/ecquery'
