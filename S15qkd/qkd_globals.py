@@ -193,23 +193,22 @@ def kill_process(my_process):
 
 
 class PipesQKD(str, Enum):
-    DATAROOT = cwd + '/' + data_root
-    MSGIN = DATAROOT + '/msgin'
-    MSGOUT = DATAROOT + '/msgout'
-    RAWEVENTS = DATAROOT + '/rawevents'
-    T1LOG = DATAROOT + '/t1logpipe'
-    T2LOG = DATAROOT + '/t2logpipe'
-    CMD = DATAROOT + '/cmdpipe'
-    GENLOG = DATAROOT + '/genlog'
-    TRANSFERLOG = DATAROOT + '/transferlog'
-    SPLICER = DATAROOT + '/splicepipe'
-    CNTLOG = DATAROOT + '/cntlogpipe'
-    ECCMD = DATAROOT + '/eccmdpipe'
-    ECS = DATAROOT + '/ecspipe'
-    ECR = DATAROOT + '/ecrpipe'
-    ECNOTE = DATAROOT + '/ecnotepipe'
-    ECQUERY = DATAROOT + '/ecquery'
-    ECRESP = DATAROOT + '/ecresp'
+    MSGIN = 'tmp/cryptostuff' + '/msgin'
+    MSGOUT = 'tmp/cryptostuff' + '/msgout'
+    RAWEVENTS = 'tmp/cryptostuff' + '/rawevents'
+    T1LOG = 'tmp/cryptostuff' + '/t1logpipe'
+    T2LOG = 'tmp/cryptostuff' + '/t2logpipe'
+    CMD = 'tmp/cryptostuff' + '/cmdpipe'
+    GENLOG = 'tmp/cryptostuff' + '/genlog'
+    TRANSFERLOG = 'tmp/cryptostuff' + '/transferlog'
+    SPLICER = 'tmp/cryptostuff' + '/splicepipe'
+    CNTLOG = 'tmp/cryptostuff' + '/cntlogpipe'
+    ECCMD = 'tmp/cryptostuff' + '/eccmdpipe'
+    ECS ='tmp/cryptostuff'T + '/ecspipe'
+    ECR = 'tmp/cryptostuff' + '/ecrpipe'
+    ECNOTE = 'tmp/cryptostuff' + '/ecnotepipe'
+    ECQUERY = 'tmp/cryptostuff' + '/ecquery'
+    ECRESP = 'tmp/cryptostuff' + '/ecresp'
 
     @classmethod
     def prepare_pipes(cls):
