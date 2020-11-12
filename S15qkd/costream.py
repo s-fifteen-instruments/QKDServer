@@ -132,7 +132,7 @@ def start_costream(time_difference: int,
         proc_costream = subprocess.Popen((program_costream, *args.split()),
                                          stdout=subprocess.PIPE, stderr=f)
     costream_thread = threading.Thread(
-        target=_genlog_digest, args=(qkd_protocol))
+        target=_genlog_digest, args=([qkd_protocol]))
     costream_thread.start()
 
 
