@@ -297,7 +297,6 @@ def start_service_mode():
     _stop_key_gen_processes()
     _do_symmetry_negotiation()
     transferd.send_message('start_service_mode')
-    qkd_globals.PipesQKD.drain_all_pipes()
 
 
 def _stop_key_gen_processes():
