@@ -277,7 +277,7 @@ class QKDProtocol(int, Enum):
 
 logger = logging.getLogger("QKD logger")
 logFormatter = logging.Formatter(
-    "%(asctime)s | %(levelname)-5.5s | %(threadName)-12.12s | %(module)s | %(funcName)s | %(message)s")
+    "%(asctime)s | %(levelname)-5s | %(threadName)-8s | %(module)s | %(funcName)s | %(message)s")
 
 fileHandler = MyTimedRotatingFileHandler('logs')
 fileHandler.setFormatter(logFormatter)
