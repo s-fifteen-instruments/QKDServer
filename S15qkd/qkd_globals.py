@@ -193,22 +193,23 @@ def kill_process(my_process):
 
 
 class PipesQKD(str, Enum):
-    MSGIN = cwd + data_root + '/msgin'
-    MSGOUT = cwd + data_root + '/msgout'
-    RAWEVENTS = cwd + data_root + '/rawevents'
-    T1LOG = cwd + data_root + '/t1logpipe'
-    T2LOG = cwd + data_root + '/t2logpipe'
-    CMD = cwd + data_root + '/cmdpipe'
-    GENLOG = cwd + data_root + '/genlog'
-    TRANSFERLOG = cwd + data_root + '/transferlog'
-    SPLICER = cwd + data_root + '/splicepipe'
-    CNTLOG = cwd + data_root + '/cntlogpipe'
-    ECCMD = cwd + data_root + '/eccmdpipe'
-    ECS = cwd + data_root + '/ecspipe'
-    ECR = cwd + data_root + '/ecrpipe'
-    ECNOTE = cwd + data_root + '/ecnotepipe'
-    ECQUERY = cwd + data_root + '/ecquery'
-    ECRESP = cwd + data_root + '/ecresp'
+    DATAROOT = cwd + '/' + data_root
+    MSGIN = DATAROOT + '/msgin'
+    MSGOUT = DATAROOT + '/msgout'
+    RAWEVENTS = DATAROOT + '/rawevents'
+    T1LOG = DATAROOT + '/t1logpipe'
+    T2LOG = DATAROOT + '/t2logpipe'
+    CMD = DATAROOT + '/cmdpipe'
+    GENLOG = DATAROOT + '/genlog'
+    TRANSFERLOG = DATAROOT + '/transferlog'
+    SPLICER = DATAROOT + '/splicepipe'
+    CNTLOG = DATAROOT + '/cntlogpipe'
+    ECCMD = DATAROOT + '/eccmdpipe'
+    ECS = DATAROOT + '/ecspipe'
+    ECR = DATAROOT + '/ecrpipe'
+    ECNOTE = DATAROOT + '/ecnotepipe'
+    ECQUERY = DATAROOT + '/ecquery'
+    ECRESP = DATAROOT + '/ecresp'
 
     @classmethod
     def prepare_pipes(cls):
@@ -234,7 +235,7 @@ class PipesQKD(str, Enum):
 
 
 class FoldersQKD(str, Enum):
-    DATAROOT = cwd + data_root
+    DATAROOT = cwd + '/' + data_root
     SENDFILES = DATAROOT + '/sendfiles'
     RECEIVEFILES = DATAROOT + '/receivefiles'
     T1FILES = DATAROOT + '/t1'
@@ -277,7 +278,7 @@ class QKDProtocol(int, Enum):
 
 logger = logging.getLogger("QKD logger")
 logFormatter = logging.Formatter(
-    "%(asctime)s | %(levelname)-5s | %(threadName)-8s | %(module)s | %(funcName)s | %(message)s")
+    "%(asctime)s | %(levelname)-5s | %(threadName)-10s | %(module)s | %(funcName)s | %(message)s")
 
 fileHandler = MyTimedRotatingFileHandler('logs')
 fileHandler.setFormatter(logFormatter)

@@ -166,7 +166,9 @@ def msg_response(message):
     if msg_code == 'start_service_mode':
         _stop_key_gen_processes()
         transferd.send_message('start_service_mode_step2')
+        print(low_count_side)
         if low_count_side is False:
+            print('!!!!')
             _start_readevents()
             chopper2.start_chopper2()
             wait_for_epoch_files(2)
