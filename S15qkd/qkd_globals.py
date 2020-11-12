@@ -194,12 +194,12 @@ def kill_process(my_process):
 
 class PipesQKD(str, Enum):
     MSGIN = f'{cwd}/tmp/cryptostuff' + '/msgin'
-    MSGOUT = 'f{cwd}/tmp/cryptostuff' + '/msgout'
+    MSGOUT = f'{cwd}/tmp/cryptostuff' + '/msgout'
     RAWEVENTS = f'{cwd}/tmp/cryptostuff' + '/rawevents'
     T1LOG = f'{cwd}/tmp/cryptostuff' + '/t1logpipe'
     T2LOG = f'{cwd}/tmp/cryptostuff' + '/t2logpipe'
     CMD = f'{cwd}/tmp/cryptostuff' + '/cmdpipe'
-    GENLOG = 'f{cwd}/tmp/cryptostuff' + '/genlog'
+    GENLOG = f'{cwd}/tmp/cryptostuff' + '/genlog'
     TRANSFERLOG = f'{cwd}/tmp/cryptostuff' + '/transferlog'
     SPLICER = f'{cwd}/tmp/cryptostuff' + '/splicepipe'
     CNTLOG = f'{cwd}/tmp/cryptostuff' + '/cntlogpipe'
