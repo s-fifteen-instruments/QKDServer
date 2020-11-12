@@ -372,8 +372,8 @@ def stop_all_processes():
     global proc_readevents
     if transferd.is_running():
         transferd.send_message('stop_key_gen')
-        transferd.stop_communication()
-        start_communication()
+        # transferd.stop_communication()
+        # start_communication()
     _stop_key_gen_processes()
 
 
