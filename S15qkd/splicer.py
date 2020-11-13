@@ -44,11 +44,13 @@ import subprocess
 import time
 import select
 import psutil
+from types import SimpleNamespace
 
 from . import qkd_globals
 from . import error_correction
 from . import rawkey_diagnosis
 from .qkd_globals import logger, PipesQKD, FoldersQKD, QKDProtocol
+from .polarization_compensation import PolarizationDriftCompensation
 
 proc_splicer = None
 
@@ -97,7 +99,7 @@ def start_splicer(qkd_protocol: int = QKDProtocol.BBM92):
     thread_splicepipe_digest.start()
 
 
-def _splice_pipe_digest(qkd_protocol):
+def _splice_pipe_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file):
     '''
     Digests the text written into splicepipe and genlog.
     Runs until the splicer process closes.
@@ -109,6 +111,11 @@ def _splice_pipe_digest(qkd_protocol):
 
     logger.info(f'Thread started.')
     sleep_time = 0.1  # sleep time before next read file attempt
+    with open(config_file_name, 'r') as f:
+        config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+    if config.do_polarization_compensation is True:
+        polarization_compensator = PolarizationDriftCompensation(
+            config.LCR_polarization_compensator_path)
     while is_running():
         time.sleep(sleep_time)
         try:
@@ -122,6 +129,8 @@ def _splice_pipe_digest(qkd_protocol):
                 elif qkd_protocol == QKDProtocol.SERVICE:
                     diagnosis = rawkey_diagnosis.RawKeyDiagnosis(FoldersQKD.RAWKEYS + '/' + message)
                     logger.info(f'Service mode, QBER: {diagnosis.quantum_bit_error}, Epoch: {message}')
+                    if config.do_polarization_compensation is True:
+                        polarization_compensator.update_QBER(diagnosis.quantum_bit_error)
         except OSError:
             pass
     logger.info(f'Thread finished.')

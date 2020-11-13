@@ -168,14 +168,13 @@ def msg_response(message):
         transferd.send_message('start_service_mode_step2')
         print(low_count_side)
         if low_count_side is False:
-            print('!!!!')
             _start_readevents()
             chopper2.start_chopper2()
             wait_for_epoch_files(2)
-            if costream.initial_time_difference != None:
-                curr_time_diff = costream.latest_deltat + costream.initial_time_difference
-            else:
-                curr_time_diff, sig_long, sig_short = periode_find()
+            # if costream.initial_time_difference != None:
+            #     curr_time_diff = costream.latest_deltat + costream.initial_time_difference
+            # else:
+            curr_time_diff, sig_long, sig_short = periode_find()
             costream.start_costream(curr_time_diff, first_epoch, 
                                     qkd_protocol=QKDProtocol.SERVICE)
         else:
@@ -189,10 +188,10 @@ def msg_response(message):
             _start_readevents()
             chopper2.start_chopper2()
             wait_for_epoch_files(2)
-            if costream.initial_time_difference != None:
-                curr_time_diff = costream.latest_deltat + costream.initial_time_difference
-            else:
-                curr_time_diff, sig_long, sig_short = periode_find()
+            # if costream.initial_time_difference != None:
+            #     curr_time_diff = costream.latest_deltat + costream.initial_time_difference
+            # else:
+            curr_time_diff, sig_long, sig_short = periode_find()
             costream.start_costream(curr_time_diff, first_epoch, 
                                     qkd_protocol=QKDProtocol.SERVICE)
         else:
@@ -201,7 +200,7 @@ def msg_response(message):
             splicer.start_splicer(qkd_protocol=QKDProtocol.SERVICE)
 
 
-def wait_for_epoch_files(number_of_epochs, timeout: float = 15):
+def wait_for_epoch_files(number_of_epochs):
     global first_epoch
     if not transferd.is_running():
         logger.error(f'Transferd process has not been started.' +
@@ -212,12 +211,13 @@ def wait_for_epoch_files(number_of_epochs, timeout: float = 15):
             periode_find aborted.')
         return
     start_time = time.time()
+    timeout = (number_of_epochs + 2) * qkd_globals.EPOCH_DURATION 
     while transferd.first_received_epoch is None or chopper2.first_epoch is None:
         if (time.time() - start_time) > timeout:
             logger.error(
                 f'Timeout: not enough data within {timeout}s')
             raise Exception(
-                f'periode_find timeout: not enough data within {timeout}s')
+                f'Notenough data within {timeout}s')
         time.sleep(0.2)
 
     # make sure there is enough epochs available

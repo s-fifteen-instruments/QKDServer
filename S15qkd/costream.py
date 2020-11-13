@@ -50,35 +50,10 @@ from types import SimpleNamespace
 from . import qkd_globals
 from .rawkey_diagnosis import RawKeyDiagnosis
 from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD
-
-
-# def _load_costream_config(config_file_name: str):
-#     '''
-#     Reads a JSON config file and stores the relevant information in
-#     global variables.
-
-#     Arguments:
-#         config_file_name {str} -- file name of the JSON formatted configuration file
-#     '''
-#     global data_root, program_root, kill_option, protocol
-#     global remote_coincidence_window, tracking_window, track_filter_time_constant
-#     global costream_histo_number, costream_histo_option, program_costream
-#     global config
-
-#     with open(config_file_name, 'r') as f:
-#         config = json.load(f)
-
-#     data_root = config['data_root']
-#     program_root = config['program_root']
-# kill_option = config['kill_option']
-# protocol = QKDProtocol(config['protocol'])
-# remote_coincidence_window = config['remote_coincidence_window']
-# tracking_window = config['tracking_window']
-# track_filter_time_constant = config['track_filter_time_constant']
-# costream_histo_number = config['costream_histo_number']
-# costream_histo_option = config['costream_histo_option']
+from .polarization_compensation import PolarizationDriftCompensation
 
 proc_costream = None
+
 
 def _initialize(config_file_name: str = qkd_globals.config_file):
     global proc_costream, cwd
@@ -136,7 +111,7 @@ def start_costream(time_difference: int,
     costream_thread.start()
 
 
-def _genlog_digest(qkd_protocol):
+def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file):
     '''
     Digests the genlog pipe written by costream.
     '''
@@ -145,6 +120,12 @@ def _genlog_digest(qkd_protocol):
     fd = os.open(PipesQKD.GENLOG, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
     logger.info('Thread started.')
+    with open(config_file_name, 'r') as f:
+        config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+    if config.do_polarization_compensation is True:
+        polarization_compensator = PolarizationDriftCompensation(
+            config.LCR_polarization_compensator_path)
+
     while is_running():
         time.sleep(0.1)
         try:
@@ -163,6 +144,9 @@ def _genlog_digest(qkd_protocol):
                     diagnosis = RawKeyDiagnosis(
                         FoldersQKD.RAWKEYS + '/' + message)
                     logger.info(diagnosis)
+                    if config.do_polarization_compensation is True:
+                        polarization_compensator.update_QBER(
+                            diagnosis.quantum_bit_error)
         except OSError:
             pass
     logger.info('Thread finished.')
@@ -176,5 +160,6 @@ def stop_costream():
 
 def is_running():
     return not (proc_costream is None or proc_costream.poll() is not None)
+
 
 _initialize()

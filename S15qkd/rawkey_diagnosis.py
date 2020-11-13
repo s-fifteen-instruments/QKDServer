@@ -8,7 +8,7 @@ with open(config_file, 'r') as f:
 
 class RawKeyDiagnosis(object):
     """
-    Diagnosis of raw key files, which were produced in service mode.
+    Diagnosis of raw key files produced in service mode.
     """
     def __init__(self, epoch_file_path: str):
         diagnosis_process = subprocess.Popen([prog_diagnosis,

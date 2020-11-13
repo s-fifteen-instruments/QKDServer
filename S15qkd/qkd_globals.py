@@ -50,14 +50,15 @@ import shutil
 import codecs
 from enum import unique, Enum
 
+EPOCH_DURATION = 2**32 / 8 * 1e-9
 
 cwd = os.getcwd()
 # root_name, _, _ = __name__.partition('.')
 # root_module = sys.modules[root_name]
 # MODULE_ROOT_DIR = os.path.dirname(root_module.__file__)
 
-config_file = 'qkd_engine_config.json'
 
+config_file = 'qkd_engine_config.json'
 if not os.path.exists(config_file):
     dictionary = {
         "target_ip": "192.168.1.20",
@@ -94,7 +95,8 @@ if not os.path.exists(config_file):
         "minimal_block_size": 5000,
         "target_bit_error": 1e-09,
         "servo_blocks": 5,
-        "do_polarization_compensation": False
+        "do_polarization_compensation": False,
+        "LCR_polarization_compensator_path": "/dev/serial/by-id/usb-Centre_for_Quantum_Technologies_Quad_LCD_driver_QLC-QO05-if00"
     }
     json_object = json.dumps(dictionary, indent=4)
     with open(config_file, "w") as outfile:
@@ -110,7 +112,7 @@ testing = 0  # CHANGE to 0 if you want to run it with hardware
 if testing == 1:
     # this outputs one timestamp file in an endless loop. This is for testing only.
     prog_readevents = '/' + \
-        __file__.strip('/controller.py') + \
+        (__file__).strip('/controller.py') + \
         '/timestampsimulator/readevents_simulator.sh'
 else:
     prog_readevents = program_root + '/readevents'
