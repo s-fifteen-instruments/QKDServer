@@ -160,7 +160,8 @@ def _genlog_digest(qkd_protocol):
                 latest_rawevents = costream_info[1]
                 latest_outepoch = costream_info[0]
                 if qkd_protocol == QKDProtocol.SERVICE:
-                    diagnosis = RawKeyDiagnosis(message)
+                    diagnosis = RawKeyDiagnosis(
+                        FoldersQKD.RAWKEYS + '/' + message)
                     logger.info(diagnosis)
         except OSError:
             pass
