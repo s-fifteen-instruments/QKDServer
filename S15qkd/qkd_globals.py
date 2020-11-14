@@ -66,7 +66,7 @@ if not os.path.exists(config_file):
         "program_root": "bin/remotecrypto",
         "port_num": 4852,
         "identity": "Alice",
-        "remote_coincidence_window": 16,
+        "remote_coincidence_window": 8,
         "tracking_window": 30,
         "track_filter_time_constant": 2000000,
         "FFT_buffer_order": 23,

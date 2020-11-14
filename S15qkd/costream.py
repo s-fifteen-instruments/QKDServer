@@ -103,6 +103,7 @@ def start_costream(time_difference: int,
              {config.costream_histo_option} \
              -h {config.costream_histo_number}'
     program_costream = config.program_root + '/costream'
+    logger.info(f'costream starts with the following arguments: {args}')
     with open(f'{cwd}/{config.data_root}/costreamerror', 'a+') as f:
         proc_costream = subprocess.Popen((program_costream, *args.split()),
                                          stdout=subprocess.PIPE, stderr=f)
