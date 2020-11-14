@@ -33,12 +33,16 @@ class PolarizationDriftCompensation(object):
         self.last_voltage_list = [self.V1, self.V2, self.V3, self.V4]
         self.qber_list = []
         self.last_qber = 1
+        self.qber_counter = 0
 
     def update_QBER(self, qber: float, qber_threshold: float = 0.1):
+        self.qber_counter += 1
+        if self.qber_counter < 120:
+            return
         self.qber_list.append(qber)
         if len(self.qber_list) >= self.averaging_n:
             qber_mean = np.mean(self.qber_list)
-            if qber_mean > 0.4:
+            if qber_mean > 0.2:
                 self.averaging_n = 2
             if qber_mean < 0.2:
                 self.averaging_n = 5
@@ -57,6 +61,7 @@ class PolarizationDriftCompensation(object):
             else:
                 self.lcvr_narrow_down(*self.last_voltage_list,
                                       qber_cost_func(self.last_qber))
+            logger.info(self.last_voltage_list)
             np.savetxt(self.LCRvoltages_file_name, [*self.last_voltage_list])
 
     def lcvr_narrow_down(self, c1: float, c2: float, c3: float, c4: float, r_narrow: float) -> Tuple[float, float, float, float]:
