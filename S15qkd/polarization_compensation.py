@@ -11,7 +11,7 @@ VOLT_MIN = 0.5
 VOLT_MAX = 4.5
 
 
-def qber_cost_func(qber: float, desired_qber: float = 0.06, amplitude: float = 16) -> float:
+def qber_cost_func(qber: float, desired_qber: float = 0.03, amplitude: float = 16) -> float:
     return amplitude * (qber - desired_qber)**2
 
 
@@ -34,11 +34,17 @@ class PolarizationDriftCompensation(object):
         self.qber_list = []
         self.last_qber = 1
 
-    def update_QBER(self, qber: float, qber_threshold: float = 0.09):
+    def update_QBER(self, qber: float, qber_threshold: float = 0.1):
         self.qber_list.append(qber)
+        if qber > 0.4:
+            self.averaging_n = 2
+        if qber < 0.2:
+            self.averaging_n = 5
+        if qber < 0.12:
+            self.averaging_n = 12
         if len(self.qber_list) >= self.averaging_n:
             qber_mean = np.mean(self.qber_list)
-            logger.info(f'Avg(qber): {qber_mean} of the last {self.averaging_n} epochs')
+            logger.info(f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs')
             self.qber_list.clear()
             if qber_mean < qber_threshold:
                 return
