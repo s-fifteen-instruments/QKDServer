@@ -4,6 +4,7 @@ import os
 import numpy as np
 from typing import Tuple
 from S15lib.instruments import LCRDriver
+from .qkd_globals import logger
 
 LCR_VOlT_FILENAME = 'latest_LCR_voltages.txt'
 VOLT_MIN = 0.5
@@ -37,7 +38,7 @@ class PolarizationDriftCompensation(object):
         self.qber_list.append(qber)
         if len(self.qber_list) >= self.averaging_n:
             qber_mean = np.mean(self.qber_list)
-            print(f'Avg(qber): {qber_mean} of the last {self.averaging_n} epochs')
+            logger.info(f'Avg(qber): {qber_mean} of the last {self.averaging_n} epochs')
             self.qber_list.clear()
             if qber_mean < qber_threshold:
                 return

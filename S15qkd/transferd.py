@@ -144,13 +144,13 @@ def _transferd_stdout_digest(out, err, queue):
         time.sleep(0.5)
         for line in iter(out.readline, b''):
             line = line.rstrip()
-            logger.info(f'[stdout] {line.decode()}')
+            logger.debug(f'[stdout] {line.decode()}')
             if line == b'connected.':
                 communication_status = 1
             elif line == b'disconnected.':
                 communication_status = 2
         for line in iter(err.readline, b''):
-            logger.info(f'[stderr] {line.decode()}')
+            logger.error(f'[stderr] {line.decode()}')
     communication_status = 0
     logger.info(f'Thread finished')
     # startcommunication() # this is to restart the startcomm process if it crashes
@@ -166,7 +166,7 @@ def _msg_out_digest(msg_out_callback):
         try:
             message = f.readline().decode().lstrip('\x00').rstrip('\n')
             if len(message) != 0:
-                logger.info(f'[read] {message}')
+                logger.debug(f'[read] {message}')
                 if message.split(':')[0] in {'ne1', 'ne2', 'ne3'}:
                     _symmetry_negotiation_messaging(message)
                 else:
@@ -193,13 +193,13 @@ def _transferlog_digest():
             message = f.readline().decode().rstrip()
             if len(message) != 0:
                 last_received_epoch = message
-                logger.info(f'[read msg] {message}')
+                logger.debug(f'[read msg] {message}')
                 if first_received_epoch == None:
                     first_received_epoch = message
-                    logger.info(f'[first_rx_epoch] {first_received_epoch}')
+                    logger.debug(f'[first_rx_epoch] {first_received_epoch}')
                 if low_count_side is True:
                     qkd_globals.writer(PipesQKD.SPLICER, message)
-                    logger.info(f'Sent epoch name {message} to splicer.')
+                    logger.debug(f'Sent epoch name {message} to splicer.')
         except OSError:
             pass
     logger.info(f'Thread finished.')

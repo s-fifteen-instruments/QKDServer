@@ -278,14 +278,16 @@ class QKDProtocol(int, Enum):
 
 
 logger = logging.getLogger("QKD logger")
+logger.setLevel(logging.DEBUG)
 logFormatter = logging.Formatter(
     "%(asctime)s | %(levelname)-5s | %(threadName)-10s | %(module)s | %(funcName)s | %(message)s")
 
 fileHandler = MyTimedRotatingFileHandler('logs')
 fileHandler.setFormatter(logFormatter)
+fileHandler.setLevel(logging.DEBUG)
 consoleHandler = logging.StreamHandler(sys.stdout)
 consoleHandler.setFormatter(logFormatter)
+consoleHandler.setLevel(logging.INFO)
 
 logger.addHandler(fileHandler)
 logger.addHandler(consoleHandler)
-logger.setLevel(logging.DEBUG)

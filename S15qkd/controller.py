@@ -157,7 +157,7 @@ def msg_response(message):
             if with_error_correction == True:
                 error_correction.start_error_correction()
         else:
-            logger.info(f'{msg_code} Not the high count side or symmetry \
+            logger.error(f'{msg_code} Not the high count side or symmetry \
                 negotiation not completed.')
 
     if msg_code == 'stop_key_gen':
@@ -222,7 +222,7 @@ def wait_for_epoch_files(number_of_epochs):
 
     # make sure there is enough epochs available
     while chopper2.t1_epoch_count < number_of_epochs:
-        logger.info(f'Waiting for more epochs.')
+        logger.debug(f'Waiting for more epochs.')
         time.sleep(1)
 
     epoch_diff = int(transferd.first_received_epoch, 16) - \

@@ -98,7 +98,7 @@ def _t2logpipe_digest():
                 continue
             epoch = message.split()[0]
             qkd_globals.writer(PipesQKD.CMD, epoch)
-            logger.info(f'Msg: {message}')
+            logger.debug(f'Msg: {message}')
         except OSError:
             pass
     logger.info(f'Thread finished')

@@ -80,7 +80,7 @@ def _t1logpipe_digest():
 
     while t1logpipe_digest_thread_flag is True:
         for message in _reader(PipesQKD.T1LOG):
-            logger.info(f'[read msg] {message}')
+            logger.debug(f'[read msg] {message}')
             if t1_epoch_count == 0:
                 first_epoch = message.split()[0]
                 logger.info(f'First_epoch: {first_epoch}')
