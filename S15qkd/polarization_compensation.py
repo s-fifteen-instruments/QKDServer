@@ -16,7 +16,7 @@ def qber_cost_func(qber: float, desired_qber: float = 0.03, amplitude: float = 1
 
 
 class PolarizationDriftCompensation(object):
-    def __init__(self, lcr_path: str = '/dev/serial/by-id/usb-Centre_for_Quantum_Technologies_Quad_LCD_driver_QLC-QO05-if00', 
+    def __init__(self, lcr_path: str = '/dev/serial/by-id/usb-Centre_for_Quantum_Technologies_Quad_LCD_driver_QLC-QO05-if00',
                  averaging_n: int = 10):
         self.lcr_driver = LCRDriver(lcr_path)
         self.lcr_driver.all_channels_on()
@@ -44,7 +44,8 @@ class PolarizationDriftCompensation(object):
             self.averaging_n = 12
         if len(self.qber_list) >= self.averaging_n:
             qber_mean = np.mean(self.qber_list)
-            logger.info(f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs')
+            logger.info(
+                f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Voltage range: {qber_cost_func(qber_mean)}')
             self.qber_list.clear()
             if qber_mean < qber_threshold:
                 return
@@ -54,20 +55,20 @@ class PolarizationDriftCompensation(object):
                                       qber_cost_func(qber_mean))
                 self.last_qber = qber_mean
             else:
-                self.lcvr_narrow_down(*self.last_voltage_list, 
+                self.lcvr_narrow_down(*self.last_voltage_list,
                                       qber_cost_func(self.last_qber))
             np.savetxt(self.LCRvoltages_file_name, [*self.last_voltage_list])
 
-
     def lcvr_narrow_down(self, c1: float, c2: float, c3: float, c4: float, r_narrow: float) -> Tuple[float, float, float, float]:
-        self.V1=np.random.uniform(max(c1 - r_narrow, VOLT_MIN),
-                               min(c1 + r_narrow, VOLT_MAX))
-        self.V2=np.random.uniform(max(c2 - r_narrow, VOLT_MIN),
-                               min(c2 + r_narrow, VOLT_MAX))
-        self.V3=np.random.uniform(max(c3 - r_narrow, VOLT_MIN),
-                               min(c3 + r_narrow, VOLT_MAX))
-        self.V4=np.random.uniform(max(c4 - r_narrow, VOLT_MIN),
-                               min(c4 + r_narrow, VOLT_MAX))
+        self.V1 = np.random.uniform(max(c1 - r_narrow, VOLT_MIN),
+                                    min(c1 + r_narrow, VOLT_MAX))
+        self.V2 = np.random.uniform(max(c2 - r_narrow, VOLT_MIN),
+                                    min(c2 + r_narrow, VOLT_MAX))
+        self.V3 = np.random.uniform(max(c3 - r_narrow, VOLT_MIN),
+                                    min(c3 + r_narrow, VOLT_MAX))
+        self.V4 = np.random.uniform(max(c4 - r_narrow, VOLT_MIN),
+                                    min(c4 + r_narrow, VOLT_MAX))
+        logger.info(self.V1, self.V2, self.V3, self.V4)
         self.lcr_driver.V1 = self.V1
         self.lcr_driver.V2 = self.V2
         self.lcr_driver.V3 = self.V3
