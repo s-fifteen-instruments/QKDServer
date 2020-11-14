@@ -33,11 +33,12 @@ class PolarizationDriftCompensation(object):
         self.qber_list = []
         self.last_qber = 1
 
-
     def update_QBER(self, qber: float, qber_threshold: float = 0.09):
         self.qber_list.append(qber)
         if len(self.qber_list) >= self.averaging_n:
+            print('')
             qber_mean = np.mean(self.qber_list)
+            print(f'Avg(qber): {qber_mean} of the last {self.averaging_n} epochs')
             self.qber_list.clear()
             if qber_mean < qber_threshold:
                 return
