@@ -141,6 +141,7 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                 latest_rawevents = costream_info[1]
                 latest_outepoch = costream_info[0]
                 if qkd_protocol == QKDProtocol.SERVICE:
+                    logger.debug(message)
                     diagnosis = RawKeyDiagnosis(
                         FoldersQKD.RAWKEYS + '/' + message)
                     logger.info(diagnosis)
