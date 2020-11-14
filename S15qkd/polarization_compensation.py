@@ -25,10 +25,10 @@ class PolarizationDriftCompensation(object):
             np.savetxt(self.LCRvoltages_file_name, [1.5, 1.5, 1.5, 1.5])
         self.V1, self.V2, self.V3, self.V4 = np.genfromtxt(
             self.LCRvoltages_file_name).T
-        self.lcr_driver.set_voltage(LCVR_0, self.V1)
-        self.lcr_driver.set_voltage(LCVR_1, self.V2)
-        self.lcr_driver.set_voltage(LCVR_2, self.V3)
-        self.lcr_driver.set_voltage(LCVR_3, self.V4)
+        self.lcr_driver.V1 = self.V1
+        self.lcr_driver.V2 = self.V2
+        self.lcr_driver.V3 = self.V3
+        self.lcr_driver.V4 = self.V4
         self.last_voltage_list = [self.V1, self.V2, self.V3, self.V4]
         self.qber_list = []
         self.last_qber = 1
