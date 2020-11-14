@@ -20,7 +20,6 @@ class PolarizationDriftCompensation(object):
         self.lcr_driver = LCRDriver(lcr_path)
         self.lcr_driver.all_channels_on()
         self.averaging_n = averaging_n
-        self.monte_carlo_n = monte_carlo_n
         self.LCRvoltages_file_name = LCR_VOlT_FILENAME
         if not os.path.exists(self.LCRvoltages_file_name):
             np.savetxt(self.LCRvoltages_file_name, [1.5, 1.5, 1.5, 1.5])
