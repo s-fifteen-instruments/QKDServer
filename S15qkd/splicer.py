@@ -136,6 +136,8 @@ def _splice_pipe_digest(qkd_protocol, config_file_name: str = qkd_globals.config
                             diagnosis.quantum_bit_error)
         except OSError:
             pass
+        except Exception as a:
+            logger.error(a)
     logger.info(f'Thread finished.')
 
 

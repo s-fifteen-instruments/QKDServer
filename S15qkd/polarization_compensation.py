@@ -45,7 +45,7 @@ class PolarizationDriftCompensation(object):
         if len(self.qber_list) >= self.averaging_n:
             qber_mean = np.mean(self.qber_list)
             logger.info(
-                f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Voltage range: {qber_cost_func(qber_mean)}')
+                f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Voltage range: {qber_cost_func(qber_mean):.2f}')
             self.qber_list.clear()
             if qber_mean < qber_threshold:
                 return
@@ -68,7 +68,7 @@ class PolarizationDriftCompensation(object):
                                     min(c3 + r_narrow, VOLT_MAX))
         self.V4 = np.random.uniform(max(c4 - r_narrow, VOLT_MIN),
                                     min(c4 + r_narrow, VOLT_MAX))
-        logger.info(f'{self.V1}, {self.V2}, {self.V3}, {self.V4}')
+        # logger.info(f'{self.V1}, {self.V2}, {self.V3}, {self.V4}')
         self.lcr_driver.V1 = self.V1
         self.lcr_driver.V2 = self.V2
         self.lcr_driver.V3 = self.V3
