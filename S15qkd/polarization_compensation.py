@@ -5,6 +5,7 @@ import numpy as np
 from typing import Tuple
 from S15lib.instruments import LCRDriver
 from .qkd_globals import logger
+from . import controller
 
 LCR_VOlT_FILENAME = 'latest_LCR_voltages.txt'
 VOLT_MIN = 0.5
@@ -35,7 +36,7 @@ class PolarizationDriftCompensation(object):
         self.last_qber = 1
         self.qber_counter = 0
 
-    def update_QBER(self, qber: float, qber_threshold: float = 0.1):
+    def update_QBER(self, qber: float, qber_threshold: float = 0.1, qber_stop_service: float = 0.08):
         self.qber_counter += 1
         if self.qber_counter < 120:
             return
@@ -52,6 +53,9 @@ class PolarizationDriftCompensation(object):
                 f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Voltage range: {qber_cost_func(qber_mean):.2f}')
             self.qber_list.clear()
             if qber_mean < qber_threshold:
+                if qber_mean < 0.8:
+                    controller._stop_key_gen_processes()
+                    # controller.start_key_generation()
                 return
             if qber_mean < self.last_qber:
                 self.last_voltage_list = [self.V1, self.V2, self.V3, self.V4]
