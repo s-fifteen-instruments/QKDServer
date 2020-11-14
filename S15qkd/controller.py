@@ -378,15 +378,15 @@ def stop_all_processes():
     _stop_key_gen_processes()
 
 
-def _start_readevents():
+def _start_readevents(det_dead_time: int = 30000):
     '''
     Start readevents
     '''
     global proc_readevents, prog_readevents
-
     fd = os.open(PipesQKD.RAWEVENTS, os.O_RDWR)  # non-blocking
     f_stdout = os.fdopen(fd, 'w')  # non-blocking
     args = f'-a 1 -A {extclockopt} -S 20 \
+             -Y {det_dead_time},{det_dead_time},{det_dead_time},{det_dead_time} \
              -d {det1corr},{det2corr},{det3corr},{det4corr}'
     logger.info(f'readevents started with these arguments: {args}')
     with open(f'{cwd}/{dataroot}/readeventserror', 'a+') as f_stderr:
