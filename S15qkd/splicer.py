@@ -54,6 +54,7 @@ from .polarization_compensation import PolarizationDriftCompensation
 
 proc_splicer = None
 
+
 def _load_splicer_config(config_file_name: str):
     global data_root, program_root, protocol, kill_option
     global prog_splicer
@@ -73,7 +74,6 @@ def initialize(config_file_name: str = qkd_globals.config_file):
     _load_splicer_config(config_file_name)
     cwd = os.getcwd()
     proc_splicer = None
-    
 
 
 def start_splicer(qkd_protocol: int = QKDProtocol.BBM92):
@@ -127,10 +127,13 @@ def _splice_pipe_digest(qkd_protocol, config_file_name: str = qkd_globals.config
                     logger.info(f'Add {message} to error correction queue')
                     error_correction.ec_queue.put(message)
                 elif qkd_protocol == QKDProtocol.SERVICE:
-                    diagnosis = rawkey_diagnosis.RawKeyDiagnosis(FoldersQKD.RAWKEYS + '/' + message)
-                    logger.info(f'Service mode, QBER: {diagnosis.quantum_bit_error}, Epoch: {message}')
+                    diagnosis = rawkey_diagnosis.RawKeyDiagnosis(
+                        FoldersQKD.RAWKEYS + '/' + message)
+                    logger.info(
+                        f'Service mode, QBER: {diagnosis.quantum_bit_error}, Epoch: {message}')
                     if config.do_polarization_compensation is True:
-                        polarization_compensator.update_QBER(diagnosis.quantum_bit_error)
+                        polarization_compensator.update_QBER(
+                            diagnosis.quantum_bit_error)
         except OSError:
             pass
     logger.info(f'Thread finished.')

@@ -120,8 +120,8 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
     fd = os.open(PipesQKD.GENLOG, os.O_RDONLY | os.O_NONBLOCK)
     f = os.fdopen(fd, 'rb', 0)  # non-blocking
     logger.info('Thread started.')
-    with open(config_file_name, 'r') as f:
-        config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+    with open(config_file_name, 'r') as f_config:
+        config = json.load(f_config, object_hook=lambda d: SimpleNamespace(**d))
     if config.do_polarization_compensation is True:
         polarization_compensator = PolarizationDriftCompensation(
             config.LCR_polarization_compensator_path)

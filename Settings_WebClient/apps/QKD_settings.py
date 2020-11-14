@@ -41,7 +41,7 @@ def serve_layout():
                                               type='number',
                                               value=config['track_filter_time_constant'])
     FFT_buffer_order = dcc.Input(id="FFT_buffer_order", placeholder=21,
-                                 type='number', min=19, max=25,
+                                 type='number', min=19, max=26,
                                  value=config['FFT_buffer_order'])
     # detector timing corrections
     det1corr = dcc.Input(id="det1corr", placeholder='0',
