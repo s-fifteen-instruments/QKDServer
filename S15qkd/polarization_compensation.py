@@ -68,7 +68,7 @@ class PolarizationDriftCompensation(object):
                                     min(c3 + r_narrow, VOLT_MAX))
         self.V4 = np.random.uniform(max(c4 - r_narrow, VOLT_MIN),
                                     min(c4 + r_narrow, VOLT_MAX))
-        logger.info(self.V1, self.V2, self.V3, self.V4)
+        logger.info(f'{self.V1}, {self.V2}, {self.V3}, {self.V4}')
         self.lcr_driver.V1 = self.V1
         self.lcr_driver.V2 = self.V2
         self.lcr_driver.V3 = self.V3
