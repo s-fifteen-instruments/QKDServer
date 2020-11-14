@@ -144,7 +144,8 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                     logger.debug(message)
                     diagnosis = RawKeyDiagnosis(
                         FoldersQKD.RAWKEYS + '/' + message)
-                    logger.info(diagnosis)
+                    logger.info(
+                        f'Service mode, QBER: {diagnosis.quantum_bit_error}, Epoch: {costream_info[0]}')
                     if config.do_polarization_compensation is True:
                         polarization_compensator.update_QBER(
                             diagnosis.quantum_bit_error)
