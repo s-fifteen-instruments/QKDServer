@@ -6,16 +6,12 @@ from typing import Tuple
 from S15lib.instruments import LCRDriver
 
 LCR_VOlT_FILENAME = 'latest_LCR_voltages.txt'
-LCVR_0 = 1
-LCVR_1 = 2
-LCVR_2 = 3
-LCVR_3 = 4
 VOLT_MIN = 0.5
 VOLT_MAX = 4.5
 
 
-def qber_cost_func(qber: float) -> float:
-    return 8 * (qber - 0.05)**2
+def qber_cost_func(qber: float, desired_qber: float = 0.05) -> float:
+    return 8 * (qber - desired_qber)**2
 
 
 class PolarizationDriftCompensation(object):
@@ -29,47 +25,42 @@ class PolarizationDriftCompensation(object):
             np.savetxt(self.LCRvoltages_file_name, [1.5, 1.5, 1.5, 1.5])
         self.V1, self.V2, self.V3, self.V4 = np.genfromtxt(
             self.LCRvoltages_file_name).T
-        print(self.V1, self.V2, self.V3, self.V4)
         self.lcr_driver.set_voltage(LCVR_0, self.V1)
         self.lcr_driver.set_voltage(LCVR_1, self.V2)
         self.lcr_driver.set_voltage(LCVR_2, self.V3)
         self.lcr_driver.set_voltage(LCVR_3, self.V4)
-        self.latest_qber_list = []
-        self.monte_carlo_qber_list = []
-        self.monte_carlo_voltages_list = []
-        self.curr_voltages_for_search = []
+        self.last_voltage_list = [self.V1, self.V2, self.V3, self.V4]
+        self.qber_list = []
+        self.last_qber = 1
 
-    def update_QBER(self, QBER: float):
-        self.latest_qber_list.append(QBER)
-        if len(self.latest_qber_list) >= self.averaging_n:
-            self.monte_carlo_qber_list.append(np.mean(self.latest_qber_list))
-            self.latest_qber_list = []
-            self.monte_carlo_voltages_list.append(
-                self.curr_voltages_for_search)
 
-            if len(self.monte_carlo_qber_list) >= self.monte_carlo_n:
-                min_idx = np.argmin(self.monte_carlo_qber_list)
-                r_narrow = qber_cost_func(self.monte_carlo_qber_list[min_idx])
-                self.V1, self.V2, self.V3, self.V4 = self.monte_carlo_voltages_list[min_idx]
-                np.savetxt(self.LCRvoltages_file_name,
-                           [self.V1, self.V2, self.V3, self.V4])
-                self.monte_carlo_voltages_list = []
-                self.monte_carlo_qber_list = []
+    def update_QBER(self, qber: float, qber_threshold: float = 0.09):
+        self.qber_list.append(qber)
+        if len(self.qber_list) >= self.averaging_n:
+            qber_mean = np.mean(self.qber_list)
+            self.qber_list.clear()
+            if qber_mean < qber_threshold:
+                return
+            if qber_mean < self.last_qber:
+                self.last_voltage_list = [self.V1, self.V2, self.V3, self.V4]
+                self.lcvr_narrow_down(*self.last_voltage_list,
+                                      qber_cost_func(qber_mean))
+            else:
+                self.lcvr_narrow_down(*self.last_voltage_list, 
+                                      qber_cost_func(self.last_qber))
+            np.savetxt(self.LCRvoltages_file_name, [*self.last_voltage_list])
 
-            self.curr_voltages_for_search = self.lcvr_narrow_down(
-                self.V1, self.V2, self.V3, self.V4, r_narrow)
 
     def lcvr_narrow_down(self, c1: float, c2: float, c3: float, c4: float, r_narrow: float) -> Tuple[float, float, float, float]:
-        r1 = np.random.uniform(max(c1 - r_narrow, VOLT_MIN),
+        self.V1=np.random.uniform(max(c1 - r_narrow, VOLT_MIN),
                                min(c1 + r_narrow, VOLT_MAX))
-        r2 = np.random.uniform(max(c2 - r_narrow, VOLT_MIN),
+        self.V2=np.random.uniform(max(c2 - r_narrow, VOLT_MIN),
                                min(c2 + r_narrow, VOLT_MAX))
-        r3 = np.random.uniform(max(c3 - r_narrow, VOLT_MIN),
+        self.V3=np.random.uniform(max(c3 - r_narrow, VOLT_MIN),
                                min(c3 + r_narrow, VOLT_MAX))
-        r4 = np.random.uniform(max(c4 - r_narrow, VOLT_MIN),
+        self.V4=np.random.uniform(max(c4 - r_narrow, VOLT_MIN),
                                min(c4 + r_narrow, VOLT_MAX))
-        self.lcr_driver.set_voltage(LCVR_0, r1)
-        self.lcr_driver.set_voltage(LCVR_1, r2)
-        self.lcr_driver.set_voltage(LCVR_2, r3)
-        self.lcr_driver.set_voltage(LCVR_3, r4)
-        return r1, r2, r3, r4
+        self.lcr_driver.V1(self.V1)
+        self.lcr_driver.V2(self.V2)
+        self.lcr_driver.V3(self.V3)
+        self.lcr_driver.V4(self.V4)
