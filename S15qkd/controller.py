@@ -388,6 +388,7 @@ def _start_readevents():
     f_stdout = os.fdopen(fd, 'w')  # non-blocking
     args = f'-a 1 -A {extclockopt} -S 20 \
              -d {det1corr},{det2corr},{det3corr},{det4corr}'
+    logger.info(f'readevents started with these arguments: {args}')
     with open(f'{cwd}/{dataroot}/readeventserror', 'a+') as f_stderr:
         proc_readevents = subprocess.Popen((prog_readevents, *args.split()),
                                            stdout=f_stdout,
