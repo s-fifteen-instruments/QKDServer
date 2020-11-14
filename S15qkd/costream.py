@@ -131,7 +131,7 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
         try:
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
             if len(message) != 0:
-                logger.info(message)
+                logger.debug(message)
                 costream_info = message.split()
                 latest_coincidences = costream_info[6]
                 latest_accidentals = costream_info[5]
@@ -149,6 +149,8 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                     if config.do_polarization_compensation is True:
                         polarization_compensator.update_QBER(
                             diagnosis.quantum_bit_error)
+        except OSError:
+            pass
         except Exception as a:
             logger.error(a)
     logger.info('Thread finished.')
