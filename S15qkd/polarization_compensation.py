@@ -42,8 +42,8 @@ class PolarizationDriftCompensation(object):
                 self.averaging_n = 2
             if qber_mean < 0.2:
                 self.averaging_n = 5
-            if qber_mean < 0.12:
-                self.averaging_n = 12
+            if qber_mean < 0.15:
+                self.averaging_n = 15
             logger.info(
                 f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Voltage range: {qber_cost_func(qber_mean):.2f}')
             self.qber_list.clear()
