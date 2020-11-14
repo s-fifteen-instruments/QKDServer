@@ -15,7 +15,8 @@ def qber_cost_func(qber: float, desired_qber: float = 0.05) -> float:
 
 
 class PolarizationDriftCompensation(object):
-    def __init__(self, lcr_path: str = '/dev/serial/by-id/usb-Centre_for_Quantum_Technologies_Quad_LCD_driver_QLC-QO05-if00', averaging_n: int = 2, monte_carlo_n: int = 10):
+    def __init__(self, lcr_path: str = '/dev/serial/by-id/usb-Centre_for_Quantum_Technologies_Quad_LCD_driver_QLC-QO05-if00', 
+                 averaging_n: int = 10):
         self.lcr_driver = LCRDriver(lcr_path)
         self.lcr_driver.all_channels_on()
         self.averaging_n = averaging_n
