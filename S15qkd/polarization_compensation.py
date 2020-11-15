@@ -57,7 +57,6 @@ class PolarizationDriftCompensation(object):
             if qber_mean < qber_threshold:
                 if qber_mean < qber_stop_service_mode:
                     controller.stop_key_gen()
-                    # controller.start_key_generation()
                 return
             logger.info(f'avg(qber): {qber_mean}, last qber: {self.last_qber}')
             if qber_mean < self.last_qber:

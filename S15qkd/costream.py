@@ -145,6 +145,7 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                 if (int(latest_coincidences) / int(latest_accidentals)) < 2:
                     controller.stop_key_gen()
                     controller.start_service_mode()
+                    continue
                 if qkd_protocol == QKDProtocol.SERVICE:
                     logger.debug(message)
                     diagnosis = RawKeyDiagnosis(
