@@ -143,7 +143,7 @@ def msg_response(message):
         elif low_count_side is False:
             _start_readevents()
             chopper2.start_chopper2()
-            time_diff, sig_long, sig_short = periode_find()
+            time_diff, sig_long, sig_short = time_difference_find()
             costream.start_costream(time_diff, first_epoch,
                                     qkd_protocol=QKDProtocol.BBM92)
             if with_error_correction == True:
@@ -151,7 +151,7 @@ def msg_response(message):
 
     if msg_code == 'st3':
         if low_count_side is False:
-            time_diff, sig_long, sig_short = periode_find()
+            time_diff, sig_long, sig_short = time_difference_find()
             costream.start_costream(time_diff, first_epoch,
                                     qkd_protocol=QKDProtocol.BBM92)
             if with_error_correction == True:
@@ -170,11 +170,11 @@ def msg_response(message):
         if low_count_side is False:
             _start_readevents()
             chopper2.start_chopper2()
-            wait_for_epoch_files(2)
+            # wait_for_epoch_files(2)
             # if costream.initial_time_difference != None:
             #     curr_time_diff = costream.latest_deltat + costream.initial_time_difference
             # else:
-            curr_time_diff, sig_long, sig_short = periode_find()
+            curr_time_diff, sig_long, sig_short = time_difference_find()
             costream.start_costream(curr_time_diff, first_epoch, 
                                     qkd_protocol=QKDProtocol.SERVICE)
         else:
@@ -187,11 +187,11 @@ def msg_response(message):
         if low_count_side is False:
             _start_readevents()
             chopper2.start_chopper2()
-            wait_for_epoch_files(2)
+            # wait_for_epoch_files(2)
             # if costream.initial_time_difference != None:
             #     curr_time_diff = costream.latest_deltat + costream.initial_time_difference
             # else:
-            curr_time_diff, sig_long, sig_short = periode_find()
+            curr_time_diff, sig_long, sig_short = time_difference_find()
             costream.start_costream(curr_time_diff, first_epoch, 
                                     qkd_protocol=QKDProtocol.SERVICE)
         else:
@@ -202,13 +202,14 @@ def msg_response(message):
 
 def wait_for_epoch_files(number_of_epochs):
     global first_epoch
+    transferd.first_received_epoch = None
     if not transferd.is_running():
         logger.error(f'Transferd process has not been started.' +
-                     ' periode_find aborted.')
+                     ' time_difference_find aborted.')
         return
     if transferd.transferd_proc.poll() is not None:
         logger.error(f'Transferd process was started but is not running. \
-            periode_find aborted.')
+            time_difference_find aborted.')
         return
     start_time = time.time()
     timeout = (number_of_epochs + 2) * qkd_globals.EPOCH_DURATION 
@@ -234,7 +235,7 @@ def wait_for_epoch_files(number_of_epochs):
     return first_epoch, epoch_diff
 
 
-def periode_find():
+def time_difference_find():
     '''
     Starts pfind and searches for the photon coincidence peak
     in the combined timestamp files.
@@ -318,7 +319,6 @@ def _stop_key_gen_processes():
     costream.stop_costream()
     error_correction.stop_error_correction()
     qkd_globals.kill_process(proc_readevents)
-    transferd.first_received_epoch = None
     qkd_globals.PipesQKD.drain_all_pipes()
 
 def stop_key_gen():

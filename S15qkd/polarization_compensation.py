@@ -45,7 +45,7 @@ class PolarizationDriftCompensation(object):
             qber_mean = np.mean(self.qber_list)
             self.qber_list.clear()
             logger.info(
-                f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Voltage range: {qber_cost_func(qber_mean):.2f}')
+                f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Voltage search range: {qber_cost_func(qber_mean):.2f}')
             if qber_mean > 0.3:
                 self.averaging_n = 3
             if qber_mean < 0.3:
@@ -58,9 +58,8 @@ class PolarizationDriftCompensation(object):
                 if qber_mean < qber_stop_service_mode:
                     controller.stop_key_gen()
                 return
-            logger.info(f'avg(qber): {qber_mean}, last qber: {self.last_qber}')
+            logger.info(f'avg(qber): {qber_mean:.2f}, last qber: {self.last_qber:.2f}')
             if qber_mean < self.last_qber:
-                logger.info('curre qber is lower than last qber')
                 self.last_voltage_list = [self.V1, self.V2, self.V3, self.V4]
                 self.lcvr_narrow_down(*self.last_voltage_list,
                                       qber_cost_func(qber_mean))
