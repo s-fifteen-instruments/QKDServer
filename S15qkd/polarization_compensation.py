@@ -56,7 +56,7 @@ class PolarizationDriftCompensation(object):
                 f'Avg(qber): {qber_mean:.2f} averaging over {self.averaging_n} epochs. V_range: {qber_cost_func(qber_mean):.2f}')
             if qber_mean < qber_threshold:
                 if qber_mean < qber_stop_service_mode:
-                    np.savetxt(self.LCRvoltages_file_name, [self.V1, self.V2, self.V3, self.V)
+                    np.savetxt(self.LCRvoltages_file_name, [self.V1, self.V2, self.V3, self.V4)
                     controller.stop_key_gen()
                 return
             if qber_mean < self.last_qber:
