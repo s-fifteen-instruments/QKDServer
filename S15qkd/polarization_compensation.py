@@ -38,20 +38,22 @@ class PolarizationDriftCompensation(object):
 
     def update_QBER(self, qber: float, qber_threshold: float = 0.1, qber_stop_service_mode: float = 0.08):
         self.qber_counter += 1
-        if self.qber_counter < 120:
+        if self.qber_counter < 200:
             return
         self.qber_list.append(qber)
         if len(self.qber_list) >= self.averaging_n:
             qber_mean = np.mean(self.qber_list)
-            if qber_mean > 0.2:
-                self.averaging_n = 2
-            if qber_mean < 0.2:
-                self.averaging_n = 5
+            self.qber_list.clear()
+            logger.info(
+                f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Voltage range: {qber_cost_func(qber_mean):.2f}')
+            if qber_mean > 0.3:
+                self.averaging_n = 3
+            if qber_mean < 0.3:
+                self.averaging_n = 10
             if qber_mean < 0.15:
                 self.averaging_n = 15
             logger.info(
                 f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Voltage range: {qber_cost_func(qber_mean):.2f}')
-            self.qber_list.clear()
             if qber_mean < qber_threshold:
                 if qber_mean < qber_stop_service_mode:
                     controller._stop_key_gen_processes()
@@ -63,10 +65,10 @@ class PolarizationDriftCompensation(object):
                 self.last_voltage_list = [self.V1, self.V2, self.V3, self.V4]
                 self.lcvr_narrow_down(*self.last_voltage_list,
                                       qber_cost_func(qber_mean))
-                self.last_qber = qber_mean
             else:
                 self.lcvr_narrow_down(*self.last_voltage_list,
                                       qber_cost_func(self.last_qber))
+            self.last_qber = qber_mean
             logger.info(self.last_voltage_list)
             np.savetxt(self.LCRvoltages_file_name, [*self.last_voltage_list])
 

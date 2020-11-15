@@ -270,7 +270,7 @@ def _do_symmetry_negotiation():
     if transferd.is_running():
         transferd.symmetry_negotiation()
         if transferd.low_count_side == '':
-            logger.info(f'Symmetry negotiation not finished.')
+            # logger.degug(f'Symmetry negotiation not finished.')
             start_time = time.time()
             while True:
                 if transferd.negotiating == SymmetryNegotiationState.PENDING:
