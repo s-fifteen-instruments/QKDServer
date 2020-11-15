@@ -196,7 +196,7 @@ def _transferlog_digest():
                 logger.debug(f'[read msg] {message}')
                 if first_received_epoch == None:
                     first_received_epoch = message
-                    logger.debug(f'[first_rx_epoch] {first_received_epoch}')
+                    logger.info(f'[first_rx_epoch] {first_received_epoch}')
                 if low_count_side is True:
                     qkd_globals.writer(PipesQKD.SPLICER, message)
                     logger.debug(f'Sent epoch name {message} to splicer.')
