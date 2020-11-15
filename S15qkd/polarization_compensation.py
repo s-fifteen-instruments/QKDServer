@@ -58,6 +58,7 @@ class PolarizationDriftCompensation(object):
                 if qber_mean < qber_stop_service_mode:
                     np.savetxt(self.LCRvoltages_file_name, [self.V1, self.V2, self.V3, self.V4])
                     controller.stop_key_gen()
+                    controller.start_key_generation()
                 return
             if qber_mean < self.last_qber:
                 self.last_voltage_list= [self.V1, self.V2, self.V3, self.V4]

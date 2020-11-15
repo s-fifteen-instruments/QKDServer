@@ -144,7 +144,10 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                 latest_outepoch = costream_info[0]
                 if (int(latest_coincidences) / int(latest_accidentals)) < 2:
                     controller.stop_key_gen()
-                    controller.start_service_mode()
+                    if qkd_protocol == QKDProtocol.SERVICE:
+                        controller.start_service_mode()
+                    elif qkd_protocol == QKDProtocol.BBM92:
+                        controller.start_key_generation()
                     continue
                 if qkd_protocol == QKDProtocol.SERVICE:
                     logger.debug(message)
