@@ -321,6 +321,10 @@ def _stop_key_gen_processes():
     transferd.first_received_epoch = None
     qkd_globals.PipesQKD.drain_all_pipes()
 
+def stop_key_gen():
+    transferd.send_message('stop_key_gen')
+    _stop_key_gen_processes()
+
 
 def start_communication():
     '''Establishes network connection between computers.

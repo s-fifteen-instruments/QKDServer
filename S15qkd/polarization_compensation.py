@@ -53,10 +53,10 @@ class PolarizationDriftCompensation(object):
             if qber_mean < 0.15:
                 self.averaging_n = 15
             logger.info(
-                f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Voltage range: {qber_cost_func(qber_mean):.2f}')
+                f'Avg(qber): {qber_mean:.2f} averaging over {self.averaging_n} epochs. Voltage range: {qber_cost_func(qber_mean):.2f}')
             if qber_mean < qber_threshold:
                 if qber_mean < qber_stop_service_mode:
-                    controller._stop_key_gen_processes()
+                    controller.stop_key_gen()
                     # controller.start_key_generation()
                 return
             logger.info(f'avg(qber): {qber_mean}, last qber: {self.last_qber}')
@@ -65,12 +65,11 @@ class PolarizationDriftCompensation(object):
                 self.last_voltage_list = [self.V1, self.V2, self.V3, self.V4]
                 self.lcvr_narrow_down(*self.last_voltage_list,
                                       qber_cost_func(qber_mean))
+                np.savetxt(self.LCRvoltages_file_name, [*self.last_voltage_list])
             else:
                 self.lcvr_narrow_down(*self.last_voltage_list,
                                       qber_cost_func(self.last_qber))
             self.last_qber = qber_mean
-            logger.info(self.last_voltage_list)
-            np.savetxt(self.LCRvoltages_file_name, [*self.last_voltage_list])
 
     def lcvr_narrow_down(self, c1: float, c2: float, c3: float, c4: float, r_narrow: float) -> Tuple[float, float, float, float]:
         self.V1 = np.random.uniform(max(c1 - r_narrow, VOLT_MIN),
