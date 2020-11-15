@@ -312,6 +312,7 @@ def start_service_mode():
 
 def _stop_key_gen_processes():
     global proc_readevents
+    transferd.send_message('stop_key_gen')
     chopper.stop_chopper()
     chopper2.stop_chopper2()
     splicer.stop_splicer()
