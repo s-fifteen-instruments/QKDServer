@@ -51,7 +51,7 @@ from . import qkd_globals
 from .rawkey_diagnosis import RawKeyDiagnosis
 from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD
 from .polarization_compensation import PolarizationDriftCompensation
-from . import controller
+from . import controller, transferd
 
 proc_costream = None
 
@@ -144,6 +144,7 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                 latest_outepoch = costream_info[0]
                 if (int(latest_coincidences) / int(latest_accidentals)) < 2:
                     controller._stop_key_gen_processes()
+                    transferd.send_message('stop_key_gen')
                     controller.start_service_mode()
                 if qkd_protocol == QKDProtocol.SERVICE:
                     logger.debug(message)
