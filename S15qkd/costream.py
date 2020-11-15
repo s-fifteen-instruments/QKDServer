@@ -124,7 +124,7 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
     logger.info('Thread started.')
     with open(config_file_name, 'r') as f_config:
         config = json.load(f_config, object_hook=lambda d: SimpleNamespace(**d))
-    if config.do_polarization_compensation is True:
+    if config.do_polarization_compensation is True and qkd_protocol == QKDProtocol.SERVICE:
         polarization_compensator = PolarizationDriftCompensation(
             config.LCR_polarization_compensator_path)
 

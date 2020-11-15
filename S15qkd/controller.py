@@ -256,7 +256,7 @@ def time_difference_find():
             -e 0x{first_epoch} \
             -n {use_periods} -V 1 \
             -q {fft_buffer_order}'
-
+    logger.info(f'pfind {args}')
     with open(f'{cwd}/{dataroot}/pfinderror', 'a+') as f:
         proc_pfind = subprocess.Popen([prog_pfind, *args.split()],
                                       stderr=f,
