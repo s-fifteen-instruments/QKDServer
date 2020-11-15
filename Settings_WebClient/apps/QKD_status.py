@@ -444,5 +444,5 @@ def on_button_click_comm(n):
               )
 def on_kill_button_click(n):
     if n is not None:
-        qkd_ctrl.stop_all_processes()
+        qkd_ctrl.stop_key_gen()
     return 'Start key generation'
