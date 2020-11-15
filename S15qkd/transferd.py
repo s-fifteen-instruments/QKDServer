@@ -166,7 +166,7 @@ def _msg_out_digest(msg_out_callback):
         try:
             message = f.readline().decode().lstrip('\x00').rstrip('\n')
             if len(message) != 0:
-                logger.debug(f'[read] {message}')
+                logger.info(f'[received message] {message}')
                 if message.split(':')[0] in {'ne1', 'ne2', 'ne3'}:
                     _symmetry_negotiation_messaging(message)
                 else:

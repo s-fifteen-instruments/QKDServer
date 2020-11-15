@@ -373,11 +373,6 @@ def get_error_corr_info():
     return stats
 
 
-# def stop_all_processes():
-#     global proc_readevents
-#     if transferd.is_running():
-#         stop_key_gen()
-
 def _start_readevents(det_dead_time: int = 30000):
     '''
     Start readevents
