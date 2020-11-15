@@ -36,7 +36,7 @@ class PolarizationDriftCompensation(object):
         self.last_qber = 1
         self.qber_counter = 0
 
-    def update_QBER(self, qber: float, qber_threshold: float = 0.1, qber_stop_service_mode: float = 0.09):
+    def update_QBER(self, qber: float, qber_threshold: float = 0.09):
         self.qber_counter += 1
         if self.qber_counter < 200:
             return
@@ -55,10 +55,10 @@ class PolarizationDriftCompensation(object):
             logger.info(
                 f'Avg(qber): {qber_mean:.2f} averaging over {self.averaging_n} epochs. V_range: {qber_cost_func(qber_mean):.2f}')
             if qber_mean < qber_threshold:
-                if qber_mean < qber_stop_service_mode:
-                    np.savetxt(self.LCRvoltages_file_name, [self.V1, self.V2, self.V3, self.V4])
-                    controller.stop_key_gen()
-                    controller.start_key_generation()
+                np.savetxt(self.LCRvoltages_file_name, [self.V1, self.V2, self.V3, self.V4])
+                controller.stop_key_gen()
+                logger.info('attempting to start key generation')
+                controller.start_key_generation()
                 return
             if qber_mean < self.last_qber:
                 self.last_voltage_list= [self.V1, self.V2, self.V3, self.V4]
