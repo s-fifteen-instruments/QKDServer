@@ -142,6 +142,7 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                 latest_sentevents = costream_info[2]
                 latest_rawevents = costream_info[1]
                 latest_outepoch = costream_info[0]
+                # automtic research of time difference finder
                 if (int(latest_coincidences) / int(latest_accidentals)) < 2:
                     controller.stop_key_gen()
                     if qkd_protocol == QKDProtocol.SERVICE:
