@@ -166,7 +166,6 @@ def msg_response(message):
     if msg_code == 'start_service_mode':
         _stop_key_gen_processes()
         transferd.send_message('start_service_mode_step2')
-        print(low_count_side)
         if low_count_side is False:
             _start_readevents()
             chopper2.start_chopper2()
@@ -411,7 +410,6 @@ class ProcessWatchDog(threading.Thread):
         self.prev_proc_states = get_process_states()
         self.prev_status = get_status_info()
         self._logger.info(self.prev_proc_states)
-        # print(self.prev_proc_states)
 
     def terminate(self):
         self._running = False

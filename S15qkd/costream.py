@@ -143,7 +143,9 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                 latest_rawevents = costream_info[1]
                 latest_outepoch = costream_info[0]
                 # automtic research of time difference finder
-                if (int(latest_coincidences) / int(latest_accidentals)) < 2:
+                if (int(latest_coincidences) / int(latest_accidentals)) < 3:
+                    logger.error(
+                        f'No peak found. pairs/accidentals = {int(latest_coincidences) / int(latest_accidentals):.2f}')
                     controller.stop_key_gen()
                     if qkd_protocol == QKDProtocol.SERVICE:
                         controller.start_service_mode()
