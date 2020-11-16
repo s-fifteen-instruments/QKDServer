@@ -124,7 +124,7 @@ def _splice_pipe_digest(qkd_protocol, config_file_name: str = qkd_globals.config
             if len(message) != 0:
                 logger.debug(f'[genlog] {message}')
                 if qkd_protocol == QKDProtocol.BBM92:
-                    logger.info(f'Add {message} to error correction queue')
+                    logger.debug(f'Add {message} to error correction queue')
                     error_correction.ec_queue.put(message)
                 elif qkd_protocol == QKDProtocol.SERVICE:
                     diagnosis = rawkey_diagnosis.RawKeyDiagnosis(
