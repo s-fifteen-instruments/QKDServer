@@ -163,7 +163,7 @@ def _ecnotepipe_digest(ec_note_pipe: str = PipesQKD.ECNOTE):
         time.sleep(0.1)
         try:
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
-            logger.debug(message)
+            logger.info(message)
             if len(message) != 0:
                 message = message.split()
                 ec_epoch = message[0]

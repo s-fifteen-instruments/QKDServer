@@ -191,7 +191,7 @@ def kill_process(my_process):
                 proc.kill()
             process.kill()
     except Exception as a:
-        logger.warning(f'{a}.')
+        logger.debug(f'{a}.')
 
 
 class PipesQKD(str, Enum):
