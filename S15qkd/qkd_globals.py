@@ -89,7 +89,7 @@ if not os.path.exists(config_file):
         "error_correction_program_path": "bin/errorcorrection",
         "error_correction": True,
         "privacy_amplification": True,
-        "errcd_killfile_option": True,
+        "errcd_killfile_option": False,
         "QBER_limit": 0.12,
         "default_QBER": 0.05,
         "minimal_block_size": 5000,

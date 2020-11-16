@@ -237,8 +237,7 @@ def wait_for_epoch_files(number_of_epochs):
 
 def time_difference_find():
     '''
-    Starts pfind and searches for the photon coincidence peak
-    in the combined timestamp files.
+    Starts pfind and searches for the detection coincidence peak in combined timestamp files.
     '''
     global periode_count, fft_buffer_order
     global prog_pfind, first_epoch
@@ -256,7 +255,7 @@ def time_difference_find():
             -e 0x{first_epoch} \
             -n {use_periods} -V 1 \
             -q {fft_buffer_order}'
-    logger.info(f'pfind {args}')
+    logger.info(f'starting pfind with: {args}')
     with open(f'{cwd}/{dataroot}/pfinderror', 'a+') as f:
         proc_pfind = subprocess.Popen([prog_pfind, *args.split()],
                                       stderr=f,
@@ -327,7 +326,7 @@ def stop_key_gen():
 
 
 def start_communication():
-    '''Establishes network connection between computers.
+    '''Establishes classical communication, based on sockets, between computers.
     '''
     if not transferd.is_running():
         qkd_globals.FoldersQKD.prepare_folders()
