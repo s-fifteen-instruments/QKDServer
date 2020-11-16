@@ -60,7 +60,7 @@ def _load_error_correction_config(config_file_name: str):
     global config, program_root, data_root
     global privacy_amplification, errcd_killfile_option, target_bit_error
     global minimal_block_size, QBER_limit, default_QBER, servo_blocks
-    global program_error_correction, program_diagbb84, ec_note_pipe
+    global program_error_correction, program_diagbb84
     global raw_key_folder, servoed_QBER
     global do_polarization_compensation
 
@@ -80,8 +80,8 @@ def _load_error_correction_config(config_file_name: str):
 
     program_error_correction = program_root + '/errcd'
     program_diagbb84 = program_root + '/diagbb84'
-    ec_note_pipe = data_root + '/ecnotepipe'
-    raw_key_folder = data_root + '/rawkey'
+    # ec_note_pipe = data_root + '/ecnotepipe'
+    # raw_key_folder = data_root + '/rawkey'
     servoed_QBER = default_QBER
 
 
@@ -161,7 +161,7 @@ def _ecnotepipe_digest(ec_note_pipe: str = PipesQKD.ECNOTE):
     Digests error correction activities indicated by the 'ecnotepipe' pipe.
     This is getting input from the ec_note_pipe which is updated after an error correction run.
     '''
-    global proc_error_correction, total_ec_key_bits, servoed_QBER, ec_note_pipe
+    global proc_error_correction, total_ec_key_bits, servoed_QBER
     global ec_epoch, ec_raw_bits, ec_final_bits, ec_err_fraction
     global ec_err_fraction_history, ec_err_key_length_history, ec_key_gen_rate
     fd = os.open(ec_note_pipe, os.O_RDONLY | os.O_NONBLOCK)
