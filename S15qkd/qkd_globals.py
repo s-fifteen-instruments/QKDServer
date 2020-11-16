@@ -185,7 +185,7 @@ def kill_existing_qcrypto_processes():
 def kill_process(my_process):
     try:
         if my_process is not None:
-            logger.info(f'Killing process: {my_process.pid}.')
+            logger.debug(f'Killing process: {my_process.pid}.')
             process = psutil.Process(my_process.pid)
             for proc in process.children(recursive=True):
                 proc.kill()
