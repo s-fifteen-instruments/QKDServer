@@ -187,7 +187,7 @@ def _ecnotepipe_digest(ec_note_pipe: str = PipesQKD.ECNOTE):
                     servoed_QBER = QBER_limit
 
                 logger.info(
-                    f'Epoch: {ec_epoch}, Raw bits: {ec_raw_bits}, Error corr. bits: {ec_final_bits}, QBER: {ec_err_fraction')
+                    f'Epoch: {ec_epoch}, Raw bits: {ec_raw_bits}, Error corr. bits: {ec_final_bits}, QBER: {ec_err_fraction}')
         except OSError:
             pass
         except Exception as a:
