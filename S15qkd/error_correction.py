@@ -50,7 +50,6 @@ import collections
 
 from . import qkd_globals, controller
 from .qkd_globals import logger, PipesQKD, FoldersQKD
-from . import polarization_compensation
 
 EPOCH_DURATION = 0.536  # seconds
 
@@ -62,7 +61,6 @@ def _load_error_correction_config(config_file_name: str):
     global minimal_block_size, QBER_limit, default_QBER, servo_blocks
     global program_error_correction, program_diagbb84
     global raw_key_folder, servoed_QBER
-    global do_polarization_compensation
 
     with open(config_file_name, 'r') as f:
         config = json.load(f)
@@ -76,7 +74,6 @@ def _load_error_correction_config(config_file_name: str):
     QBER_limit = config['QBER_limit']
     default_QBER = config['default_QBER']
     servo_blocks = config['servo_blocks']
-    do_polarization_compensation = config['do_polarization_compensation']
 
     program_error_correction = program_root + '/errcd'
     program_diagbb84 = program_root + '/diagbb84'
@@ -90,7 +87,6 @@ def initialize(config_file_name: str = qkd_globals.config_file):
     global undigested_epochs_info, init_QBER_info, ec_raw_bits
     global ec_epoch, ec_final_bits, ec_err_fraction, first_epoch_info, ec_key_gen_rate
     global proc_error_correction, ec_err_fraction_history, ec_err_key_length_history
-    global polarization_comp
     _load_error_correction_config(config_file_name)
     ec_queue = queue.Queue()  # used to queue raw key files
     total_ec_key_bits = 0  # counts the final error-corrected key bits
@@ -106,10 +102,6 @@ def initialize(config_file_name: str = qkd_globals.config_file):
     proc_error_correction = None  # error correction process handle
     ec_err_fraction_history = collections.deque(maxlen=100)
     ec_err_key_length_history = collections.deque(maxlen=100)
-    polarization_comp = None
-    if do_polarization_compensation is True:
-        polarization_comp = polarization_compensation.PolarizationDriftCompensation(
-            averaging_n=1)
 
 
 def start_error_correction(cmd_pipe: str = PipesQKD.ECCMD, send_pipe: str = PipesQKD.ECS,
@@ -183,8 +175,6 @@ def _ecnotepipe_digest(ec_note_pipe: str = PipesQKD.ECNOTE):
                 total_ec_key_bits += ec_final_bits
                 ec_err_fraction_history.append(ec_err_fraction)
                 ec_err_key_length_history.append(ec_final_bits)
-                if polarization_comp is not None:
-                    polarization_comp.update_QBER(ec_err_fraction)
                 # servoing QBER
                 servoed_QBER += (ec_err_fraction - servoed_QBER) / servo_blocks
                 if servoed_QBER < 0.005:
@@ -192,11 +182,12 @@ def _ecnotepipe_digest(ec_note_pipe: str = PipesQKD.ECNOTE):
                 if servoed_QBER > 1 or servoed_QBER < 0:
                     servoed_QBER = default_QBER
                 elif servoed_QBER > QBER_limit:
+                    logger.error(f'servoed_QBER {servoed_QBER} too high. Restarting polarization compensation.')
                     controller.start_service_mode()
                     servoed_QBER = QBER_limit
 
                 logger.info(
-                    f'{message}. Total generated final bits: {total_ec_key_bits}.')
+                    f'Epoch: {ec_epoch}, Raw bits: {ec_raw_bits}, Error corr. bits: {ec_final_bits}, QBER: {ec_err_fraction')
         except OSError:
             pass
         except Exception as a:
