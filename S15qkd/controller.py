@@ -56,11 +56,13 @@ from . import chopper2
 from . import costream
 from . import error_correction
 from . import qkd_globals
-from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD
+from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD, QKDEngineState
 from .transferd import SymmetryNegotiationState
 
 # configuration file contains the most important paths and the target ip and port number
 config_file = qkd_globals.config_file
+
+qkd_engine_state = QKDEngineState.OFF
 
 
 def _load_config(config_file_name: str):
@@ -174,7 +176,7 @@ def msg_response(message):
             #     curr_time_diff = costream.latest_deltat + costream.initial_time_difference
             # else:
             curr_time_diff, sig_long, sig_short = time_difference_find()
-            costream.start_costream(curr_time_diff, first_epoch, 
+            costream.start_costream(curr_time_diff, first_epoch,
                                     qkd_protocol=QKDProtocol.SERVICE)
         else:
             _start_readevents()
@@ -191,7 +193,7 @@ def msg_response(message):
             #     curr_time_diff = costream.latest_deltat + costream.initial_time_difference
             # else:
             curr_time_diff, sig_long, sig_short = time_difference_find()
-            costream.start_costream(curr_time_diff, first_epoch, 
+            costream.start_costream(curr_time_diff, first_epoch,
                                     qkd_protocol=QKDProtocol.SERVICE)
         else:
             _start_readevents()
@@ -211,7 +213,7 @@ def wait_for_epoch_files(number_of_epochs):
             time_difference_find aborted.')
         return
     start_time = time.time()
-    timeout = (number_of_epochs + 2) * qkd_globals.EPOCH_DURATION 
+    timeout = (number_of_epochs + 2) * qkd_globals.EPOCH_DURATION
     while transferd.first_received_epoch is None or chopper2.first_epoch is None:
         if (time.time() - start_time) > timeout:
             logger.error(
@@ -310,7 +312,8 @@ def start_service_mode():
 
 
 def _stop_key_gen_processes():
-    global proc_readevents
+    global proc_readevents, qkd_engine_state
+    qkd_engine_state = QKDEngineState.ONLY_COMMUNICATION
     chopper.stop_chopper()
     chopper2.stop_chopper2()
     splicer.stop_splicer()
@@ -318,6 +321,7 @@ def _stop_key_gen_processes():
     error_correction.stop_error_correction()
     qkd_globals.kill_process(proc_readevents)
     qkd_globals.PipesQKD.drain_all_pipes()
+
 
 def stop_key_gen():
     transferd.send_message('stop_key_gen')
@@ -331,6 +335,7 @@ def start_communication():
         qkd_globals.FoldersQKD.prepare_folders()
         qkd_globals.PipesQKD.prepare_pipes()
         transferd.start_communication(msg_response)
+        
 
 
 def get_process_states():
@@ -437,6 +442,37 @@ class ProcessWatchDog(threading.Thread):
                 qkd_globals.kill_process(proc_readevents)
             self.prev_proc_states = proc_states
             self.prev_status = status
+            self.crash_detection_and_restart(proc_states)
+
+    def crash_detection_and_restart(self, process_states):
+        '''
+        return {'transferd': transferd.is_running(),
+                'readevents': not (proc_readevents is None or proc_readevents.poll() is not None),
+                'chopper': chopper.is_running(),
+                'chopper2': chopper2.is_running(),
+                'costream': costream.is_running(),
+                'splicer': splicer.is_running(),
+                'error_correction': error_correction.is_running()
+                }
+        '''
+        if qkd_engine_state in [QKDEngineState.SERVICE_MODE, QKDEngineState.KEY_GENERATION]:
+            if transferd.low_count_side is True:
+                if False in [process_states['readevents'],
+                             process_states['chopper'],
+                             process_states['splicer']]:
+                    stop_key_gen()
+                    start_service_mode()
+            else:
+                if False in [process_states['readevents'],
+                             process_states['chopper2'],
+                             process_states['costream']]:
+                    stop_key_gen()
+                    start_service_mode()
+
+        if qkd_engine_state == QKDEngineState.KEY_GENERATION:
+            if process_states['error_correction'] is False:
+                stop_key_gen()
+                start_service_mode()
 
 
 def main():
@@ -445,7 +481,7 @@ def main():
     # error_correction.errcd_killfile_option = ''
     error_correction.start_error_correction()
     time.sleep(10)
-    stop_all_processes()
+    # stop_all_processes()
     # kill_process(commhandle))
 
 

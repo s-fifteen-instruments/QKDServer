@@ -48,7 +48,7 @@ import time
 import json
 import shutil
 import codecs
-from enum import unique, Enum
+from enum import unique, Enum, auto
 
 EPOCH_DURATION = 2**32 / 8 * 1e-9
 
@@ -64,12 +64,12 @@ if not os.path.exists(config_file):
         "target_ip": "192.168.1.20",
         "data_root": "tmp/cryptostuff",
         "program_root": "bin/remotecrypto",
-        "port_num": 4852,
+        "port_num": 4853,
         "identity": "Alice",
         "remote_coincidence_window": 8,
         "tracking_window": 30,
         "track_filter_time_constant": 2000000,
-        "FFT_buffer_order": 23,
+        "FFT_buffer_order": 26,
         "local_detector_skew_correction": {
             "det1corr": 0,
             "det2corr": 0,
@@ -83,7 +83,7 @@ if not os.path.exists(config_file):
         "protocol": 1,
         "max_event_diff": 20000,
         "kill_option": "-k -K",
-        "pfind_epochs": 5,
+        "pfind_epochs": 10,
         "costream_histo_option": "",
         "costream_histo_number": 10,
         "error_correction_program_path": "bin/errorcorrection",
@@ -157,7 +157,7 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
 
 def kill_process_by_name(process_name: str):
     '''
-    Get a list of running PIDs named like the given process_name
+    Searches processes by name and kills them.
     '''
     list_of_process_objects = []
     # Iterate over the all the running process
@@ -277,6 +277,15 @@ class QKDProtocol(int, Enum):
     BBM92 = 1
 
 
+@unique
+class QKDEngineState(Enum):
+    SERVICE_MODE = auto()
+    KEY_GENERATION = auto()
+    ONLY_COMMUNICATION = auto()
+    OFF = auto()
+    # TRANSITIONING_TO_KEY_GENERATION = auto()
+    
+
 logger = logging.getLogger("QKD logger")
 logger.setLevel(logging.DEBUG)
 logFormatter = logging.Formatter(
@@ -284,7 +293,7 @@ logFormatter = logging.Formatter(
 
 fileHandler = MyTimedRotatingFileHandler('logs')
 fileHandler.setFormatter(logFormatter)
-fileHandler.setLevel(logging.DEBUG)
+fileHandler.setLevel(logging.INFO)
 consoleHandler = logging.StreamHandler(sys.stdout)
 consoleHandler.setFormatter(logFormatter)
 consoleHandler.setLevel(logging.INFO)

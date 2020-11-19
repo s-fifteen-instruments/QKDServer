@@ -57,7 +57,7 @@ class PolarizationDriftCompensation(object):
             if qber_mean < qber_threshold:
                 np.savetxt(self.LCRvoltages_file_name, [self.V1, self.V2, self.V3, self.V4])
                 controller.stop_key_gen()
-                logger.info('attempting to start key generation')
+                logger.info('Attempting to start key generation')
                 controller.start_key_generation()
                 return
             if qber_mean < self.last_qber:

@@ -49,7 +49,7 @@ from types import SimpleNamespace
 # Own modules
 from . import qkd_globals
 from .rawkey_diagnosis import RawKeyDiagnosis
-from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD
+from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD, QKDEngineState
 from .polarization_compensation import PolarizationDriftCompensation
 from . import controller, transferd
 
@@ -145,7 +145,7 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                 # automtic research of time difference finder
                 if (int(latest_coincidences) / int(latest_accidentals)) < 3:
                     logger.error(
-                        f'No peak found. pairs/accidentals = {int(latest_coincidences) / int(latest_accidentals):.2f}')
+                        f'Pairs to accidental ratio bad: p/a = {int(latest_coincidences) / int(latest_accidentals):.2f}')
                     controller.stop_key_gen()
                     if qkd_protocol == QKDProtocol.SERVICE:
                         controller.start_service_mode()
@@ -153,6 +153,7 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                         controller.start_key_generation()
                     continue
                 if qkd_protocol == QKDProtocol.SERVICE:
+                    controller.qkd_engine_state = QKDEngineState.SERVICE_MODE
                     logger.debug(message)
                     diagnosis = RawKeyDiagnosis(
                         FoldersQKD.RAWKEYS + '/' + message)

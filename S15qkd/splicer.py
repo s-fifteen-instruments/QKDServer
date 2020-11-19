@@ -49,7 +49,8 @@ from types import SimpleNamespace
 from . import qkd_globals
 from . import error_correction
 from . import rawkey_diagnosis
-from .qkd_globals import logger, PipesQKD, FoldersQKD, QKDProtocol
+from . import controller
+from .qkd_globals import logger, PipesQKD, FoldersQKD, QKDProtocol, QKDEngineState
 from .polarization_compensation import PolarizationDriftCompensation
 
 proc_splicer = None
@@ -127,6 +128,7 @@ def _splice_pipe_digest(qkd_protocol, config_file_name: str = qkd_globals.config
                     logger.debug(f'Add {message} to error correction queue')
                     error_correction.ec_queue.put(message)
                 elif qkd_protocol == QKDProtocol.SERVICE:
+                    controller.qkd_engine_state = QKDEngineState.SERVICE_MODE
                     diagnosis = rawkey_diagnosis.RawKeyDiagnosis(
                         FoldersQKD.RAWKEYS + '/' + message)
                     logger.debug(

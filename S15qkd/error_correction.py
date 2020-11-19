@@ -49,7 +49,7 @@ import queue
 import collections
 
 from . import qkd_globals, controller
-from .qkd_globals import logger, PipesQKD, FoldersQKD
+from .qkd_globals import logger, PipesQKD, FoldersQKD, QKDEngineState
 
 EPOCH_DURATION = 0.536  # seconds
 
@@ -146,6 +146,7 @@ def start_error_correction(cmd_pipe: str = PipesQKD.ECCMD, send_pipe: str = Pipe
         target=_do_error_correction, args=(), daemon=True)
     do_ec_thread.start()
     logger.info(f'Started error correction.')
+    controller.qkd_engine_state = QKDEngineState.KEY_GENERATION
 
 
 def _ecnotepipe_digest(ec_note_pipe: str = PipesQKD.ECNOTE):
@@ -163,13 +164,13 @@ def _ecnotepipe_digest(ec_note_pipe: str = PipesQKD.ECNOTE):
         time.sleep(0.1)
         try:
             message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
-            logger.info(message)
             if len(message) != 0:
                 message = message.split()
                 ec_epoch = message[0]
                 ec_raw_bits = int(message[1])
                 ec_final_bits = int(message[2])
                 ec_err_fraction = float(message[3])
+                ec_nr_of_epochs = int(message[4])
                 ec_key_gen_rate = ec_final_bits / \
                     (int(message[4]) * EPOCH_DURATION)
                 total_ec_key_bits += ec_final_bits
@@ -182,12 +183,12 @@ def _ecnotepipe_digest(ec_note_pipe: str = PipesQKD.ECNOTE):
                 if servoed_QBER > 1 or servoed_QBER < 0:
                     servoed_QBER = default_QBER
                 elif servoed_QBER > QBER_limit:
-                    logger.error(f'servoed_QBER {servoed_QBER} too high. Restarting polarization compensation.')
+                    logger.error(f'QBER: {servoed_QBER} above {QBER_limit}. Restarting polarization compensation.')
                     controller.start_service_mode()
                     servoed_QBER = QBER_limit
 
                 logger.info(
-                    f'Epoch: {ec_epoch}, Raw bits: {ec_raw_bits}, Error corr. bits: {ec_final_bits}, QBER: {ec_err_fraction}')
+                    f'Epoch: {ec_epoch}, Raw bits: {ec_raw_bits}, Error corr. bits: {ec_final_bits}, QBER: {ec_err_fraction}, Nr. of consumed epochs: {ec_nr_of_epochs}')
         except OSError:
             pass
         except Exception as a:
@@ -243,7 +244,7 @@ def _do_error_correction():
             qkd_globals.writer(
                 PipesQKD.ECCMD, f'0x{first_epoch} {undigested_epochs} {float("{0:.4f}".format(servoed_QBER))}')
             logger.info(
-                f'Started error correction for epoch {first_epoch}, {undigested_epochs}.')
+                f'Started error correction for {undigested_epochs} epochs starting with epoch {first_epoch}.')
             first_epoch_info = first_epoch
             undigested_epochs_info = undigested_epochs
             init_QBER_info = servoed_QBER
