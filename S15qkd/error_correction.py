@@ -60,7 +60,7 @@ def _load_error_correction_config(config_file_name: str):
     global privacy_amplification, errcd_killfile_option, target_bit_error
     global minimal_block_size, QBER_limit, default_QBER, servo_blocks
     global program_error_correction, program_diagbb84
-    global raw_key_folder, servoed_QBER
+    global servoed_QBER
 
     with open(config_file_name, 'r') as f:
         config = json.load(f)
