@@ -151,7 +151,7 @@ def msg_response(message):
             chopper2.start_chopper2()
             try:
                 curr_time_diff, sig_long, sig_short = time_difference_find()
-            except NoCoincidenceDataException:
+            except Exception:
                 stop_key_gen()
                 start_service_mode()
             else:
@@ -164,7 +164,7 @@ def msg_response(message):
         if low_count_side is False:
             try:
                 curr_time_diff, sig_long, sig_short = time_difference_find()
-            except NoCoincidenceDataException:
+            except Exception:
                 stop_key_gen()
                 start_service_mode()
             else:
@@ -188,7 +188,7 @@ def msg_response(message):
             chopper2.start_chopper2()
             try:
                 curr_time_diff, sig_long, sig_short = time_difference_find()
-            except NoCoincidenceDataException:
+            except Exception:
                 stop_key_gen()
                 start_service_mode()
             else:
@@ -205,7 +205,7 @@ def msg_response(message):
             chopper2.start_chopper2()
             try:
                 curr_time_diff, sig_long, sig_short = time_difference_find()
-            except NoCoincidenceDataException:
+            except Exception:
                 stop_key_gen()
                 start_service_mode()
             else:
@@ -281,6 +281,7 @@ def time_difference_find():
     proc_pfind.wait()
     pfind_result = (proc_pfind.stdout.read()).decode()
     if len(pfind_result) == 0:
+        logger.error('pfind did not return anything')
         raise Exception('pfind did not return anything')
     logger.info(f'Pfind result: {pfind_result.split()}')
     return [float(i) for i in pfind_result.split()]
