@@ -181,6 +181,7 @@ def msg_response(message):
 
     if msg_code == 'start_service_mode':
         _stop_key_gen_processes()
+        # qkd_globals.FoldersQKD.remove_stale_comm_files()
         transferd.send_message('start_service_mode_step2')
         _start_readevents()
         if low_count_side is False:
@@ -213,6 +214,7 @@ def msg_response(message):
         else:
             chopper.start_chopper(QKDProtocol.SERVICE)
             splicer.start_splicer(qkd_protocol=QKDProtocol.SERVICE)
+
 
 
 def wait_for_epoch_files(number_of_epochs):
@@ -278,6 +280,8 @@ def time_difference_find():
                                       stdout=subprocess.PIPE)
     proc_pfind.wait()
     pfind_result = (proc_pfind.stdout.read()).decode()
+    if len(pfind_result) == 0:
+        raise Exception('pfind did not return anything')
     logger.info(f'Pfind result: {pfind_result.split()}')
     return [float(i) for i in pfind_result.split()]
 
@@ -336,6 +340,7 @@ def _stop_key_gen_processes():
     error_correction.stop_error_correction()
     qkd_globals.kill_process(proc_readevents)
     qkd_globals.PipesQKD.drain_all_pipes()
+    qkd_globals.FoldersQKD.remove_stale_comm_files()
 
 
 def stop_key_gen():

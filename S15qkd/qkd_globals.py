@@ -254,7 +254,7 @@ class FoldersQKD(str, Enum):
     @classmethod
     def remove_stale_comm_files(cls):
         for folder in [cls.RECEIVEFILES + '/*', cls.SENDFILES + '/*', cls.T1FILES + '/*', cls.T3FILES + '/*']:
-            for f in glob.glob(data_root + folder):
+            for f in glob.glob(folder):
                 os.remove(f)
 
 
