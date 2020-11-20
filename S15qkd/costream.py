@@ -143,9 +143,9 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                 latest_rawevents = costream_info[1]
                 latest_outepoch = costream_info[0]
                 # automtic research of time difference finder
-                pairs_over_accidentals_avg += int(
+                pairs_over_accidentals = int(
                     latest_coincidences) / int(latest_accidentals)
-                pairs_over_accidentals_avg /= 2
+                pairs_over_accidentals_avg = (pairs_over_accidentals_avg * 9 + pairs_over_accidentals) / 10
                 if pairs_over_accidentals_avg < 3:
                     logger.error(
                         f'Pairs to accidental ratio bad: p/a = {pairs_over_accidentals_avg:.2f}')
