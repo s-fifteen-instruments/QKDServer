@@ -65,6 +65,10 @@ config_file = qkd_globals.config_file
 qkd_engine_state = QKDEngineState.OFF
 
 
+class NoCoincidenceDataException(Exception):
+    """Raised when the input value is too small"""
+    pass
+
 def _load_config(config_file_name: str):
     with open(config_file_name, 'r') as f:
         config = json.load(f)
@@ -145,19 +149,29 @@ def msg_response(message):
         elif low_count_side is False:
             _start_readevents()
             chopper2.start_chopper2()
-            time_diff, sig_long, sig_short = time_difference_find()
-            costream.start_costream(time_diff, first_epoch,
-                                    qkd_protocol=QKDProtocol.BBM92)
-            if with_error_correction == True:
-                error_correction.start_error_correction()
+            try:
+                curr_time_diff, sig_long, sig_short = time_difference_find()
+            except NoCoincidenceDataException:
+                stop_key_gen()
+                start_service_mode()
+            else:
+                costream.start_costream(time_diff, first_epoch,
+                                        qkd_protocol=QKDProtocol.BBM92)
+                if with_error_correction == True:
+                    error_correction.start_error_correction()
 
     if msg_code == 'st3':
         if low_count_side is False:
-            time_diff, sig_long, sig_short = time_difference_find()
-            costream.start_costream(time_diff, first_epoch,
+            try:
+                curr_time_diff, sig_long, sig_short = time_difference_find()
+            except NoCoincidenceDataException:
+                stop_key_gen()
+                start_service_mode()
+            else:
+                costream.start_costream(time_diff, first_epoch,
                                     qkd_protocol=QKDProtocol.BBM92)
-            if with_error_correction == True:
-                error_correction.start_error_correction()
+                if with_error_correction == True:
+                    error_correction.start_error_correction()
         else:
             logger.error(f'{msg_code} Not the high count side or symmetry \
                 negotiation not completed.')
@@ -168,35 +182,35 @@ def msg_response(message):
     if msg_code == 'start_service_mode':
         _stop_key_gen_processes()
         transferd.send_message('start_service_mode_step2')
+        _start_readevents()
         if low_count_side is False:
-            _start_readevents()
             chopper2.start_chopper2()
-            # wait_for_epoch_files(2)
-            # if costream.initial_time_difference != None:
-            #     curr_time_diff = costream.latest_deltat + costream.initial_time_difference
-            # else:
-            curr_time_diff, sig_long, sig_short = time_difference_find()
-            costream.start_costream(curr_time_diff, first_epoch,
+            try:
+                curr_time_diff, sig_long, sig_short = time_difference_find()
+            except NoCoincidenceDataException:
+                stop_key_gen()
+                start_service_mode()
+            else:
+                costream.start_costream(curr_time_diff, first_epoch,
                                     qkd_protocol=QKDProtocol.SERVICE)
         else:
-            _start_readevents()
             chopper.start_chopper(QKDProtocol.SERVICE)
             splicer.start_splicer(qkd_protocol=QKDProtocol.SERVICE)
 
     if msg_code == 'start_service_mode_step2':
         _stop_key_gen_processes()
+        _start_readevents()
         if low_count_side is False:
-            _start_readevents()
             chopper2.start_chopper2()
-            # wait_for_epoch_files(2)
-            # if costream.initial_time_difference != None:
-            #     curr_time_diff = costream.latest_deltat + costream.initial_time_difference
-            # else:
-            curr_time_diff, sig_long, sig_short = time_difference_find()
-            costream.start_costream(curr_time_diff, first_epoch,
-                                    qkd_protocol=QKDProtocol.SERVICE)
+            try:
+                curr_time_diff, sig_long, sig_short = time_difference_find()
+            except NoCoincidenceDataException:
+                stop_key_gen()
+                start_service_mode()
+            else:
+                costream.start_costream(curr_time_diff, first_epoch,
+                                        qkd_protocol=QKDProtocol.SERVICE)
         else:
-            _start_readevents()
             chopper.start_chopper(QKDProtocol.SERVICE)
             splicer.start_splicer(qkd_protocol=QKDProtocol.SERVICE)
 
@@ -217,15 +231,16 @@ def wait_for_epoch_files(number_of_epochs):
     while transferd.first_received_epoch is None or chopper2.first_epoch is None:
         if (time.time() - start_time) > timeout:
             logger.error(
-                f'Timeout: not enough data within {timeout}s')
-            raise Exception(
-                f'Notenough data within {timeout}s')
+                f'Timeout: no data generated or received within {timeout} seconds.')
+            raise NoCoincidenceDataException(
+                f'No data in or outgoing within {timeout}s')
         time.sleep(0.2)
 
     # make sure there is enough epochs available
     while chopper2.t1_epoch_count < number_of_epochs:
-        logger.debug(f'Waiting for more epochs.')
-        time.sleep(1)
+        if (time.time() - start_time) > timeout:
+            logger.debug(f'Waiting for more epochs.')
+            time.sleep(qkd_globals.EPOCH_DURATION * 1.05)
 
     epoch_diff = int(transferd.first_received_epoch, 16) - \
         int(chopper2.first_epoch, 16)
@@ -335,7 +350,6 @@ def start_communication():
         qkd_globals.FoldersQKD.prepare_folders()
         qkd_globals.PipesQKD.prepare_pipes()
         transferd.start_communication(msg_response)
-        
 
 
 def get_process_states():
