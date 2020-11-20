@@ -51,7 +51,7 @@ class PolarizationDriftCompensation(object):
             if qber_mean < 0.3:
                 self.averaging_n = 10
             if qber_mean < 0.15:
-                self.averaging_n = 15
+                self.averaging_n = 20
             logger.info(
                 f'Avg(qber): {qber_mean:.2f} averaging over {self.averaging_n} epochs. V_range: {qber_cost_func(qber_mean):.2f}')
             if qber_mean < qber_threshold:
