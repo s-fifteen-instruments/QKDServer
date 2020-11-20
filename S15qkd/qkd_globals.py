@@ -250,6 +250,7 @@ class FoldersQKD(str, Enum):
         for folder in cls:
             if not os.path.exists(folder):
                 os.makedirs(folder)
+        cls.remove_stale_comm_files()
 
     @classmethod
     def remove_stale_comm_files(cls):
