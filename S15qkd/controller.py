@@ -150,7 +150,7 @@ def msg_response(message):
             _start_readevents()
             chopper2.start_chopper2()
             try:
-                curr_time_diff, sig_long, sig_short = time_difference_find()
+                time_diff, sig_long, sig_short = time_difference_find()
             except Exception:
                 stop_key_gen()
                 start_key_generation()
@@ -163,7 +163,7 @@ def msg_response(message):
     if msg_code == 'st3':
         if low_count_side is False:
             try:
-                curr_time_diff, sig_long, sig_short = time_difference_find()
+                time_diff, sig_long, sig_short = time_difference_find()
             except Exception:
                 stop_key_gen()
                 start_key_generation()
@@ -187,12 +187,12 @@ def msg_response(message):
         if low_count_side is False:
             chopper2.start_chopper2()
             try:
-                curr_time_diff, sig_long, sig_short = time_difference_find()
+                time_diff, sig_long, sig_short = time_difference_find()
             except Exception:
                 stop_key_gen()
                 start_service_mode()
             else:
-                costream.start_costream(curr_time_diff, first_epoch,
+                costream.start_costream(time_diff, first_epoch,
                                     qkd_protocol=QKDProtocol.SERVICE)
         else:
             chopper.start_chopper(QKDProtocol.SERVICE)
@@ -204,12 +204,12 @@ def msg_response(message):
         if low_count_side is False:
             chopper2.start_chopper2()
             try:
-                curr_time_diff, sig_long, sig_short = time_difference_find()
+                time_diff, sig_long, sig_short = time_difference_find()
             except Exception:
                 stop_key_gen()
                 start_service_mode()
             else:
-                costream.start_costream(curr_time_diff, first_epoch,
+                costream.start_costream(time_diff, first_epoch,
                                         qkd_protocol=QKDProtocol.SERVICE)
         else:
             chopper.start_chopper(QKDProtocol.SERVICE)
