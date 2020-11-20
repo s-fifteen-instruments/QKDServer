@@ -153,7 +153,7 @@ def msg_response(message):
                 curr_time_diff, sig_long, sig_short = time_difference_find()
             except Exception:
                 stop_key_gen()
-                start_service_mode()
+                start_key_generation()
             else:
                 costream.start_costream(time_diff, first_epoch,
                                         qkd_protocol=QKDProtocol.BBM92)
@@ -166,7 +166,7 @@ def msg_response(message):
                 curr_time_diff, sig_long, sig_short = time_difference_find()
             except Exception:
                 stop_key_gen()
-                start_service_mode()
+                start_key_generation()
             else:
                 costream.start_costream(time_diff, first_epoch,
                                     qkd_protocol=QKDProtocol.BBM92)

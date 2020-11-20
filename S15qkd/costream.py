@@ -127,7 +127,7 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
     if config.do_polarization_compensation is True and qkd_protocol == QKDProtocol.SERVICE:
         polarization_compensator = PolarizationDriftCompensation(
             config.LCR_polarization_compensator_path)
-
+    pairs_over_accidentals_avg = 10
     while is_running():
         time.sleep(0.1)
         try:
@@ -143,9 +143,12 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                 latest_rawevents = costream_info[1]
                 latest_outepoch = costream_info[0]
                 # automtic research of time difference finder
-                if (int(latest_coincidences) / int(latest_accidentals)) < 3:
+                pairs_over_accidentals_avg += int(
+                    latest_coincidences) / int(latest_accidentals)
+                pairs_over_accidentals_avg /= 2
+                if pairs_over_accidentals_avg < 3:
                     logger.error(
-                        f'Pairs to accidental ratio bad: p/a = {int(latest_coincidences) / int(latest_accidentals):.2f}')
+                        f'Pairs to accidental ratio bad: p/a = {pairs_over_accidentals:.2f}')
                     controller.stop_key_gen()
                     if qkd_protocol == QKDProtocol.SERVICE:
                         controller.start_service_mode()
