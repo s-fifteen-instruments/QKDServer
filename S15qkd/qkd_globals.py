@@ -90,7 +90,7 @@ if not os.path.exists(config_file):
         "error_correction": True,
         "privacy_amplification": True,
         "errcd_killfile_option": False,
-        "QBER_limit": 0.12,
+        "QBER_limit": 0.11,
         "default_QBER": 0.05,
         "minimal_block_size": 5000,
         "target_bit_error": 1e-09,
