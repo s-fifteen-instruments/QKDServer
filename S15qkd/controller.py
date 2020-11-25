@@ -469,15 +469,11 @@ class ProcessWatchDog(threading.Thread):
         Checks if processes are running and restarts if any abnormalities are detected.
         '''
 
-        if process_states['transferd'] is False:
-            self._logger.error(f'Crash detected. transferd stopped.')
-            stop_key_gen()
-            transferd.stop_communication()
-            transferd.start_communication()
-            if transferd.communication_status == CommunicationStatus.CONNECTED:
-                start_service_mode()
-
         if qkd_engine_state in [QKDEngineState.SERVICE_MODE, QKDEngineState.KEY_GENERATION]:
+            if process_states['transferd'] is False:
+                self._logger.error(f'Crash detected. transferd stopped.')
+                transferd.start_communication()
+                time.sleep(1)
             if transferd.low_count_side is True:
                 if False in [process_states['readevents'],
                              process_states['chopper'],
