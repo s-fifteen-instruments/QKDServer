@@ -45,7 +45,7 @@ from queue import Queue, Empty
 import time
 import sys
 import psutil
-from enum import Enum
+from enum import Enum, unique, auto
 from types import SimpleNamespace
 
 from . import qkd_globals
@@ -68,14 +68,20 @@ from .qkd_globals import logger, PipesQKD, FoldersQKD
 
 # transferd_proc = None
 # communication_status = 0
-
+@unique
+class CommunicationStatus(int, Enum):
+    OFF = 0
+    CONNECTED = 1
+    DISCONNECTED = 2
+    
+    
 def initialize(config_file_name: str = qkd_globals.config_file):
     global cwd, sleep_time, communication_status, low_count_side, remote_count_rate
     global local_count_rate, transferd_proc, first_received_epoch, last_received_epoch
     global prog_readevents, negotiating
     cwd = os.getcwd()
     sleep_time = 1
-    communication_status = 0
+    communication_status = CommunicationStatus.OFF
     low_count_side = ''
     remote_count_rate = -1
     local_count_rate = -1
@@ -106,7 +112,7 @@ def start_communication(msg_out_callback=_local_callback, config_file_name: str 
     initialize()
     with open(config_file_name, 'r') as f:
         config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
-    if communication_status == 0:
+    if communication_status == CommunicationStatus.OFF:
         args = f'-d {FoldersQKD.SENDFILES} -c {PipesQKD.CMD} -t {config.target_ip} \
             -D {FoldersQKD.RECEIVEFILES} -l {PipesQKD.TRANSFERLOG} \
             -m {PipesQKD.MSGIN} -M {PipesQKD.MSGOUT} -p {config.port_num} \
@@ -146,12 +152,12 @@ def _transferd_stdout_digest(out, err, queue):
             line = line.rstrip()
             logger.info(f'[stdout] {line.decode()}')
             if line == b'connected.':
-                communication_status = 1
+                communication_status = CommunicationStatus.CONNECTED
             elif line == b'disconnected.':
-                communication_status = 2
+                communication_status = CommunicationStatus.DISCONNECTED
         for line in iter(err.readline, b''):
             logger.info(f'[stderr] {line.decode()}')
-    communication_status = 0
+    communication_status = CommunicationStatus.OFF
     logger.info(f'Thread finished')
     # startcommunication() # this is to restart the startcomm process if it crashes
 
@@ -254,7 +260,7 @@ def stop_communication():
     global transferd_proc, communication_status
     if is_running():
         qkd_globals.kill_process(transferd_proc)
-        communication_status = 0
+        communication_status = CommunicationStatus.OFF
         transferd_proc = None
 
 

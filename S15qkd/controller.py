@@ -57,7 +57,7 @@ from . import costream
 from . import error_correction
 from . import qkd_globals
 from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD, QKDEngineState
-from .transferd import SymmetryNegotiationState
+from .transferd import SymmetryNegotiationState, CommunicationStatus
 
 # configuration file contains the most important paths and the target ip and port number
 config_file = qkd_globals.config_file
@@ -451,7 +451,7 @@ class ProcessWatchDog(threading.Thread):
                         self._logger.info(f'{key} started.')
                     else:
                         self._logger.info(f'{key} stopped.')
-            if status['connection_status'] == 2 and self.prev_status['connection_status'] == 1:
+            if status['connection_status'] == CommunicationStatus.DISCONNECTED and self.prev_status['connection_status'] == CommunicationStatus.CONNECTED:
                 self._logger.info('Disconnected.')
                 self._logger.info('Stopping all key generation processes')
                 chopper.stop_chopper()
@@ -474,7 +474,8 @@ class ProcessWatchDog(threading.Thread):
             stop_key_gen()
             transferd.stop_communication()
             transferd.start_communication()
-            start_service_mode()
+            if transferd.communication_status == CommunicationStatus.CONNECTED:
+                start_service_mode()
 
         if qkd_engine_state in [QKDEngineState.SERVICE_MODE, QKDEngineState.KEY_GENERATION]:
             if transferd.low_count_side is True:
