@@ -472,6 +472,7 @@ class ProcessWatchDog(threading.Thread):
         if qkd_engine_state in [QKDEngineState.SERVICE_MODE, QKDEngineState.KEY_GENERATION]:
             if process_states['transferd'] is False:
                 self._logger.error(f'Crash detected. transferd stopped.')
+                stop_key_gen()
                 transferd.start_communication()
                 time.sleep(1)
             if transferd.low_count_side is True:
