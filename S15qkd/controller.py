@@ -474,9 +474,10 @@ class ProcessWatchDog(threading.Thread):
                 self._logger.error(f'Crash detected. transferd stopped.')
                 stop_key_gen()
                 transferd.stop_communication()
-                transferd.start_communication()
+                start_communication()
                 time.sleep(1)
                 start_service_mode()
+                return
             if transferd.low_count_side is True:
                 if False in [process_states['readevents'],
                              process_states['chopper'],
