@@ -470,8 +470,9 @@ class ProcessWatchDog(threading.Thread):
         '''
 
         if process_states['transferd'] is False:
-            self._logger(f'Crash detected. transferd stopped.')
+            self._logger.error(f'Crash detected. transferd stopped.')
             stop_key_gen()
+            transferd.stop_communication()
             transferd.start_communication()
             start_service_mode()
 
@@ -480,7 +481,7 @@ class ProcessWatchDog(threading.Thread):
                 if False in [process_states['readevents'],
                              process_states['chopper'],
                              process_states['splicer']]:
-                    self._logger(f'Crash detected. Processes running: Readevents: {process_states["readevents"]} \
+                    self._logger.error(f'Crash detected. Processes running: Readevents: {process_states["readevents"]} \
                                    Chopper: {process_states["chopper"]} \
                                    Splicer: {process_states["splicer"]}')
                     stop_key_gen()
@@ -489,7 +490,7 @@ class ProcessWatchDog(threading.Thread):
                 if False in [process_states['readevents'],
                              process_states['chopper2'],
                              process_states['costream']]:
-                    self._logger(f"Crash detected. Processes running: readevents: {process_states['readevents']} \
+                    self._logger.error(f"Crash detected. Processes running: readevents: {process_states['readevents']} \
                                    chopper2: {process_states['chopper2']} \
                                    costream: {process_states['costream']}")
                     stop_key_gen()
