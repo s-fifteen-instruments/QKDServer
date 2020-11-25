@@ -473,8 +473,10 @@ class ProcessWatchDog(threading.Thread):
             if process_states['transferd'] is False:
                 self._logger.error(f'Crash detected. transferd stopped.')
                 stop_key_gen()
+                transferd.stop_communication()
                 transferd.start_communication()
                 time.sleep(1)
+                start_service_mode()
             if transferd.low_count_side is True:
                 if False in [process_states['readevents'],
                              process_states['chopper'],
@@ -484,7 +486,7 @@ class ProcessWatchDog(threading.Thread):
                                    Splicer: {process_states["splicer"]}')
                     stop_key_gen()
                     start_service_mode()
-            else:
+            elif transferd.low_count_side is False:
                 if False in [process_states['readevents'],
                              process_states['chopper2'],
                              process_states['costream']]:
