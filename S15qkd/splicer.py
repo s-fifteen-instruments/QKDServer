@@ -91,8 +91,11 @@ def start_splicer(qkd_protocol: int = QKDProtocol.BBM92):
              {kill_option} \
              -p {qkd_protocol} \
              -m {PipesQKD.GENLOG}'
-
-    proc_splicer = subprocess.Popen([prog_splicer, *args.split()])
+    with open(f'{FoldersQKD.DATAROOT}/splicer_stderr', 'a+') as f_err:
+        with open(f'{FoldersQKD.DATAROOT}/splicer_stdout', 'a+') as f_stdout:
+            proc_splicer = subprocess.Popen([prog_splicer, *args.split()],
+                                            stdout=f_stdout,
+                                            stderr=f_err)
     time.sleep(0.1)
     logger.info(f'Started splicer process.')
     thread_splicepipe_digest = threading.Thread(target=_splice_pipe_digest,

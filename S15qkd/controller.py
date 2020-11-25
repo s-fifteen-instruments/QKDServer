@@ -69,6 +69,7 @@ class NoCoincidenceDataException(Exception):
     """Raised when the input value is too small"""
     pass
 
+
 def _load_config(config_file_name: str):
     with open(config_file_name, 'r') as f:
         config = json.load(f)
@@ -169,7 +170,7 @@ def msg_response(message):
                 start_key_generation()
             else:
                 costream.start_costream(time_diff, first_epoch,
-                                    qkd_protocol=QKDProtocol.BBM92)
+                                        qkd_protocol=QKDProtocol.BBM92)
                 if with_error_correction == True:
                     error_correction.start_error_correction()
         else:
@@ -193,7 +194,7 @@ def msg_response(message):
                 start_service_mode()
             else:
                 costream.start_costream(time_diff, first_epoch,
-                                    qkd_protocol=QKDProtocol.SERVICE)
+                                        qkd_protocol=QKDProtocol.SERVICE)
         else:
             chopper.start_chopper(QKDProtocol.SERVICE)
             splicer.start_splicer(qkd_protocol=QKDProtocol.SERVICE)
@@ -214,7 +215,6 @@ def msg_response(message):
         else:
             chopper.start_chopper(QKDProtocol.SERVICE)
             splicer.start_splicer(qkd_protocol=QKDProtocol.SERVICE)
-
 
 
 def wait_for_epoch_files(number_of_epochs):
@@ -466,26 +466,32 @@ class ProcessWatchDog(threading.Thread):
 
     def crash_detection_and_restart(self, process_states):
         '''
-        return {'transferd': transferd.is_running(),
-                'readevents': not (proc_readevents is None or proc_readevents.poll() is not None),
-                'chopper': chopper.is_running(),
-                'chopper2': chopper2.is_running(),
-                'costream': costream.is_running(),
-                'splicer': splicer.is_running(),
-                'error_correction': error_correction.is_running()
-                }
+        Checks if processes are running and restarts if any abnormalities are detected.
         '''
+
+        if process_states['transferd'] is False:
+            self._logger(f'Crash detected. transferd stopped.')
+            stop_key_gen()
+            transferd.start_communication()
+            start_service_mode()
+
         if qkd_engine_state in [QKDEngineState.SERVICE_MODE, QKDEngineState.KEY_GENERATION]:
             if transferd.low_count_side is True:
                 if False in [process_states['readevents'],
                              process_states['chopper'],
                              process_states['splicer']]:
+                    self._logger(f'Crash detected. Processes running: Readevents: {process_states["readevents"]} \
+                                   Chopper: {process_states["chopper"]} \
+                                   Splicer: {process_states["splicer"]}')
                     stop_key_gen()
                     start_service_mode()
             else:
                 if False in [process_states['readevents'],
                              process_states['chopper2'],
                              process_states['costream']]:
+                    self._logger(f"Crash detected. Processes running: readevents: {process_states['readevents']} \
+                                   chopper2: {process_states['chopper2']} \
+                                   costream: {process_states['costream']}")
                     stop_key_gen()
                     start_service_mode()
 

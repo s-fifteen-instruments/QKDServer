@@ -145,10 +145,10 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                 # restart time difference finder if pairs to accidentals is too low
                 pairs_over_accidentals = int(
                     latest_coincidences) / int(latest_accidentals)
-                pairs_over_accidentals_avg = (pairs_over_accidentals_avg * 9 + pairs_over_accidentals) / 10
-                if pairs_over_accidentals_avg < 3:
+                pairs_over_accidentals_avg = (pairs_over_accidentals_avg * 19 + pairs_over_accidentals) / 20
+                if pairs_over_accidentals_avg < 2.5:
                     logger.error(
-                        f'Pairs to accidental ratio bad: p/a = {pairs_over_accidentals_avg:.2f}')
+                        f'Pairs to accidental ratio bad: avg(p/a) = {pairs_over_accidentals_avg:.2f}')
                     controller.stop_key_gen()
                     if qkd_protocol == QKDProtocol.SERVICE:
                         controller.start_service_mode()

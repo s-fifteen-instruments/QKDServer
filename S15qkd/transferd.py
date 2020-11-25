@@ -144,13 +144,13 @@ def _transferd_stdout_digest(out, err, queue):
         time.sleep(0.5)
         for line in iter(out.readline, b''):
             line = line.rstrip()
-            logger.debug(f'[stdout] {line.decode()}')
+            logger.info(f'[stdout] {line.decode()}')
             if line == b'connected.':
                 communication_status = 1
             elif line == b'disconnected.':
                 communication_status = 2
         for line in iter(err.readline, b''):
-            logger.error(f'[stderr] {line.decode()}')
+            logger.info(f'[stderr] {line.decode()}')
     communication_status = 0
     logger.info(f'Thread finished')
     # startcommunication() # this is to restart the startcomm process if it crashes
