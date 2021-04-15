@@ -11,7 +11,6 @@
 
 FROM python:3.9-alpine
 LABEL Author="Mathias Seidler"
-LABEL MAINTAINER="Cyrus Proctor cyrusproctor@gmail.com"
 
 ARG CC=gcc
 ENV HOME=/root
