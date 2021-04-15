@@ -3,13 +3,11 @@
 
 # Build the container with:
 #   docker build --tag <username>/qkdserver
-# Then run with:
-#   docker run -it --rm 
-#          -v /dev:/dev1 \
-#          --device-cgroup-rule 'a *:* rwm'
-#          <username>/qkdserver:latest
-
-
+# Run the container with :
+#   docker run -it --rm --device /dev/serial/by-id/* --device-cgroup-rule='a *:* rwm'  <username>/qkdserver:latest
+# or if you regulary change devices use the following command:
+#   docker run -it --rm -v /dev:/dev --device-cgroup-rule='a *:* rwm'  mathias/qkdserver:latest
+# This mounts the dev folder and keeps it in sync with the host sytem.
 
 FROM python:3.9-alpine
 LABEL Author="Mathias Seidler"
@@ -27,8 +25,9 @@ ENV HOME=/root
 # Minor sed fixes for testing
 # Build qcrypto and qsim
 
-# Install necessary system apps
-RUN --mount=type=ssh \
+# Install necessary packages
+RUN \
+    # --mount=type=ssh \
     apk update --no-cache \
     && apk add --no-cache --virtual qkdserver-base \
         build-base \
@@ -46,11 +45,12 @@ RUN --mount=type=ssh \
         grep \
         coreutils \
         linux-headers \
-    && pip install --upgrade pip setuptools wheel \
+    && pip install --upgrade pip setuptools wheel\
     && pip install git+https://github.com/s-fifteen-instruments/pyS15.git
 
 # Install qcrypto
-RUN --mount=type=ssh \
+RUN \
+    # --mount=type=ssh \
     mkdir -p ${HOME}/code \
     && cd ${HOME}/code \
     && git clone https://github.com/s-fifteen-instruments/qcrypto.git qcrypto \
@@ -60,7 +60,8 @@ RUN --mount=type=ssh \
     && make CC=${CC} 
     
 # Install the python qcrypto wrapper
-RUN --mount=type=ssh \
+RUN \
+    # --mount=type=ssh \
     cd ${HOME}/code \ 
     && git clone https://github.com/s-fifteen-instruments/QKDServer.git QKDserver \
     && cd ${HOME}/code/QKDserver \
@@ -68,8 +69,14 @@ RUN --mount=type=ssh \
     && cd ${HOME}/code/QKDserver/Settings_WebClient \
     && pip install -r requirements.txt 
 
-# Delete apps which were only needed to compile the applications. This reduces the docker container size.
-RUN --mount=type=ssh apk del --no-cache qkdserver-base
+RUN \
+    # --mount=type=ssh \
+    pip install ipython
+
+# Delete packages which were only needed to compile the applications. This reduces the docker container size.
+RUN \
+    # --mount=type=ssh \
+    apk del --no-cache qkdserver-base
 
 # Set an entry point into the image
 WORKDIR ${HOME}/code
