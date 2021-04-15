@@ -1,3 +1,6 @@
+# syntax=docker/dockerfile:experimental
+# Above line is necessary to activate Docker Buildkit back end
+
 # Build the container with:
 #   docker build --tag <username>/qkdserver
 # Then run with:
@@ -5,6 +8,8 @@
 #          -v /dev:/dev1 \
 #          --device-cgroup-rule 'a *:* rwm'
 #          <username>/qkdserver:latest
+
+
 
 FROM python:3.9-alpine
 LABEL Author="Mathias Seidler"
