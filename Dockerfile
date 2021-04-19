@@ -45,7 +45,7 @@ RUN \
         coreutils \
         linux-headers \
         libstdc++ \
-    && pip install --upgrade pip setuptools wheel\
+    && pip install --upgrade pip setuptools wheel \
     && pip install git+https://github.com/s-fifteen-instruments/pyS15.git
 
 # Install qcrypto
@@ -81,4 +81,4 @@ RUN \
 
 # Set an entry point into the image
 WORKDIR ${HOME}/code/QKDserver/Settings_WebClient
-CMD [ "gunicorn", "--workers=5", "--threads=1", "-b 0.0.0.0:8000", "app:app"]
+CMD [ "gunicorn", "--threads=1", "-b 0.0.0.0:8000", "index:server"]
