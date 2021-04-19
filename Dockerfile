@@ -44,6 +44,7 @@ RUN \
         grep \
         coreutils \
         linux-headers \
+        libstdc++ \
     && pip install --upgrade pip setuptools wheel\
     && pip install git+https://github.com/s-fifteen-instruments/pyS15.git
 
@@ -66,11 +67,12 @@ RUN \
     && cd ${HOME}/code/QKDserver \
     && pip install -e .\
     && cd ${HOME}/code/QKDserver/Settings_WebClient \
-    && pip install -r requirements.txt 
+    && pip install -r requirements.txt \
+    && ln -s ${HOME}/code/qcrypto bin
 
 RUN \
     # --mount=type=ssh \
-    pip install ipython
+    pip install ipython gunicorn
 
 # Delete packages which were only needed to compile the applications. This reduces the docker container size.
 RUN \
@@ -78,5 +80,5 @@ RUN \
     apk del --no-cache qkdserver-base
 
 # Set an entry point into the image
-WORKDIR ${HOME}/code
-ENTRYPOINT ["/bin/bash"] 
+WORKDIR ${HOME}/code/QKDserver/Settings_WebClient
+CMD [ "gunicorn", "--workers=5", "--threads=1", "-b 0.0.0.0:8000", "app:app"]

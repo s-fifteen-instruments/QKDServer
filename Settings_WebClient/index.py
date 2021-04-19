@@ -3,7 +3,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 from importlib import reload
 
-from app import app
+from app import app, server
 from apps import QKD_settings, QKD_status, detector_settings
 from navbar import Navbar
 

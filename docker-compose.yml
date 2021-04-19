@@ -1,0 +1,12 @@
+version: "3.9"
+services:
+  qcrypto:
+    build: .
+    ports:
+      - "5000:8000"
+    volumes:
+      - type: bind
+        source: /dev
+        target: /dev
+    device_cgroup_rules:
+      - "a 7:* rmw"
