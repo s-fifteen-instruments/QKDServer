@@ -9,4 +9,4 @@ services:
         source: /dev
         target: /dev
     device_cgroup_rules:
-      - "a 7:* rmw"
+      - "a 166:* rmw"
