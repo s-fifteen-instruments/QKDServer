@@ -15,7 +15,7 @@ def Navbar():
           dbc.Col(dbc.NavLink("Detectors", className="ml-2", href="/apps/detector_settings", active=True)),
           ],
           align="center",
-          no_gutters=True
+          className="g-0",
       ),
 
           dbc.NavbarToggler(id="navbar-toggler"),
