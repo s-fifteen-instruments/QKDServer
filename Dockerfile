@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:experimental
 # Above line is necessary to activate Docker Buildkit back end
 
-# Build the container with:
-#   docker build --tag <username>/qkdserver
-# Run the container with :
-#   docker run -it --rm --device /dev/serial/by-id/* --device-cgroup-rule='a *:* rwm'  <username>/qkdserver:latest
+# Build the container with the following command in the QKDServer directory:
+#   docker build --tag <username>/qkdserver:<tag> .
+# Run the container with:
+#   docker run -it --rm --device=/dev/serial/by-id/* --device-cgroup-rule='a *:* rwm'  <username>/qkdserver:latest
 # or if you regulary change devices use the following command:
-#   docker run -it --rm -v /dev:/dev --device-cgroup-rule='a *:* rwm'  mathias/qkdserver:latest
+#   docker run -it --rm -v /dev:/dev=--device-cgroup-rule='a *:* rwm'  mathias/qkdserver:latest
 # This mounts the dev folder and keeps it in sync with the host sytem.
 
 FROM python:3.9-alpine
