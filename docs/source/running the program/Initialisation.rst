@@ -1,10 +1,13 @@
 QKDServer is dockerized with the image 'python:3.9-alpine'.
 
-To build the image:
+To build the image, run the following code inside the QKDServer directory:
 
 .. code-block:: docker
 
-  docker build --tag <username>/qkdserver:<tag> .\
+  docker build --tag <username>/qkdserver:<tag> .
+  
+The period at the end tells docker to build the image from the Dockerfile in the current directory (QKDServer). The --tag option and the stuff the follows
+attaches a name to the docker image for easier identification later.
 
 Warning: Building the image takes approximately 26 minutes. This is due to some known issues with python wheels and 
 alpine-linux https://pythonspeed.com/articles/alpine-docker-python/ . The main time sink comes from building numpy 
