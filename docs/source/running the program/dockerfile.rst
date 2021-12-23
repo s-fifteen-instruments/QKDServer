@@ -12,7 +12,7 @@ QKDServer's container builds upon the python-alpine image.
   ARG CC=gcc
   ENV HOME=/root
   
-Setting some variables, nothing to see here. Next we install the necessary packages with the RUN command.
+Setting some variables: gcc compiler and /root as home directory. Next we install the necessary packages with the RUN command.
  
 .. code-block:: docker
  
