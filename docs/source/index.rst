@@ -17,4 +17,4 @@ Welcome to QKDServer's documentation!
    Running/Initialisation
    Running/dockerfile
 
-   Layout/UserGuide
+   Layout/User Guide
