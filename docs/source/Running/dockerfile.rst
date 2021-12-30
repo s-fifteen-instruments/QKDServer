@@ -46,10 +46,10 @@ Setting some variables: gcc compiler and /root as home directory. Next we instal
     
 RUN runs the commands in the linux shell. apk is the alpine package manager, like zypper for openSUSE, apt-get on Ubuntu and so on.
 
---no-cache option to not cache the index. This saves space on the container.
+**--no-cache** option to not cache the index. This saves space on the container.
 
---virtual Creates of virtual package of all the packages that follow. Eg. build-base, gcc, clang... are all packaged into qkdserver-base. Later, 
-we delete qkdserver-base, which deletes all of these at once since we only need them for the initial compilation stage. For now, the next step is
+**--virtual** Creates a virtual package of all the packages that follow. Eg. ``build-base``, ``gcc``, ``clang``... are all packaged into ``qkdserver-base``. Later, 
+we delete ``qkdserver-base``, which deletes all of these at once since we only need them for the initial compilation stage. For now, the next step is
 to install qcrypto, the code that allows intercommunication between S15's devices.
 
 .. code-block:: docker
