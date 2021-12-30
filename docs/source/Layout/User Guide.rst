@@ -25,5 +25,6 @@ Since the example shown is for the device at '...56', the target IP is the devic
 
 On both devices, head back to the 'Status' tab and hit the big green *Start Key Generation* button at the top to start. The order is unimportant.
 
-.. image:: ./Images/Process Statuses.png
+.. image:: ./Images/ProcessStatuses.png
 
+The processes window will display the running status of key QKDServer services.
