@@ -23,24 +23,28 @@ from source. There may be a future update to move QKDServer to other python imag
 Running
 -------
 
-To run the image:
+To run the image, enter ``make default`` in the terminal. This runs the docker command with a bunch of options:
 
 .. code-block:: docker
  
-  docker run -it --rm --device=/dev/serial/by-id/* --device-cgroup-rule='a *:* rwm' -p 8080:8000 -p 4853:4853 <username>/qkdserver:latest
-  
-'-it': Interactive mode
+  docker run --volume /home/alice/code/QKDServer/S15qkd:/root/code/QKDserver/S15qkd --volume /home/alice/code/QKDServer/entrypoint.sh:/root/entrypoint.sh --name qkd --rm -dit --entrypoint="/root/entrypoint.sh" --device=/dev/ttyACM0 --device-cgroup-rule='a *:* rwm' -p 8080:8000 -p 4853:4853 alice/qkdserver
 
-'--rm': remove container after closing
+Some of the options are broken down below in brief. For the specifics, please refer to official docker documentation (insert link).
 
-'-p <host port>:<container port>': publish ports for external progs to interact
+'-dit': 
+  '-it' for interactive mode, '-d' to run the container in detached/background mode.
 
---device adds the device to the container, but the syntax that is shown here is wrong. The idea is to search through the host's filesystem for all
-attached devices and copy that over to the container's filesystem. Will update once the proper syntax is found. Currently the way around this is
-to replace the asterisk with the explicit serial device id. The id can be found by using 'ls' or similar commands and listing out all devices in
-'/dev/serial/by-id/', assuming the host system is linux based. The command for Windows systems is not known to us yet.
+'--rm': 
+  remove container when it is stopped.
 
-Alternatively, add device via ``tty`` with the filepath '/dev/ttyACM0'.
+'-p <published port>:<container port>': 
+  publish ports for external programs to interact with.
+
+--device:
+  adds the device to the container filesystem.
+
+--volume:
+  create docker volumes. Data is usually lost when a container is removed. Volumes allow data to persist outside of containers. This may be useful for perserving certain QKDServer settings.
 
 Makefile
 --------
@@ -54,7 +58,7 @@ restart:
   Stops the container, waits for a bit, then restarts the container as per ``default``
   
 exec:
-  Grants access to a bourne shell terminal *within* the docker container. Allows you to manipulate the contents within the container directly. Only recommended if you know what you are     doing.
+  Grants access to a bourne shell terminal *within* the docker container. Allows you to manipulate the contents within the container directly. Only recommended if you know what you are doing.
   
 watchdog:
   Livestreams the watchdog log file. The watchdog program keeps logs of various QKDServe processes. Might be useful in troubleshooting.
