@@ -78,7 +78,7 @@ to install qcrypto, the code that allows intercommunication between S15's device
 We pull from two repositories, one is qcrypto on S15's github, the other is a subversion repo that belongs to CQT's quantum optics group (ie. Christian Kurtsiefer).
 'readevents4a' is pulled from subversion to interface with the newer timestamp cards.
  
-Of note, we call 'make' thrice. This compiles the code for qcrypto, errorcorrection and readevents4a.
+Of note, we call ``make`` thrice. This compiles the code for ``qcrypto``, ``errorcorrection`` and ``readevents4a``.
  
 Finally, with 'ln -s...', we create symbolic links in remotecrypto folder to programs in other subfolders. Remotecrypto will serve as the central operating folder. You
 may think of symbolic links as shortcuts to the actual files. Unlink deletes old links that were there by default, and 'ln -s' replaces these with the updated ones.
