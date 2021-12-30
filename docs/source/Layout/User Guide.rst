@@ -1,6 +1,6 @@
-========
-Layout
-========
+==========
+User Guide
+==========
 
 This page will talk about the layout of the QKDServer web UI and its various settings. The following setup was done with two devices with the following characteristics:
 
