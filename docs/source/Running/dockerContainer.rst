@@ -31,19 +31,19 @@ To run the image, enter ``make default`` in the terminal. This runs the docker c
 
 Some of the options are broken down below in brief. For the specifics, please refer to official docker documentation (insert link).
 
-'-dit': 
+.. option::    -dit 
   '-it' for interactive mode, '-d' to run the container in detached/background mode.
 
-'--rm': 
+.. option::    --rm 
   remove container when it is stopped.
 
-'-p <published port>:<container port>': 
+.. option::    -p <published port>:<container port> 
   publish ports for external programs to interact with.
 
---device:
+.. option::    --device
   adds the device to the container filesystem.
 
---volume:
+.. option::    --volume
   create docker volumes. Data is usually lost when a container is removed. Volumes allow data to persist outside of containers. This may be useful for perserving certain QKDServer settings.
 
 Makefile
