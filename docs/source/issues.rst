@@ -9,13 +9,13 @@ Hardcoding device name
 
 Docker is currently run by passing the device id directly.
 
-.. code-block:: shellscript
+.. code-block:: shell-session
 
   usb-S-Fifteen_Instruments_USB_Counter_TDC1-0019-if00
 
 Meanwhile, readevents4a - the code that talks to the device, expects the 'tty' form.
 
-.. code-block:: shellscript
+.. code-block:: shell-session
 
   ttyARM0
   
