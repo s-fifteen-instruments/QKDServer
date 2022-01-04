@@ -2,7 +2,7 @@
 Programs
 ==========
 
-This page lists and briefly describes the Python programs in QKDServer. A more in-depth description can be found on the Qcrypto documentation page (link).
+This page lists and briefly describes the Python programs in QKDServer. A more in-depth description can be found on the Qcrypto documentation `page <qcrypto.readthedocs.io>`_.
 
 chopper: Partitioner and timing data compressor, low count side
 
@@ -16,5 +16,9 @@ splicer: Performs key sifting on low count side
 
 transferd: Code for (mostly) independent classical communication between the two parties.
 
-
 .. image:: ./Layout/Images/qcryptoFlow.png
+
+
+----
+
+Additionally, QKDServer also has a polarization compensation function that minimizes the QBER before actual key generation.
