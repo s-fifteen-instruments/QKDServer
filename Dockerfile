@@ -61,7 +61,7 @@ RUN \
     && cd ../errorcorrection \
     && make CC=${CC} \
     && cd ../timestamp7 \
-    && make CC=${CC} 
+    && make CC=${CC}
     
 # Install the python qcrypto wrapper
 RUN \

@@ -27,11 +27,11 @@ def serve_layout():
                                 value=config['port_num'])
 
     # peak finder and tracking
-    pfind_epochs = dcc.Input(id="pfind_epochs", placeholder='5',
+    pfind_epochs = dcc.Input(id="pfind_epochs", placeholder='10',
                              type='number', min=1, max=20,
                              value=config['pfind_epochs'])
-    remote_coincidence_window = dcc.Input(id="remote_coincidence_window", placeholder='16',
-                                          type='number', min=1, max=16,
+    remote_coincidence_window = dcc.Input(id="remote_coincidence_window", placeholder='6',
+                                          type='number', min=1, max=20,
                                           value=config["remote_coincidence_window"])
     tracking_window = dcc.Input(id="tracking_window", placeholder='30',
                                 type='number', min=10, max=100,
@@ -40,7 +40,7 @@ def serve_layout():
                                               placeholder='2000000', 
                                               type='number',
                                               value=config['track_filter_time_constant'])
-    FFT_buffer_order = dcc.Input(id="FFT_buffer_order", placeholder=21,
+    FFT_buffer_order = dcc.Input(id="FFT_buffer_order", placeholder=22,
                                  type='number', min=19, max=26,
                                  value=config['FFT_buffer_order'])
     # detector timing corrections
@@ -113,7 +113,7 @@ def serve_layout():
                 dbc.Col([html.Div([html.Label('FFT buffer order', htmlFor='FFT_buffer_order'), html.Br(), FFT_buffer_order])
                     ])]),
         html.Br(),
-        html.H4('Detector correction settings (timing attack countermeasure)'),
+        html.H4('Detector correction settings 1/256ns (timing attack countermeasure)'),
         dbc.Row([
             dbc.Col([html.Div([html.Label('Detector 1 timing correction', htmlFor='det1corr'), det1corr]),html.P(),
                      html.Div([html.Label('Detector 3 timing correction', htmlFor='det3corr'), det3corr])], width=3),

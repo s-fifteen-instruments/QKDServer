@@ -124,15 +124,16 @@ def msg_response(message):
                 Key generation was not started.')
             return
         elif low_count_side is True:
+            transferd.send_message("st1")
             chopper.start_chopper(QKDProtocol.BBM92)
+            _start_readevents()
             splicer.start_splicer()
             if with_error_correction == True:
                 error_correction.start_error_correction()
-            _start_readevents()
         elif low_count_side is False:
             chopper2.start_chopper2()
             _start_readevents()
-        transferd.send_message("st2")
+            transferd.send_message("st2")
 
     if msg_code == 'st2':
         qkd_globals.FoldersQKD.remove_stale_comm_files()
@@ -141,25 +142,10 @@ def msg_response(message):
                 Key generation was not started.')
             return
         elif low_count_side is True:
-            _start_readevents()
-            chopper.start_chopper(QKDProtocol.BBM92)
-            splicer.start_splicer()
-            if with_error_correction == True:
-                error_correction.start_error_correction()
+            # Provision to send signals to timestamps. Not used currently.
             transferd.send_message('st3')  # High count side starts pfind
         elif low_count_side is False:
-            _start_readevents()
-            chopper2.start_chopper2()
-            try:
-                time_diff, sig_long, sig_short = time_difference_find()
-            except Exception:
-                stop_key_gen()
-                start_key_generation()
-            else:
-                costream.start_costream(time_diff, first_epoch,
-                                        qkd_protocol=QKDProtocol.BBM92)
-                if with_error_correction == True:
-                    error_correction.start_error_correction()
+            logger.error(f'{msg_code} High Count side received this message.')
 
     if msg_code == 'st3':
         if low_count_side is False:
@@ -180,30 +166,34 @@ def msg_response(message):
     if msg_code == 'stop_key_gen':
         _stop_key_gen_processes()
 
-    if msg_code == 'start_service_mode':
-        _stop_key_gen_processes()
-        # qkd_globals.FoldersQKD.remove_stale_comm_files()
-        transferd.send_message('start_service_mode_step2')
-        _start_readevents()
-        if low_count_side is False:
-            chopper2.start_chopper2()
-            try:
-                time_diff, sig_long, sig_short = time_difference_find()
-            except Exception:
-                stop_key_gen()
-                start_service_mode()
-            else:
-                costream.start_costream(time_diff, first_epoch,
-                                        qkd_protocol=QKDProtocol.SERVICE)
-        else:
+    if msg_code == 'serv_st1':
+        if low_count_side is None:
+            logger.info(f'{msg_code} Symmetry negotiation not completed yet. \
+                Key generation was not started.')
+            return
+        elif low_count_side is True:
+            transferd.send_message("serv_st1")
             chopper.start_chopper(QKDProtocol.SERVICE)
+            _start_readevents()
             splicer.start_splicer(qkd_protocol=QKDProtocol.SERVICE)
+        elif low_count_side is False:
+            chopper2.start_chopper2()
+            _start_readevents()
+            transferd.send_message("serv_st2")
 
-    if msg_code == 'start_service_mode_step2':
-        _stop_key_gen_processes()
-        _start_readevents()
+    if msg_code == 'serv_st2':
+        if low_count_side is None:
+            logger.info(f'{msg_code} Symmetry negotiation not completed yet. \
+                Key generation was not started.')
+            return
+        elif low_count_side is True:
+            # Provision to send signals to timestamps. Not used currently.
+            transferd.send_message('serv_st3')
+        elif low_count_side is False:
+            logger.error(f'{msg_code} High Count side received this message.')
+
+    if msg_code == 'serv_st3':
         if low_count_side is False:
-            chopper2.start_chopper2()
             try:
                 time_diff, sig_long, sig_short = time_difference_find()
             except Exception:
@@ -213,8 +203,8 @@ def msg_response(message):
                 costream.start_costream(time_diff, first_epoch,
                                         qkd_protocol=QKDProtocol.SERVICE)
         else:
-            chopper.start_chopper(QKDProtocol.SERVICE)
-            splicer.start_splicer(qkd_protocol=QKDProtocol.SERVICE)
+            logger.error(f'{msg_code} Not the high count side or symmetry \
+                negotiation not completed.')
 
 
 def wait_for_epoch_files(number_of_epochs):
@@ -242,6 +232,10 @@ def wait_for_epoch_files(number_of_epochs):
     while chopper2.t1_epoch_count < number_of_epochs:
         if (time.time() - start_time) > timeout:
             logger.debug(f'Waiting for more epochs.')
+            logger.debug(f'Timeout: no enough data generated within {timeout} seconds.')
+            logger.debug(f'Chopper2 misbehaving.')
+            raise NoCoincidenceDataException(
+                         f'Not enough data in or outgoing within {timeout}s')
             time.sleep(qkd_globals.EPOCH_DURATION * 1.05)
 
     epoch_diff = int(transferd.first_received_epoch, 16) - \
@@ -265,16 +259,15 @@ def time_difference_find():
     if epoch_diff > 0:
         use_periods = periode_count - epoch_diff  # less periodes are available
     else:
-        # Not sure why minus 2, but I'm following what was done in crgui_ec.
-        use_periods = periode_count - 2
+        use_periods = periode_count 
 
-    args = f'-d {cwd}/{dataroot}/receivefiles \
-            -D {cwd}/{dataroot}/t1 \
+    args = f'-d /{dataroot}/receivefiles \
+            -D /{dataroot}/t1 \
             -e 0x{first_epoch} \
             -n {use_periods} -V 1 \
             -q {fft_buffer_order}'
     logger.info(f'starting pfind with: {args}')
-    with open(f'{cwd}/{dataroot}/pfinderror', 'a+') as f:
+    with open(f'/{dataroot}/pfinderror', 'a+') as f:
         proc_pfind = subprocess.Popen([prog_pfind, *args.split()],
                                       stderr=f,
                                       stdout=subprocess.PIPE)
@@ -328,7 +321,7 @@ def start_service_mode():
     transferd.send_message('stop_key_gen')
     _stop_key_gen_processes()
     _do_symmetry_negotiation()
-    transferd.send_message('start_service_mode')
+    transferd.send_message('serv_st1')
 
 
 def _stop_key_gen_processes():
@@ -401,13 +394,21 @@ def _start_readevents(det_dead_time: int = 30000):
     Start readevents
     '''
     global proc_readevents, prog_readevents
+
+    # Flush readevents with -q 2
+    flush_args = f'-a1 -X -q 2 -Q\
+                   -D {det1corr},{det2corr},{det3corr},{det4corr}' # this is using 1/256ns res
+    p2 = subprocess.Popen((prog_readevents,*flush_args.split()),stdout=subprocess.DEVNULL)
+    p2.wait()
+    #p2=os.system("/root/code/qcrypto/remotecrypto/readevents -a2 -q2") # low-level flush
+
+    # Actual useful data
     fd = os.open(PipesQKD.RAWEVENTS, os.O_RDWR)  # non-blocking
     f_stdout = os.fdopen(fd, 'w')  # non-blocking
-    args = f'-a 1 -A {extclockopt} -S 20 \
-             -Y {det_dead_time},{det_dead_time},{det_dead_time},{det_dead_time} \
-             -d {det1corr},{det2corr},{det3corr},{det4corr}'
+    args = f'-A -a 1 -X -s -Q\
+             -D{det1corr},{det2corr},{det3corr},{det4corr}' # this is using 1/256ns res
     logger.info(f'readevents started with these arguments: {args}')
-    with open(f'{cwd}/{dataroot}/readeventserror', 'a+') as f_stderr:
+    with open(f'/{dataroot}/readeventserror', 'a+') as f_stderr:
         proc_readevents = subprocess.Popen((prog_readevents, *args.split()),
                                            stdout=f_stdout,
                                            stderr=f_stderr)
