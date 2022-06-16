@@ -61,19 +61,24 @@ cwd = os.getcwd()
 config_file = 'qkd_engine_config.json'
 if not os.path.exists(config_file):
     dictionary = {
-        "target_ip": "192.168.1.20",
+        "target_hostname": "b.qkd.internal",
+        "remote_cert": "authd.qkdb.crt",
+        "local_cert": "authd.qkda.crt",
+        "local_key": "authd.qkda.key",
+        "port_authd": 55555,
+        "port_transd": 4855
+        "local_authd_ip": "a.qkd.internal",
         "data_root": "tmp/cryptostuff",
         "program_root": "bin/remotecrypto",
-        "port_num": 4853,
-        "identity": "Alice",
-        "remote_coincidence_window": 8,
+        "identity": "QKD-A",
+        "remote_coincidence_window": 6,
         "tracking_window": 30,
         "track_filter_time_constant": 2000000,
-        "FFT_buffer_order": 26,
+        "FFT_buffer_order": 23,
         "local_detector_skew_correction": {
-            "det1corr": 0,
-            "det2corr": 0,
-            "det3corr": 0,
+            "det1corr": -28,
+            "det2corr": 6,
+            "det3corr": 30,
             "det4corr": 0
         },
         "max_event_time_pause": 20000,
@@ -83,7 +88,7 @@ if not os.path.exists(config_file):
         "protocol": 1,
         "max_event_diff": 20000,
         "kill_option": "-k -K",
-        "pfind_epochs": 10,
+        "pfind_epochs": 12,
         "costream_histo_option": "",
         "costream_histo_number": 10,
         "error_correction_program_path": "bin/errorcorrection",
@@ -91,12 +96,12 @@ if not os.path.exists(config_file):
         "privacy_amplification": True,
         "errcd_killfile_option": False,
         "QBER_limit": 0.11,
-        "default_QBER": 0.05,
+        "default_QBER": 0.06,
         "minimal_block_size": 5000,
         "target_bit_error": 1e-09,
         "servo_blocks": 5,
         "do_polarization_compensation": False,
-        "LCR_polarization_compensator_path": "/dev/serial/by-id/usb-Centre_for_Quantum_Technologies_Quad_LCD_driver_QLC-QO05-if00"
+        "LCR_polarization_compensator_path": ""
     }
     json_object = json.dumps(dictionary, indent=4)
     with open(config_file, "w") as outfile:
@@ -177,7 +182,7 @@ def kill_existing_qcrypto_processes():
     process_list = [
         'transferd', 'chopper', 'chopper2',
         'splicer', 'costream', 'errcd', 'pfind',
-        'getrate', 'readevents4a', 'readevents']
+        'getrate', 'readevents']
     for name in process_list:
         kill_process_by_name(name)
 
@@ -195,22 +200,22 @@ def kill_process(my_process):
 
 
 class PipesQKD(str, Enum):
-    MSGIN = f'{cwd}/tmp/cryptostuff' + '/msgin'
-    MSGOUT = f'{cwd}/tmp/cryptostuff' + '/msgout'
-    RAWEVENTS = f'{cwd}/tmp/cryptostuff' + '/rawevents'
-    T1LOG = f'{cwd}/tmp/cryptostuff' + '/t1logpipe'
-    T2LOG = f'{cwd}/tmp/cryptostuff' + '/t2logpipe'
-    CMD = f'{cwd}/tmp/cryptostuff' + '/cmdpipe'
-    GENLOG = f'{cwd}/tmp/cryptostuff' + '/genlog'
-    TRANSFERLOG = f'{cwd}/tmp/cryptostuff' + '/transferlog'
-    SPLICER = f'{cwd}/tmp/cryptostuff' + '/splicepipe'
-    CNTLOG = f'{cwd}/tmp/cryptostuff' + '/cntlogpipe'
-    ECCMD = f'{cwd}/tmp/cryptostuff' + '/eccmdpipe'
-    ECS =f'{cwd}/tmp/cryptostuff' + '/ecspipe'
-    ECR = f'{cwd}/tmp/cryptostuff' + '/ecrpipe'
-    ECNOTE = f'{cwd}/tmp/cryptostuff' + '/ecnotepipe'
-    ECQUERY = f'{cwd}/tmp/cryptostuff' + '/ecquery'
-    ECRESP = f'{cwd}/tmp/cryptostuff' + '/ecresp'
+    MSGIN = f'/tmp/cryptostuff' + '/msgin'
+    MSGOUT = f'/tmp/cryptostuff' + '/msgout'
+    RAWEVENTS = f'/tmp/cryptostuff' + '/rawevents'
+    T1LOG = f'/tmp/cryptostuff' + '/t1logpipe'
+    T2LOG = f'/tmp/cryptostuff' + '/t2logpipe'
+    CMD = f'/tmp/cryptostuff' + '/cmdpipe'
+    GENLOG = f'/tmp/cryptostuff' + '/genlog'
+    TRANSFERLOG = f'/tmp/cryptostuff' + '/transferlog'
+    SPLICER = f'/tmp/cryptostuff' + '/splicepipe'
+    CNTLOG = f'/tmp/cryptostuff' + '/cntlogpipe'
+    ECCMD = f'/tmp/cryptostuff' + '/eccmdpipe'
+    ECS =f'/tmp/cryptostuff' + '/ecspipe'
+    ECR = f'/tmp/cryptostuff' + '/ecrpipe'
+    ECNOTE = f'/tmp/cryptostuff' + '/ecnotepipe'
+    ECQUERY = f'/tmp/cryptostuff' + '/ecquery'
+    ECRESP = f'/tmp/cryptostuff' + '/ecresp'
 
     @classmethod
     def prepare_pipes(cls):
@@ -236,14 +241,14 @@ class PipesQKD(str, Enum):
 
 
 class FoldersQKD(str, Enum):
-    DATAROOT = cwd + '/' + data_root
+    DATAROOT = '/' + data_root
     SENDFILES = DATAROOT + '/sendfiles'
     RECEIVEFILES = DATAROOT + '/receivefiles'
     T1FILES = DATAROOT + '/t1'
     T3FILES = DATAROOT + '/t3'
     RAWKEYS = DATAROOT + '/rawkey'
     HISTOS = DATAROOT + '/histos'
-    FINALKEYS = DATAROOT + '/finalkey'
+    FINALKEYS = '/epoch_files'
 
     @classmethod
     def prepare_folders(cls):
@@ -258,6 +263,13 @@ class FoldersQKD(str, Enum):
             for f in glob.glob(folder):
                 os.remove(f)
 
+@contextlib.contextmanager
+ def my_open(file_name: str):
+     fd = os.open(file_name, os.O_WRONLY)
+     try:
+         yield fd
+     finally:
+         os.close(fd)
 
 def writer(file_name: str, message: str):
     '''Writes message into file given by file_name.
@@ -267,9 +279,8 @@ def writer(file_name: str, message: str):
         file_name {str} -- Target file
         message {str} -- Message written into the file
     '''
-    f = os.open(file_name, os.O_WRONLY)
-    os.write(f, f'{message}\n'.encode())
-    os.close(f)
+    with my_open(file_name) as f:
+        os.write(f, f'{message}\n'.encode())
 
 
 @unique
@@ -294,10 +305,12 @@ logFormatter = logging.Formatter(
 
 fileHandler = MyTimedRotatingFileHandler('logs')
 fileHandler.setFormatter(logFormatter)
-fileHandler.setLevel(logging.INFO)
+#fileHandler.setLevel(logging.INFO)
+fileHandler.setLevel(logging.DEBUG)
 consoleHandler = logging.StreamHandler(sys.stdout)
 consoleHandler.setFormatter(logFormatter)
-consoleHandler.setLevel(logging.INFO)
+#consoleHandler.setLevel(logging.INFO)
+consoleHandler.setLevel(logging.DEBUG)
 
 logger.addHandler(fileHandler)
 logger.addHandler(consoleHandler)

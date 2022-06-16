@@ -52,22 +52,6 @@ from . import qkd_globals
 from .qkd_globals import logger, PipesQKD, FoldersQKD
 
 
-# def _load_transferd_config(config_file_name: str):
-#     global data_root, program_root, target_ip, port_num, extclockopt
-#     global prog_getrate, prog_transferd
-
-#     with open(config_file_name, 'r') as f:
-#         config = json.load(f)
-#     data_root = config['data_root']
-#     program_root = config['program_root']
-#     target_ip = config['target_ip']
-#     port_num = config['port_num']
-#     extclockopt = config['clock_source']
-#     prog_transferd = program_root + '/transferd'
-#     prog_getrate = program_root + '/getrate'
-
-# transferd_proc = None
-# communication_status = 0
 @unique
 class CommunicationStatus(int, Enum):
     OFF = 0
@@ -113,9 +97,9 @@ def start_communication(msg_out_callback=_local_callback, config_file_name: str 
     with open(config_file_name, 'r') as f:
         config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
     if communication_status == CommunicationStatus.OFF:
-        args = f'-d {FoldersQKD.SENDFILES} -c {PipesQKD.CMD} -t {config.target_ip} \
+        args = f'-d {FoldersQKD.SENDFILES} -c {PipesQKD.CMD} -t {config.local_auth_ip} \
             -D {FoldersQKD.RECEIVEFILES} -l {PipesQKD.TRANSFERLOG} \
-            -m {PipesQKD.MSGIN} -M {PipesQKD.MSGOUT} -p {config.port_num} \
+            -m {PipesQKD.MSGIN} -M {PipesQKD.MSGOUT} -p {config.port_transd} \
             -k -e {PipesQKD.ECS} -E {PipesQKD.ECR}'
         prog_transferd = config.program_root + '/transferd'
         transferd_proc = subprocess.Popen(

@@ -93,7 +93,7 @@ def start_costream(time_difference: int,
              -t {time_difference} \
              -p {qkd_protocol} \
              -T 2 \
-             -m {config.data_root}/rawpacketindex \
+             -m /{config.data_root}/rawpacketindex \
              -M {PipesQKD.CMD} \
              -n {PipesQKD.GENLOG} \
              -V 5 \
@@ -105,7 +105,7 @@ def start_costream(time_difference: int,
              -h {config.costream_histo_number}'
     program_costream = config.program_root + '/costream'
     logger.info(f'costream starts with the following arguments: {args}')
-    with open(f'{cwd}/{config.data_root}/costreamerror', 'a+') as f:
+    with open(f'/{config.data_root}/costreamerror', 'a+') as f:
         proc_costream = subprocess.Popen((program_costream, *args.split()),
                                          stdout=subprocess.PIPE, stderr=f)
     costream_thread = threading.Thread(
@@ -144,7 +144,7 @@ def _genlog_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file
                 latest_outepoch = costream_info[0]
                 # restart time difference finder if pairs to accidentals is too low
                 pairs_over_accidentals = int(
-                    latest_coincidences) / int(latest_accidentals)
+                    latest_coincidences) / (int(latest_accidentals + 1)) #incase of divide by zero
                 pairs_over_accidentals_avg = (pairs_over_accidentals_avg * 19 + pairs_over_accidentals) / 20
                 if pairs_over_accidentals_avg < 2.5:
                     logger.error(
