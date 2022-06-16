@@ -59,7 +59,9 @@ RUN \
     && cd ${HOME}/code/qcrypto/remotecrypto \
     && make CC=${CC} \
     && cd ../errorcorrection \
-    && make CC=${CC} 
+    && make CC=${CC} \
+    && cd ../timestamp7 \
+    && make CC=${CC}
     
 # Install the python qcrypto wrapper
 RUN \
@@ -79,7 +81,7 @@ RUN \
 # Delete packages which were only needed to compile the applications. This reduces the docker container size.
 RUN \
     # --mount=type=ssh \
-    apk del --no-cache qkdserver-base
+    # apk del --no-cache qkdserver-base
 
 # Set an entry point into the image
 WORKDIR ${HOME}/code/QKDserver/Settings_WebClient

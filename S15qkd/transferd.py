@@ -153,8 +153,10 @@ def _transferd_stdout_digest(out, err, queue):
             logger.info(f'[stdout] {line.decode()}')
             if line == b'connected.':
                 communication_status = CommunicationStatus.CONNECTED
+                logger.debug("[stdout] connected.")
             elif line == b'disconnected.':
                 communication_status = CommunicationStatus.DISCONNECTED
+                logger.debug("[stdout] disconnected.")
         for line in iter(err.readline, b''):
             logger.info(f'[stderr] {line.decode()}')
     communication_status = CommunicationStatus.OFF
@@ -292,7 +294,11 @@ def measure_local_count_rate(config_file_name: str = qkd_globals.config_file):
         config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
     localcountrate = -1
     cmd = prog_readevents
-    args = f'-a 1 -F -u {config.clock_source} -S 20'
+    args = f'-a 1 -X -q1 -Q'
+    p0 = subprocess.Popen([cmd, *args.split()])
+    p0.wait()
+
+    args = f'-a 1 -X -Q'
     p1 = subprocess.Popen([cmd, *args.split()],
                           stdout=subprocess.PIPE)
     logger.info('started readevents')
@@ -303,7 +309,6 @@ def measure_local_count_rate(config_file_name: str = qkd_globals.config_file):
     p2.wait()
     try:
         qkd_globals.kill_process(p1)
-        qkd_globals.kill_process(p2)
     except psutil.NoSuchProcess:
         pass
     localcountrate = int((p2.stdout.read()).decode())
