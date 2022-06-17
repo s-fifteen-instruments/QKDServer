@@ -67,7 +67,7 @@ RUN \
 RUN \
     # --mount=type=ssh \
     cd ${HOME}/code \ 
-    && git clone https://github.com/s-fifteen-instruments/QKDServer.git QKDserver \
+    && git clone --branch timestamp7b_A https://github.com/s-fifteen-instruments/QKDServer.git QKDserver \
     && cd ${HOME}/code/QKDserver \
     && pip install -e .\
     && cd ${HOME}/code/QKDserver/Settings_WebClient \
