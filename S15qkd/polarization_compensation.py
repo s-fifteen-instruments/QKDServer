@@ -36,7 +36,7 @@ class PolarizationDriftCompensation(object):
         self.last_qber = 1
         self.qber_counter = 0
 
-    def update_QBER(self, qber: float, qber_threshold: float = 0.085):
+    def update_QBER(self, qber: float, qber_threshold: float = 0.071):
         self.qber_counter += 1
         if self.qber_counter < 5:
             return

@@ -322,6 +322,15 @@ def start_service_mode():
     _stop_key_gen_processes()
     _do_symmetry_negotiation()
     transferd.send_message('serv_st1')
+    if low_count_side is None:
+        logger.info(f'{msg_code} Symmetry negotiation not completed yet. \
+                Key generation was not started.')
+        return
+    elif low_count_side is True:
+        chopper.start_chopper(QKDProtocol.SERVICE)
+        _start_readevents()
+        splicer.start_splicer(qkd_protocol=QKDProtocol.SERVICE)
+
 
 
 def _stop_key_gen_processes():
@@ -396,10 +405,10 @@ def _start_readevents(det_dead_time: int = 30000):
     global proc_readevents, prog_readevents
 
     # Flush readevents with -q 2
-    flush_args = f'-a1 -X -q 2 -Q\
-                   -D {det1corr},{det2corr},{det3corr},{det4corr}' # this is using 1/256ns res
-    p2 = subprocess.Popen((prog_readevents,*flush_args.split()),stdout=subprocess.DEVNULL)
-    p2.wait()
+#    flush_args = f'-a1 -X -q 2 -Q\
+#                   -D {det1corr},{det2corr},{det3corr},{det4corr}' # this is using 1/256ns res
+#    p2 = subprocess.Popen((prog_readevents,*flush_args.split()),stdout=subprocess.DEVNULL)
+#    p2.wait()
     #p2=os.system("/root/code/qcrypto/remotecrypto/readevents -a2 -q2") # low-level flush
 
     # Actual useful data
