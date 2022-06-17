@@ -48,6 +48,7 @@ import time
 import json
 import shutil
 import codecs
+import contextlib
 from enum import unique, Enum, auto
 
 EPOCH_DURATION = 2**32 / 8 * 1e-9
@@ -66,7 +67,7 @@ if not os.path.exists(config_file):
         "local_cert": "authd.qkdb.crt",
         "local_key": "authd.qkdb.key",
         "port_authd": 55555,
-        "port_transd": 4855
+        "port_transd": 4855,
         "local_authd_ip": "b.qkd.internal",
         "data_root": "tmp/cryptostuff",
         "program_root": "bin/remotecrypto",
@@ -264,7 +265,7 @@ class FoldersQKD(str, Enum):
                 os.remove(f)
 
 @contextlib.contextmanager
- def my_open(file_name: str):
+def my_open(file_name: str):
      fd = os.open(file_name, os.O_WRONLY)
      try:
          yield fd

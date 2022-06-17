@@ -22,7 +22,7 @@ import logging
 import time
 import traceback
 from types import SimpleNamespace
-from . import qkd_globals
+import qkd_globals
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -33,14 +33,14 @@ logger = logging.getLogger(__name__)
 
 #with open("authd.conf.json") as f:
 #    config = json.load(f)
-#HOSTNAME = config["hostname"]
-#PORT = config["port"]
-#PORT_TD = config["port_td"]
+#HOSTNAME = config["target_hostname"]
+#PORT = config["port_authd"]
+#PORT_TD = config["port_transd"]
 #REMOTE_CERT = config["remote_cert"]
 #LOCAL_CERT = config["local_cert"]
 #LOCAL_KEY = config["local_key"]
 with open(qkd_globals.config_file, 'r') as f:
-        config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+    config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
 HOSTNAME = config.target_hostname
 PORT = config.port_authd
 PORT_TD = config.port_transd
