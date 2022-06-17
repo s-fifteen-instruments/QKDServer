@@ -97,7 +97,7 @@ def start_communication(msg_out_callback=_local_callback, config_file_name: str 
     with open(config_file_name, 'r') as f:
         config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
     if communication_status == CommunicationStatus.OFF:
-        args = f'-d {FoldersQKD.SENDFILES} -c {PipesQKD.CMD} -t {config.local_auth_ip} \
+        args = f'-d {FoldersQKD.SENDFILES} -c {PipesQKD.CMD} -t {config.local_authd_ip} \
             -D {FoldersQKD.RECEIVEFILES} -l {PipesQKD.TRANSFERLOG} \
             -m {PipesQKD.MSGIN} -M {PipesQKD.MSGOUT} -p {config.port_transd} \
             -k -e {PipesQKD.ECS} -E {PipesQKD.ECR}'

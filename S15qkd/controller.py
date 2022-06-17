@@ -152,7 +152,8 @@ def msg_response(message):
             try:
                 time_diff, sig_long, sig_short = time_difference_find()
             except Exception:
-                stop_key_gen()
+                logger.debug(f'stop sent from pfind')
+                #stop_key_gen()
                 start_key_generation()
             else:
                 costream.start_costream(time_diff, first_epoch,
@@ -197,7 +198,8 @@ def msg_response(message):
             try:
                 time_diff, sig_long, sig_short = time_difference_find()
             except Exception:
-                stop_key_gen()
+                logger.debug(f'stop sent from pfind')
+                #stop_key_gen()
                 start_service_mode()
             else:
                 costream.start_costream(time_diff, first_epoch,
@@ -473,10 +475,11 @@ class ProcessWatchDog(threading.Thread):
         if qkd_engine_state in [QKDEngineState.SERVICE_MODE, QKDEngineState.KEY_GENERATION]:
             if process_states['transferd'] is False:
                 self._logger.error(f'Transferd crashed. Trying to restart communication and key generation.')
-                stop_key_gen()
+                #stop_key_gen()
                 transferd.stop_communication()
                 start_communication()
                 time.sleep(1)
+                logger.debug('I killed something')
                 start_service_mode()
                 return
             if transferd.low_count_side is True:
@@ -486,7 +489,8 @@ class ProcessWatchDog(threading.Thread):
                     self._logger.error(f'Crash detected. Processes running: Readevents: {process_states["readevents"]} \
                                    Chopper: {process_states["chopper"]} \
                                    Splicer: {process_states["splicer"]}')
-                    stop_key_gen()
+                    #stop_key_gen()
+                    logger.debug('It is me')
                     start_service_mode()
             elif transferd.low_count_side is False:
                 if False in [process_states['readevents'],
@@ -495,12 +499,18 @@ class ProcessWatchDog(threading.Thread):
                     self._logger.error(f"Crash detected. Processes running: readevents: {process_states['readevents']} \
                                    chopper2: {process_states['chopper2']} \
                                    costream: {process_states['costream']}")
-                    stop_key_gen()
+                    #stop_key_gen()
+                    logger.error(f"Crash detected. Processes running: readevents: {process_states['readevents']} \
+                                   chopper2: {process_states['chopper2']} \
+                                   costream: {process_states['costream']}")
+                    logger.debug('Actually me')
                     start_service_mode()
 
         if qkd_engine_state == QKDEngineState.KEY_GENERATION:
             if process_states['error_correction'] is False:
-                stop_key_gen()
+                self._logger.error(f'Error correction not started. stopping key gen')
+                #stop_key_gen()
+                logger.debug('maybe me')
                 start_service_mode()
 
 

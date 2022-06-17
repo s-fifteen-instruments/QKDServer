@@ -22,9 +22,9 @@ def serve_layout():
                                 value=config['identity'])
     target_ip_input = dcc.Input(id="target_ip",
                                 type='text',
-                                value=config['target_ip'])
+                                value=config['target_hostname'])
     port_num_input = dcc.Input(id="port_num", type='number',
-                                value=config['port_num'])
+                                value=config['port_transd'])
 
     # peak finder and tracking
     pfind_epochs = dcc.Input(id="pfind_epochs", placeholder='10',
