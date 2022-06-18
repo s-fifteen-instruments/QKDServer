@@ -132,8 +132,8 @@ def msg_response(message):
                 error_correction.start_error_correction()
         elif low_count_side is False:
             chopper2.start_chopper2()
-            _start_readevents()
             transferd.send_message("st2")
+            _start_readevents()
 
     if msg_code == 'st2':
         qkd_globals.FoldersQKD.remove_stale_comm_files()
@@ -152,6 +152,7 @@ def msg_response(message):
             try:
                 time_diff, sig_long, sig_short = time_difference_find()
             except Exception:
+                logger.debug(f'stop sent from pfind')
                 stop_key_gen()
                 start_key_generation()
             else:
@@ -178,8 +179,8 @@ def msg_response(message):
             splicer.start_splicer(qkd_protocol=QKDProtocol.SERVICE)
         elif low_count_side is False:
             chopper2.start_chopper2()
-            _start_readevents()
             transferd.send_message("serv_st2")
+            _start_readevents()
 
     if msg_code == 'serv_st2':
         if low_count_side is None:
@@ -197,6 +198,7 @@ def msg_response(message):
             try:
                 time_diff, sig_long, sig_short = time_difference_find()
             except Exception:
+                logger.debug(f'stop sent from pfind')
                 stop_key_gen()
                 start_service_mode()
             else:
@@ -261,6 +263,7 @@ def time_difference_find():
     else:
         use_periods = periode_count 
 
+    use_periods = use_periods - 1
     args = f'-d /{dataroot}/receivefiles \
             -D /{dataroot}/t1 \
             -e 0x{first_epoch} \
@@ -323,14 +326,13 @@ def start_service_mode():
     _do_symmetry_negotiation()
     transferd.send_message('serv_st1')
     if low_count_side is None:
-        logger.info(f'{msg_code} Symmetry negotiation not completed yet. \
+        logger.info(f'Symmetry negotiation not completed yet. \
                 Key generation was not started.')
         return
     elif low_count_side is True:
         chopper.start_chopper(QKDProtocol.SERVICE)
         _start_readevents()
         splicer.start_splicer(qkd_protocol=QKDProtocol.SERVICE)
-
 
 
 def _stop_key_gen_processes():
@@ -405,15 +407,15 @@ def _start_readevents(det_dead_time: int = 30000):
     global proc_readevents, prog_readevents
 
     # Flush readevents with -q 2
-#    flush_args = f'-a1 -X -q 2 -Q\
-#                   -D {det1corr},{det2corr},{det3corr},{det4corr}' # this is using 1/256ns res
-#    p2 = subprocess.Popen((prog_readevents,*flush_args.split()),stdout=subprocess.DEVNULL)
-#    p2.wait()
-    #p2=os.system("/root/code/qcrypto/remotecrypto/readevents -a2 -q2") # low-level flush
+    flush_args = f'-a1 -A -s -X -q 2 -Q\
+                   -D {det1corr},{det2corr},{det3corr},{det4corr}' # this is using 1/256ns res
+    p2 = subprocess.Popen((prog_readevents,*flush_args.split()),stdout=subprocess.DEVNULL)
+    p2.wait()
+    #p2=os.system("/root/code/qcrypto/remotecrypto/readevents -a2 -q2 -Q") # low-level flush
 
     # Actual useful data
-    fd = os.open(PipesQKD.RAWEVENTS, os.O_RDWR)  # non-blocking
-    f_stdout = os.fdopen(fd, 'w')  # non-blocking
+    fd = os.open(PipesQKD.RAWEVENTS, os.O_WRONLY)  # non-blocking
+    f_stdout = os.fdopen(fd, 'a')  # non-blocking
     args = f'-A -a 1 -X -s -Q\
              -D{det1corr},{det2corr},{det3corr},{det4corr}' # this is using 1/256ns res
     logger.info(f'readevents started with these arguments: {args}')
@@ -486,6 +488,7 @@ class ProcessWatchDog(threading.Thread):
                 transferd.stop_communication()
                 start_communication()
                 time.sleep(1)
+                logger.debug('I killed something')
                 start_service_mode()
                 return
             if transferd.low_count_side is True:
@@ -509,6 +512,7 @@ class ProcessWatchDog(threading.Thread):
 
         if qkd_engine_state == QKDEngineState.KEY_GENERATION:
             if process_states['error_correction'] is False:
+                self._logger.error(f'Error correction not started. stopping key gen')
                 stop_key_gen()
                 start_service_mode()
 
