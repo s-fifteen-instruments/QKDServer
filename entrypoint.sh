@@ -3,8 +3,9 @@
 #        && gcc -o transferd transferd.c \
 #        && unlink errcd \
 #        && ln -s ../errorcorrection/ecd2 errcd \
-	#&& cd /root/code/QKDserver/S15qkd \
-	#&& python3 authd.py &
+
+#	&& cd /root/code/QKDserver/S15qkd \
+#	&& python3 authd.py & 
 cd /root/code/QKDserver \
         && pip install -e . \
         && cd /root/code/QKDserver/Settings_WebClient \

@@ -36,9 +36,9 @@ class PolarizationDriftCompensation(object):
         self.last_qber = 1
         self.qber_counter = 0
 
-    def update_QBER(self, qber: float, qber_threshold: float = 0.085):
+    def update_QBER(self, qber: float, qber_threshold: float = 0.081):
         self.qber_counter += 1
-        if self.qber_counter < 5:
+        if self.qber_counter < 22: # in case pfind finds a bad match, we don't want to change the lcvr voltage too early
             return
         self.qber_list.append(qber)
         if len(self.qber_list) >= self.averaging_n:
@@ -47,11 +47,13 @@ class PolarizationDriftCompensation(object):
             logger.info(
                 f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Voltage search range: {qber_cost_func(qber_mean):.2f}')
             if qber_mean > 0.3:
-                self.averaging_n = 3
+                self.averaging_n = 2
             if qber_mean < 0.3:
-                self.averaging_n = 10
+                self.averaging_n = 5
             if qber_mean < 0.15:
-                self.averaging_n = 20
+                self.averaging_n = 10
+            if qber_mean < 0.10:
+                self.averaging_n = 15
             logger.info(
                 f'Avg(qber): {qber_mean:.2f} averaging over {self.averaging_n} epochs. V_range: {qber_cost_func(qber_mean):.2f}')
             if qber_mean < qber_threshold:

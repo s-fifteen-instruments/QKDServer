@@ -25,7 +25,7 @@ from types import SimpleNamespace
 import qkd_globals
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s | %(levelname)s | %(message)s",
     datefmt="%Y%m%d_%H%M%S"
 )

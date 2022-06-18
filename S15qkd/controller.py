@@ -239,16 +239,7 @@ def wait_for_epoch_files(number_of_epochs):
             raise NoCoincidenceDataException(
                          f'Not enough data in or outgoing within {timeout}s')
             time.sleep(qkd_globals.EPOCH_DURATION * 1.05)
-    timeout_remote = (number_of_epochs + 8) * qkd_globals.EPOCH_DURATION # give additional time for sending remote epoch up to 8*epoch_duration~4s more
-    while (int(transferd.last_received_epoch,16) - \
-            int(transferd.first_received_epoch,16)) < number_of_epochs:
-        if (time.time() - start_time) > timeout_remote:
-            logger.debug(f'Waiting for more epochs.')
-            logger.debug(f'Timeout: Insufficient received files within {timeout_remote} seconds.')
-            raise NoCoincidenceDataException(
-                         f'Not enough data in within {timeout_remote}s')
-            time.sleep(qkd_globals.EPOCH_DURATION * 1.05)
-    
+
     epoch_diff = int(transferd.first_received_epoch, 16) - \
         int(chopper2.first_epoch, 16)
     if epoch_diff < 0 or epoch_diff == 0:
