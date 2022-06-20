@@ -8,11 +8,11 @@ from .qkd_globals import logger
 from . import controller
 
 LCR_VOlT_FILENAME = 'latest_LCR_voltages.txt'
-VOLT_MIN = 0.5
-VOLT_MAX = 4.5
+VOLT_MIN = 0.9
+VOLT_MAX = 5.5
 
 
-def qber_cost_func(qber: float, desired_qber: float = 0.03, amplitude: float = 16) -> float:
+def qber_cost_func(qber: float, desired_qber: float = 0.04, amplitude: float = 6) -> float:
     return amplitude * (qber - desired_qber)**2
 
 
@@ -36,7 +36,7 @@ class PolarizationDriftCompensation(object):
         self.last_qber = 1
         self.qber_counter = 0
 
-    def update_QBER(self, qber: float, qber_threshold: float = 0.081):
+    def update_QBER(self, qber: float, qber_threshold: float = 0.086):
         self.qber_counter += 1
         if self.qber_counter < 22: # in case pfind finds a bad match, we don't want to change the lcvr voltage too early
             return
