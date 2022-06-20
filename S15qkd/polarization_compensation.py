@@ -87,3 +87,60 @@ class PolarizationDriftCompensation(object):
         self.lcr_driver.V2= self.V2
         self.lcr_driver.V3= self.V3
         self.lcr_driver.V4= self.V4
+
+    def get_qber_4ep(self, dia_file: str = '/tmp/cryptostuff/diagdata'):
+        try:
+            with open(dia_file, 'r') as fd:
+                last_4_lines = fd.readlines()[-5:-1]
+        except:
+            return 0.5
+        else:
+            l1 =list(map(int,last_4_lines[0].strip('\n').split(' ')))
+            l2 =list(map(int,last_4_lines[1].strip('\n').split(' ')))
+            l3 =list(map(int,last_4_lines[2].strip('\n').split(' ')))
+            l4 =list(map(int,last_4_lines[3].strip('\n').split(' ')))
+            wrong_coin=sum([l1[i]+ l2[i] + l3[i] +l4[i] for i in wrong_coinc_index])
+            good_coin=sum([l1[i]+ l2[i] + l3[i] +l4[i] for i in good_coinc_index])
+            qber = wrong_coin /(wrong_coin + good_coin)
+            return qber
+
+    def update_qber2(self, qber: float, qber_threshold: float = 0.086):
+        r_narrow =  qber_cost_func(qber)
+        v_list = self.gen_10_list([self.V1,self.V2,self.V3,self.V4],r_narrow)
+        qb = []
+        for i in range(0,10):
+            v_test = v_list[i]
+            self.send_v(v_test)
+            time.sleep(0.53*6)
+            q = self.get_qber_4ep()
+            qb.append(q)
+            print(v_test,q)
+            in_min = np.argmin(qb)
+            min_qb = qb[in_min]
+            v_good = v_list[in_min]
+            self.send_v(v_good)
+
+    def gen_10_list(self,l: list, r_narrow: float):
+        v_list = []
+        for i in range(0,10):
+            v1 = np.random.uniform(max(l[0] - r_narrow, VOLT_MIN),
+                                   min(l[0] + r_narrow, VOLT_MAX))
+            v2 = np.random.uniform(max(l[1] - r_narrow, VOLT_MIN),
+                                   min(l[1] + r_narrow, VOLT_MAX))
+            v3 = np.random.uniform(max(l[2] - r_narrow, VOLT_MIN),
+                                   min(l[2] + r_narrow, VOLT_MAX))
+            v4 = np.random.uniform(max(l[3] - r_narrow, VOLT_MIN),
+                                   min(l[3] + r_narrow, VOLT_MAX))
+            v_list.append([v1, v2, v3, v4])
+        return v_list
+    
+    def send_v(self,v: list):
+        self.lcr_driver.V1 = v[0]
+        self.lcr_driver.V2 = v[1]
+        self.lcr_driver.V3 = v[2]
+        self.lcr_driver.V4 = v[3]
+        self.V1 = v[0]
+        self.V2 = v[1]
+        self.V3 = v[2]
+        self.V4 = v[3]
+
