@@ -18,7 +18,7 @@ def create_det_layout(detector):
                                    dbc.Row([dbc.Col(
                                        html.Div([html.Label('Bias Voltage', htmlFor=f'{det_id}_hvolt'),
                                                  dcc.Input(id=f'{det_id}_hvolt', placeholder='0',
-                                                           type='number', min=0, max=100, step=0.1,
+                                                           type='number', min=0, max=100, step=0.02,
                                                            value=detector.hvolt)
                                                  ]), width=3),
                                             dbc.Col(html.Div([html.Label('Threshold voltage', htmlFor=f'{det_id}_threshvolt'),
