@@ -5,7 +5,7 @@
     "local_key": "authd.qkda.key",
     "port_authd": 55555,
     "port_transd": 4855,
-    "local_authd_ip": "a.qkd.internal",
+    "local_authd_ip": "localhost",
     "data_root": "tmp/cryptostuff",
     "program_root": "bin/remotecrypto",
     "identity": "QKD-A",
@@ -41,3 +41,4 @@
     "do_polarization_compensation": false,
     "LCR_polarization_compensator_path": ""
 }
+

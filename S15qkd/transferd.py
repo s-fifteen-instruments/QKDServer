@@ -100,7 +100,8 @@ def start_communication(msg_out_callback=_local_callback, config_file_name: str 
         args = f'-d {FoldersQKD.SENDFILES} -c {PipesQKD.CMD} -t {config.local_authd_ip} \
             -D {FoldersQKD.RECEIVEFILES} -l {PipesQKD.TRANSFERLOG} \
             -m {PipesQKD.MSGIN} -M {PipesQKD.MSGOUT} -p {config.port_transd} \
-            -k -e {PipesQKD.ECS} -E {PipesQKD.ECR}'
+            -k -e {PipesQKD.ECS} -E {PipesQKD.ECR} -s 127.0.0.2'
+            # Non-existent IP to avoid port binding conflict with authd
         prog_transferd = config.program_root + '/transferd'
         transferd_proc = subprocess.Popen(
             (prog_transferd, *args.split()),
