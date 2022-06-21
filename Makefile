@@ -17,8 +17,14 @@ exec:
 	docker exec -it qkd /bin/sh
 
 stop:
-	docker stop qkd
+	-docker stop qkd
 	sleep 7
 
 default:
 	docker run --volume /home/s-fifteen/code/QKDServer/S15qkd:/root/code/QKDserver/S15qkd --volume /home/s-fifteen/code/QKDServer/entrypoint.sh:/root/entrypoint.sh --name qkd --rm -dit --entrypoint="/root/entrypoint.sh" --device=/dev/ioboards/usbtmst0 $(serial_devs) --device-cgroup-rule='a *:* rwm' -p 8080:8000 -p 55555:55555 s-fifteen/qkdserver:qkd
+
+default2:
+	docker run --volume /home/s-fifteen/code/QKDServer/S15qkd:/root/code/QKDserver/S15qkd --volume /home/s-fifteen/code/QKDServer/entrypoint.sh:/root/entrypoint.sh --name qkd --rm -dit --device=/dev/ioboards/usbtmst0 $(serial_devs) --device-cgroup-rule='a *:* rwm' -p 8080:8000 -p 55555:55555 s-fifteen/qkdserver:qkd "/bin/sh"
+
+default_it:
+	docker run --volume /home/s-fifteen/code/QKDServer/S15qkd:/root/code/QKDserver/S15qkd --volume /home/s-fifteen/code/QKDServer/entrypoint.sh:/root/entrypoint.sh --name qkd --rm -it --entrypoint="/root/entrypoint.sh" --device=/dev/ioboards/usbtmst0 $(serial_devs) --device-cgroup-rule='a *:* rwm' -p 8080:8000 -p 55555:55555 s-fifteen/qkdserver:qkd

@@ -68,7 +68,7 @@ if not os.path.exists(config_file):
         "local_key": "authd.qkdb.key",
         "port_authd": 55555,
         "port_transd": 4855,
-        "local_authd_ip": "b.qkd.internal",
+        "local_authd_ip": "localhost",
         "data_root": "tmp/cryptostuff",
         "program_root": "bin/remotecrypto",
         "identity": "QKD-B (Pol Comp)",

@@ -5,7 +5,7 @@
     "local_key": "authd.qkdb.key",
     "port_authd": 55555,
     "port_transd": 4855,
-    "local_authd_ip": "b.qkd.internal",
+    "local_authd_ip": "127.0.0.1",
     "data_root": "tmp/cryptostuff",
     "program_root": "bin/remotecrypto",
     "identity": "QKD-B (Pol Comp)",
@@ -41,3 +41,4 @@
     "do_polarization_compensation": true,
     "LCR_polarization_compensator_path": "/dev/serial/by-id/usb-S-Fifteen_Instruments_Quad_LCD_driver_LCDD-001-if00"
 }
+

@@ -25,7 +25,7 @@ from types import SimpleNamespace
 import qkd_globals
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
     datefmt="%Y%m%d_%H%M%S"
 )
@@ -83,10 +83,10 @@ def connect_as_transferd_server(server_socket):
     logger.info(f"Connected as server to transferd at {addr[0]}:{addr[1]}.")
     return conn
 
-def listen_as_server(port) -> socket.socket:
+def listen_as_server(addr: str = "0.0.0.0", port: int = 55555) -> socket.socket:
     ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
     ssock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # reuse port address
-    ssock.bind(("", port))
+    ssock.bind((addr, port))
     ssock.listen()
     logger.info(f"Listening as server on {port}/tcp for connections...")
     return ssock
@@ -96,7 +96,7 @@ try:
     ssock_td = ssock = sock = conn_td = conn = None
     
     # Listen for incoming ipv4 TCP connections from local transferd
-    ssock_td = listen_as_server(PORT_TD)
+    ssock_td = listen_as_server("127.0.0.1",port = PORT_TD)
 
     # Setup connection with remote authd, first as a client,
     # failing which, listen for connections as server
@@ -106,7 +106,7 @@ try:
 
     except (ConnectionRefusedError, OSError):
         is_server = True
-        ssock = listen_as_server(PORT)
+        ssock = listen_as_server(port = PORT)
         conn, sock = connect_as_authd_server(ssock)
 
     # Setup connection with local 'transferd'
@@ -122,7 +122,7 @@ try:
 
         # Make sure authd connection is available
         if conn is None:
-            logger.debug("Attempting reconnection to authd.")
+            logger.info("Attempting reconnection to authd.")
             if is_server:
                 conn, sock = connect_as_authd_server(ssock)
             else:
@@ -137,7 +137,7 @@ try:
 
         # Make sure transferd connection is available
         if conn_td is None:
-            logger.debug("Attempting reconnection to transferd.")
+            logger.info("Attempting reconnection to transferd.")
             conn_td = connect_as_transferd_server(ssock_td)
 
         # Handle connection error / dropouts
@@ -154,7 +154,7 @@ try:
                 for c in readables:
                     if c is conn_td:
                         msg = c.recv(1023)  # transferd max message length = 1023 bytes
-                        logger.info(f"[transferd  ->] {repr(msg)}")
+                        logger.debug(f"[transferd  ->] {repr(msg)}")
                         if msg == b"":
                             conn_td = None
                             raise IOError("transferd disconnected.")
@@ -165,7 +165,7 @@ try:
                         except ssl.SSLWantReadError:
                             logger.warning("Problematic SSL handshake. Ignoring.")
                             continue
-                        logger.info(f"[  authd    ->] {repr(msg)}")
+                        logger.debug(f"[  authd    ->] {repr(msg)}")
                         if msg == b"":
                             conn = None
                             raise IOError("authd disconnected.")
@@ -175,12 +175,12 @@ try:
                     if c is conn_td and to_local:
                         msg = to_local[:1023]
                         del to_local[:1023]
-                        logger.info(f"[transferd <- ] {repr(bytes(msg))}")
+                        logger.debug(f"[transferd <- ] {repr(bytes(msg))}")
                         c.send(msg)
                     elif c is conn and to_remote:
                         msg = to_remote[:2048]  # hardcoded
                         del to_remote[:2048]  # hardcoded
-                        logger.info(f"[  authd   <- ] {repr(bytes(msg))}")
+                        logger.debug(f"[  authd   <- ] {repr(bytes(msg))}")
                         c.send(msg)
 
         except KeyboardInterrupt:
