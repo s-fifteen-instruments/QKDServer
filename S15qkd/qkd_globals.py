@@ -89,7 +89,7 @@ if not os.path.exists(config_file):
         "protocol": 1,
         "max_event_diff": 20000,
         "kill_option": "-k -K",
-        "pfind_epochs": 10,
+        "pfind_epochs": 12,
         "costream_histo_option": "",
         "costream_histo_number": 10,
         "error_correction_program_path": "bin/errorcorrection",

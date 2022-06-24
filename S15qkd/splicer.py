@@ -83,6 +83,8 @@ def start_splicer(qkd_protocol: int = QKDProtocol.BBM92):
     the splice pipe and the genlog.
     '''
     global data_root, cwd, proc_splicer
+    if is_running() is not None:
+        stop_splicer()
     initialize()
     args = f'-d {FoldersQKD.T3FILES} \
              -D {FoldersQKD.RECEIVEFILES} \

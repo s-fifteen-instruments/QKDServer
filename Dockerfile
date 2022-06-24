@@ -66,7 +66,7 @@ RUN \
 # Install the python qcrypto wrapper
 RUN \
     # --mount=type=ssh \
-    cd ${HOME}/code \ 
+    cd ${HOME}/code \
     && git clone --branch timestamp7b_B https://github.com/s-fifteen-instruments/QKDServer.git QKDserver \
     && cd ${HOME}/code/QKDserver \
     && pip install -e .\
