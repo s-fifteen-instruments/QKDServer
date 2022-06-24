@@ -75,7 +75,7 @@ if not os.path.exists(config_file):
         "remote_coincidence_window": 6,
         "tracking_window": 30,
         "track_filter_time_constant": 2000000,
-        "FFT_buffer_order": 22,
+        "FFT_buffer_order": 23,
         "local_detector_skew_correction": {
             "det1corr": 64,
             "det2corr": -78,
