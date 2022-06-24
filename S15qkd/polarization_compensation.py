@@ -2,6 +2,7 @@
 
 import os
 import numpy as np
+import time
 from typing import Tuple
 from S15lib.instruments import LCRDriver
 from .qkd_globals import logger
@@ -15,6 +16,12 @@ VOLT_MAX = 5.5
 def qber_cost_func(qber: float, desired_qber: float = 0.04, amplitude: float = 6) -> float:
     return amplitude * (qber - desired_qber)**2
 
+def get_current_epoch():
+    """Returns the current epoch in integer.
+
+    Hex value of epoch can be checked with 'hex(get_current_epoch())[2:]'.
+    """
+    return time.time_ns() >> 29
 
 class PolarizationDriftCompensation(object):
     def __init__(self, lcr_path: str = '/dev/serial/by-id/usb-S-Fifteen_Instruments_Quad_LCD_driver_LCDD-001-if00',
@@ -24,7 +31,8 @@ class PolarizationDriftCompensation(object):
         self.averaging_n = averaging_n
         self.LCRvoltages_file_name = LCR_VOlT_FILENAME
         if not os.path.exists(self.LCRvoltages_file_name):
-            np.savetxt(self.LCRvoltages_file_name, [1.5, 1.5, 1.5, 1.5])
+            #np.savetxt(self.LCRvoltages_file_name, [1.85, 3.01, 2.99, 4.36])
+            np.savetxt(self.LCRvoltages_file_name, [4.781, 1.625, 2.104, 3.963])
         self.V1, self.V2, self.V3, self.V4 = np.genfromtxt(
             self.LCRvoltages_file_name).T
         self.lcr_driver.V1 = self.V1
@@ -35,11 +43,27 @@ class PolarizationDriftCompensation(object):
         self.qber_list = []
         self.last_qber = 1
         self.qber_counter = 0
+        self.next_epoch = None
 
-    def update_QBER(self, qber: float, qber_threshold: float = 0.086):
+    def update_QBER(self, qber: float, qber_threshold: float = 0.086, epoch: str = None):
         self.qber_counter += 1
         if self.qber_counter < 22: # in case pfind finds a bad match, we don't want to change the lcvr voltage too early
             return
+
+        # 'next_epoch' will be updated when LCVR values are pushed
+        # In service mode, all epochs between now (time LCVR values are computed) and 'next_epoch'
+        # should be discarded, so that the updated value is properly reflected.
+        if not self.next_epoch and not epoch:
+            # Compare epochs to see if reached
+            epoch_int = int(epoch, 16)
+            if epoch_int < self.next_epoch:
+                logger.debug(f'Ignored epoch: {epoch}')
+                return
+
+            # Now at target epoch
+            self.next_epoch = None
+            return # start averaging from next epoch onwards
+
         self.qber_list.append(qber)
         if len(self.qber_list) >= self.averaging_n:
             qber_mean = np.mean(self.qber_list)
@@ -71,6 +95,8 @@ class PolarizationDriftCompensation(object):
             else:
                 self.lcvr_narrow_down(*self.last_voltage_list,
                                       qber_cost_func(self.last_qber))
+            self.next_epoch = get_current_epoch()
+            logger.debug(f'Next epoch set to "{hex(self.next_epoch)[2:]}".')
             self.last_qber= qber_mean
 
     def lcvr_narrow_down(self, c1: float, c2: float, c3: float, c4: float, r_narrow: float) -> Tuple[float, float, float, float]:
