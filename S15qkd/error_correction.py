@@ -163,10 +163,17 @@ def _ecnotepipe_digest(ec_note_pipe: str = PipesQKD.ECNOTE):
     while proc_error_correction is not None and proc_error_correction.poll() is None:
         time.sleep(0.1)
         try:
-            message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
+            # First priority is to pipe it back to equivalent pipe
+            # for consumption by guardian
+            raw_message = f.readline().decode().rstrip('\n')
+
+            # ECNOTE message intercepted to populate results on web interface
+            message = raw_message.lstrip('\x00')
             if len(message) != 0:
                 message = message.split()
                 ec_epoch = message[0]
+                qkd_globals.writer(PipesQKD.ECNOTE_GUARDIAN, ec_epoch)  # re-encodes and appends newline
+                logger.info(f'Sent {ec_epoch} to notify.pipe.')
                 ec_raw_bits = int(message[1])
                 ec_final_bits = int(message[2])
                 ec_err_fraction = float(message[3])
