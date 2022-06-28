@@ -22,16 +22,20 @@ def serve_layout():
                                 value=config['identity'])
     target_ip_input = dcc.Input(id="target_ip",
                                 type='text',
-                                value=config['target_ip'])
-    port_num_input = dcc.Input(id="port_num", type='number',
-                                value=config['port_num'])
+                                value=config['target_hostname'])
+    port_num_input = dcc.Input(id="port_num",
+                                type='number',
+                                value=config['port_transd'])
+    port_num_authd_input = dcc.Input(id="port_num_authd",
+                                type='number',
+                                value=config['port_authd'])
 
     # peak finder and tracking
-    pfind_epochs = dcc.Input(id="pfind_epochs", placeholder='5',
+    pfind_epochs = dcc.Input(id="pfind_epochs", placeholder='10',
                              type='number', min=1, max=20,
                              value=config['pfind_epochs'])
-    remote_coincidence_window = dcc.Input(id="remote_coincidence_window", placeholder='16',
-                                          type='number', min=1, max=16,
+    remote_coincidence_window = dcc.Input(id="remote_coincidence_window", placeholder='6',
+                                          type='number', min=1, max=20,
                                           value=config["remote_coincidence_window"])
     tracking_window = dcc.Input(id="tracking_window", placeholder='30',
                                 type='number', min=10, max=100,
@@ -40,7 +44,7 @@ def serve_layout():
                                               placeholder='2000000', 
                                               type='number',
                                               value=config['track_filter_time_constant'])
-    FFT_buffer_order = dcc.Input(id="FFT_buffer_order", placeholder=21,
+    FFT_buffer_order = dcc.Input(id="FFT_buffer_order", placeholder=22,
                                  type='number', min=19, max=26,
                                  value=config['FFT_buffer_order'])
     # detector timing corrections
@@ -73,12 +77,12 @@ def serve_layout():
     # #     ],
     # #     value=config['protocol'])
 
-    clock_choice = dcc.RadioItems(id='clock_source',
-                                  options=[
-                                      {'label': ' external', 'value': '-e'},
-                                      {'label': ' internal', 'value': ''}],
-                                  value=config['clock_source'],
-                                  labelStyle={'display': 'block'})
+    #clock_choice = dcc.RadioItems(id='clock_source',
+    #                              options=[
+    #                                  {'label': ' external', 'value': '-e'},
+    #                                  {'label': ' internal', 'value': ''}],
+    #                              value=config['clock_source'],
+    #                              labelStyle={'display': 'block'})
 
     error_corr_switch = daq.BooleanSwitch(
         id='error_correction',
@@ -96,14 +100,17 @@ def serve_layout():
         html.Div(id='hidden-div', style={'display': 'none'}),  # used for memory
         html.H1('QKD settings'),
         html.H4('Network connection settings'),
-        dbc.Row([dbc.Col(html.Div([html.Label('Identity', htmlFor='identity'), identity]), width=3),
-                dbc.Col(html.Div([html.Label('Target IP', htmlFor='target_ip'), target_ip_input]), width=3),
-                dbc.Col(html.Div([html.Label('Port number', htmlFor='port_num'), port_num_input]), width=3)],
+        dbc.Row([dbc.Col([html.Div([html.Label('Identity', htmlFor='identity'), html.Br(), identity]),
+                          html.P(),
+                          html.Div([html.Label('TransferD Port number', htmlFor='port_num'), port_num_input])], width=3),
+                 dbc.Col([html.Div([html.Label('Target IP', htmlFor='target_ip'), html.Br(), target_ip_input]),
+                          html.P(),
+                          html.Div([html.Label('AuthD Port number', htmlFor='port_num_authd'), port_num_authd_input])], width=3)],
                 justify="start"),
 
-        html.Br(),
-        html.H4('Clock source'),
-        dbc.Row(dbc.Col(clock_choice, width=4)),
+        #html.Br(),
+        #html.H4('Clock source'),
+        #dbc.Row(dbc.Col(clock_choice, width=4)),
         html.Br(),
         html.H4('Peak finder & tracking settings'),
         dbc.Row([dbc.Col([html.Div([html.Label('Number of epochs for pfind ', htmlFor='pfind_epochs'), pfind_epochs]), html.P(),
@@ -113,7 +120,7 @@ def serve_layout():
                 dbc.Col([html.Div([html.Label('FFT buffer order', htmlFor='FFT_buffer_order'), html.Br(), FFT_buffer_order])
                     ])]),
         html.Br(),
-        html.H4('Detector correction settings (timing attack countermeasure)'),
+        html.H4('Detector correction settings 1/256ns (timing attack countermeasure)'),
         dbc.Row([
             dbc.Col([html.Div([html.Label('Detector 1 timing correction', htmlFor='det1corr'), det1corr]),html.P(),
                      html.Div([html.Label('Detector 3 timing correction', htmlFor='det3corr'), det3corr])], width=3),
@@ -149,7 +156,7 @@ property_list = ['target_ip', 'port_num',
                  'tracking_window', 'track_filter_time_constant',
                  'minimal_block_size', 'target_bit_error',
                  'det1corr', 'det2corr', 'det3corr', 'det4corr',
-                 'clock_source', 'FFT_buffer_order', 'identity']
+                 'FFT_buffer_order', 'identity']
 switch_settings_list = ['error_correction', 'privacy_amplification']
 
 @app.callback(

@@ -52,22 +52,6 @@ from . import qkd_globals
 from .qkd_globals import logger, PipesQKD, FoldersQKD
 
 
-# def _load_transferd_config(config_file_name: str):
-#     global data_root, program_root, target_ip, port_num, extclockopt
-#     global prog_getrate, prog_transferd
-
-#     with open(config_file_name, 'r') as f:
-#         config = json.load(f)
-#     data_root = config['data_root']
-#     program_root = config['program_root']
-#     target_ip = config['target_ip']
-#     port_num = config['port_num']
-#     extclockopt = config['clock_source']
-#     prog_transferd = program_root + '/transferd'
-#     prog_getrate = program_root + '/getrate'
-
-# transferd_proc = None
-# communication_status = 0
 @unique
 class CommunicationStatus(int, Enum):
     OFF = 0
@@ -113,10 +97,11 @@ def start_communication(msg_out_callback=_local_callback, config_file_name: str 
     with open(config_file_name, 'r') as f:
         config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
     if communication_status == CommunicationStatus.OFF:
-        args = f'-d {FoldersQKD.SENDFILES} -c {PipesQKD.CMD} -t {config.target_ip} \
+        args = f'-d {FoldersQKD.SENDFILES} -c {PipesQKD.CMD} -t {config.local_authd_ip} \
             -D {FoldersQKD.RECEIVEFILES} -l {PipesQKD.TRANSFERLOG} \
-            -m {PipesQKD.MSGIN} -M {PipesQKD.MSGOUT} -p {config.port_num} \
-            -k -e {PipesQKD.ECS} -E {PipesQKD.ECR}'
+            -m {PipesQKD.MSGIN} -M {PipesQKD.MSGOUT} -p {config.port_transd} \
+            -k -e {PipesQKD.ECS} -E {PipesQKD.ECR} -s 127.0.0.2'
+            # Non-existent IP to avoid port binding conflict with authd
         prog_transferd = config.program_root + '/transferd'
         transferd_proc = subprocess.Popen(
             (prog_transferd, *args.split()),
@@ -153,8 +138,10 @@ def _transferd_stdout_digest(out, err, queue):
             logger.info(f'[stdout] {line.decode()}')
             if line == b'connected.':
                 communication_status = CommunicationStatus.CONNECTED
+                logger.debug("[stdout] connected.")
             elif line == b'disconnected.':
                 communication_status = CommunicationStatus.DISCONNECTED
+                logger.debug("[stdout] disconnected.")
         for line in iter(err.readline, b''):
             logger.info(f'[stderr] {line.decode()}')
     communication_status = CommunicationStatus.OFF
@@ -292,7 +279,11 @@ def measure_local_count_rate(config_file_name: str = qkd_globals.config_file):
         config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
     localcountrate = -1
     cmd = prog_readevents
-    args = f'-a 1 -F -u {config.clock_source} -S 20'
+    args = f'-a 1 -X -q1 -Q'
+    p0 = subprocess.Popen([cmd, *args.split()])
+    p0.wait()
+
+    args = f'-a 1 -X -Q'
     p1 = subprocess.Popen([cmd, *args.split()],
                           stdout=subprocess.PIPE)
     logger.info('started readevents')
@@ -303,7 +294,6 @@ def measure_local_count_rate(config_file_name: str = qkd_globals.config_file):
     p2.wait()
     try:
         qkd_globals.kill_process(p1)
-        qkd_globals.kill_process(p2)
     except psutil.NoSuchProcess:
         pass
     localcountrate = int((p2.stdout.read()).decode())

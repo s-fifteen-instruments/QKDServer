@@ -83,6 +83,8 @@ def start_splicer(qkd_protocol: int = QKDProtocol.BBM92):
     the splice pipe and the genlog.
     '''
     global data_root, cwd, proc_splicer
+    if is_running() is not None:
+        stop_splicer()
     initialize()
     args = f'-d {FoldersQKD.T3FILES} \
              -D {FoldersQKD.RECEIVEFILES} \
@@ -138,7 +140,7 @@ def _splice_pipe_digest(qkd_protocol, config_file_name: str = qkd_globals.config
                         f'Service mode, QBER: {diagnosis.quantum_bit_error}, Epoch: {message}')
                     if config.do_polarization_compensation is True:
                         polarization_compensator.update_QBER(
-                            diagnosis.quantum_bit_error)
+                            diagnosis.quantum_bit_error, epoch=message)
         except OSError:
             pass
         except Exception as a:

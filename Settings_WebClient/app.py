@@ -8,3 +8,4 @@ qkd_ctrl.start_communication()
 app = dash.Dash(__name__, suppress_callback_exceptions=True, title='S15 QKD', update_title=None)
 
 server = app.server
+

@@ -72,7 +72,7 @@ def start_chopper(qkd_protocol, config_file_name: str = qkd_globals.config_file)
              -y 20 -m {config.max_event_diff}'
 
     t2logpipe_thread.start()
-    with open(f'{cwd}/{config.data_root}/choppererror', 'a+') as f:
+    with open(f'/{config.data_root}/choppererror', 'a+') as f:
         proc_chopper = subprocess.Popen((prog_chopper, *args.split()),
                                         stdout=subprocess.PIPE,
                                         stderr=f)

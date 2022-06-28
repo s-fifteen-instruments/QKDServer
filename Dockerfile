@@ -59,13 +59,15 @@ RUN \
     && cd ${HOME}/code/qcrypto/remotecrypto \
     && make CC=${CC} \
     && cd ../errorcorrection \
-    && make CC=${CC} 
+    && make CC=${CC} \
+    && cd ../timestamp7 \
+    && make CC=${CC}
     
 # Install the python qcrypto wrapper
 RUN \
     # --mount=type=ssh \
-    cd ${HOME}/code \ 
-    && git clone https://github.com/s-fifteen-instruments/QKDServer.git QKDserver \
+    cd ${HOME}/code \
+    && git clone --branch master https://github.com/s-fifteen-instruments/QKDServer.git QKDserver \
     && cd ${HOME}/code/QKDserver \
     && pip install -e .\
     && cd ${HOME}/code/QKDserver/Settings_WebClient \
@@ -77,10 +79,10 @@ RUN \
     pip install ipython gunicorn
 
 # Delete packages which were only needed to compile the applications. This reduces the docker container size.
-RUN \
+#RUN \
     # --mount=type=ssh \
-    apk del --no-cache qkdserver-base
+    # apk del --no-cache qkdserver-base
 
 # Set an entry point into the image
-WORKDIR ${HOME}/code/QKDserver/Settings_WebClient
-CMD [ "gunicorn", "--threads=1", "-b 0.0.0.0:8000", "index:server"]
+#WORKDIR ${HOME}/code/QKDserver/Settings_WebClient
+#CMD [ "gunicorn", "--threads=1", "-b 0.0.0.0:8000", "index:server"]

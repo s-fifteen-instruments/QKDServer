@@ -62,7 +62,7 @@ def start_chopper2(config_file_name: str = qkd_globals.config_file):
     t1logpipe_thread = threading.Thread(
         target=_t1logpipe_digest, args=(), daemon=True)
     t1logpipe_thread.start()
-    with open(f'{cwd}/{config.data_root}/chopper2error', 'a+') as f:
+    with open(f'/{config.data_root}/chopper2error', 'a+') as f:
         proc_chopper2 = subprocess.Popen((prog_chopper2, *args.split()),
                                          stdout=subprocess.PIPE, stderr=f)
     logger.info('Started chopper2.')
