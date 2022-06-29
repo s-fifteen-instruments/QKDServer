@@ -16,138 +16,155 @@ def serve_layout():
     with open(config_file, 'r') as f:
         config = json.load(f)
 
-    # # network connection settings
-    identity = dcc.Input(id="identity",
-                                type='text',
-                                value=config['identity'])
-    target_ip_input = dcc.Input(id="target_ip",
-                                type='text',
-                                value=config['target_hostname'])
-    port_num_input = dcc.Input(id="port_num",
-                                type='number',
-                                value=config['port_transd'])
-    port_num_authd_input = dcc.Input(id="port_num_authd",
-                                type='number',
-                                value=config['port_authd'])
+    # Network settings
+    identity = dcc.Input(
+        id='identity', type='text',
+        value=config['identity'],
+    )
+    target_ip_input = dcc.Input(
+        id='target_ip', type='text',
+        value=config['target_hostname'],
+    )
+    port_num_input = dcc.Input(
+        id='port_num', type='number',
+        value=config['port_transd'],
+    )
+    port_num_authd_input = dcc.Input(
+        id='port_num_authd', type='number',
+        value=config['port_authd'],
+    )
 
-    # peak finder and tracking
-    pfind_epochs = dcc.Input(id="pfind_epochs", placeholder='10',
-                             type='number', min=1, max=20,
-                             value=config['pfind_epochs'])
-    remote_coincidence_window = dcc.Input(id="remote_coincidence_window", placeholder='6',
-                                          type='number', min=1, max=20,
-                                          value=config["remote_coincidence_window"])
-    tracking_window = dcc.Input(id="tracking_window", placeholder='30',
-                                type='number', min=10, max=100,
-                                value=config['tracking_window'])
-    track_filter_time_constant = dcc.Input(id="track_filter_time_constant",
-                                              placeholder='2000000', 
-                                              type='number',
-                                              value=config['track_filter_time_constant'])
-    FFT_buffer_order = dcc.Input(id="FFT_buffer_order", placeholder=22,
-                                 type='number', min=19, max=26,
-                                 value=config['FFT_buffer_order'])
-    # detector timing corrections
-    det1corr = dcc.Input(id="det1corr", placeholder='0',
-                         type='number',
-                         value=config["local_detector_skew_correction"]['det1corr'])
-    det2corr = dcc.Input(id="det2corr", placeholder='0',
-                         type='number',
-                         value=config["local_detector_skew_correction"]['det2corr'])
-    det3corr = dcc.Input(id="det3corr", placeholder='0',
-                         type='number',
-                         value=config["local_detector_skew_correction"]['det3corr'])
-    det4corr = dcc.Input(id="det4corr", placeholder='0',
-                         type='number',
-                         value=config["local_detector_skew_correction"]['det4corr'])
+    # Peak finder and tracking
+    pfind_epochs = dcc.Input(
+        id='pfind_epochs', type='number', min=1, max=20,
+        value=config['pfind_epochs'], placeholder=10,
+    )
+    remote_coincidence_window = dcc.Input(
+        id='remote_coincidence_window', type='number', min=1, max=20,
+        value=config['remote_coincidence_window'], placeholder=6,
+    )
+    tracking_window = dcc.Input(
+        id='tracking_window', type='number', min=10, max=100,
+        value=config['tracking_window'], placeholder=30,
+    )
+    track_filter_time_constant = dcc.Input(
+        id='track_filter_time_constant', type='number',
+        value=config['track_filter_time_constant'], placeholder=2000000,
+    )
+    FFT_buffer_order = dcc.Input(
+        id='FFT_buffer_order', type='number', min=19, max=26,
+        value=config['FFT_buffer_order'], placeholder=22,
+    )
 
-    # # error correction settings
-    minimal_block_size = dcc.Input(id="minimal_block_size", placeholder='5000',
-                                   type='number',
-                                   value=config['minimal_block_size'])
-    target_bit_error = dcc.Input(id="target_bit_error", placeholder='1E-9',
-                                    type='number',
-                                    value=config['target_bit_error'])
+    # Detector timing corrections
+    det1corr = dcc.Input(
+        id='det1corr', type='number',
+        value=config['local_detector_skew_correction']['det1corr'], placeholder=0,
+    )
+    det2corr = dcc.Input(
+        id='det2corr', type='number',
+        value=config['local_detector_skew_correction']['det2corr'], placeholder=0,
+    )
+    det3corr = dcc.Input(
+        id='det3corr', type='number',
+        value=config['local_detector_skew_correction']['det3corr'], placeholder=0,
+    )
+    det4corr = dcc.Input(
+        id='det4corr', type='number',
+        value=config['local_detector_skew_correction']['det4corr'], placeholder=0,
+    )
 
-    # # protocol_choice = dcc.RadioItems(id='protocol'
-    # #     options=[
-    # #         {'label': ' BBM92    ', 'value': 1},
-    # #         {'label': ' Service (not implemented yet)',
-    # #          'value': 0, 'disabled': True}
-    # #     ],
-    # #     value=config['protocol'])
-
-    #clock_choice = dcc.RadioItems(id='clock_source',
-    #                              options=[
-    #                                  {'label': ' external', 'value': '-e'},
-    #                                  {'label': ' internal', 'value': ''}],
-    #                              value=config['clock_source'],
-    #                              labelStyle={'display': 'block'})
-
+    # Error correction settings
+    minimal_block_size = dcc.Input(
+        id='minimal_block_size', type='number',
+        value=config['minimal_block_size'], placeholder=5000,
+    )
+    target_bit_error = dcc.Input(
+        id='target_bit_error', type='number',
+        value=config['target_bit_error'], placeholder='1e-9',
+    )
     error_corr_switch = daq.BooleanSwitch(
         id='error_correction',
         on=config['error_correction'],
-        style={'display': 'inline-block'},
-        color='#13c26d')
-
+        style={'display': 'inline-block'}, color='#13c26d',
+    )
     privacy_ampl_switch = daq.BooleanSwitch(
         id='privacy_amplification',
         on=config['privacy_amplification'],
-        style={'display': 'inline-block'},
-        color='#13c26d')
+        style={'display': 'inline-block'}, color='#13c26d',
+    )
 
     layout = dbc.Container([
         html.Div(id='hidden-div', style={'display': 'none'}),  # used for memory
         html.H1('QKD settings'),
-        html.H4('Network connection settings'),
-        dbc.Row([dbc.Col([html.Div([html.Label('Identity', htmlFor='identity'), html.Br(), identity]),
-                          html.P(),
-                          html.Div([html.Label('TransferD Port number', htmlFor='port_num'), port_num_input])], width=3),
-                 dbc.Col([html.Div([html.Label('Target IP', htmlFor='target_ip'), html.Br(), target_ip_input]),
-                          html.P(),
-                          html.Div([html.Label('AuthD Port number', htmlFor='port_num_authd'), port_num_authd_input])], width=3)],
-                justify="start"),
 
-        #html.Br(),
-        #html.H4('Clock source'),
-        #dbc.Row(dbc.Col(clock_choice, width=4)),
+        html.H4('Network connection settings'),
+        dbc.Row([
+            dbc.Col([
+                html.Div([html.Label('Identity', htmlFor='identity'), html.Br(), identity]),
+                html.P(),
+                html.Div([html.Label('TransferD Port number', htmlFor='port_num'), port_num_input]),
+            ], width=3),
+            dbc.Col([
+                html.Div([html.Label('Target IP', htmlFor='target_ip'), html.Br(), target_ip_input]),
+                html.P(),
+                html.Div([html.Label('AuthD Port number', htmlFor='port_num_authd'), port_num_authd_input]),
+            ], width=3),
+        ], justify="start"),
         html.Br(),
+
         html.H4('Peak finder & tracking settings'),
-        dbc.Row([dbc.Col([html.Div([html.Label('Number of epochs for pfind ', htmlFor='pfind_epochs'), pfind_epochs]), html.P(),
-                         html.Div([html.Label('Time bin width (1/8 ns)', htmlFor='remote_coincidence_window'), remote_coincidence_window])], width=3),
-                dbc.Col([html.Div([html.Label('Tracking window (1/8 ns)', htmlFor='tracking_window'), html.Br(), tracking_window]), html.P(),
-                         html.Div([html.Label('Tracking time filter constant (ns)', htmlFor='track_filter_time_constant'),track_filter_time_constant])], width=3),
-                dbc.Col([html.Div([html.Label('FFT buffer order', htmlFor='FFT_buffer_order'), html.Br(), FFT_buffer_order])
-                    ])]),
+        dbc.Row([
+            dbc.Col([
+                html.Div([html.Label('Number of epochs for pfind ', htmlFor='pfind_epochs'), pfind_epochs]),
+                html.P(),
+                html.Div([html.Label('Time bin width (1/8 ns)', htmlFor='remote_coincidence_window'), remote_coincidence_window]),
+            ], width=3),
+            dbc.Col([
+                html.Div([html.Label('Tracking window (1/8 ns)', htmlFor='tracking_window'), html.Br(), tracking_window]),
+                html.P(),
+                html.Div([html.Label('Tracking time filter constant (ns)', htmlFor='track_filter_time_constant'),track_filter_time_constant]),
+            ], width=3),
+            dbc.Col([
+                html.Div([html.Label('FFT buffer order', htmlFor='FFT_buffer_order'), html.Br(), FFT_buffer_order]),
+            ]),
+        ]),
         html.Br(),
+
         html.H4('Detector correction settings (1/256ns)'),
         dbc.Row([
-            dbc.Col([html.Div([html.Label('Detector 1 timing correction', htmlFor='det1corr'), det1corr]),html.P(),
-                     html.Div([html.Label('Detector 3 timing correction', htmlFor='det3corr'), det3corr])], width=3),
-
-            dbc.Col([html.Div([html.Label('Detector 2 timing correction', htmlFor='det2corr'), det2corr]),html.P(),
-                     html.Div([html.Label('Detector 4 timing correction', htmlFor='det4corr'), det4corr])], width=3)]),
-
+            dbc.Col([
+                html.Div([
+                    html.Label('Detector 1 timing correction', htmlFor='det1corr'), det1corr]),
+                    html.P(),
+                    html.Div([html.Label('Detector 3 timing correction', htmlFor='det3corr'), det3corr]),
+            ], width=3),
+            dbc.Col([
+                html.Div([html.Label('Detector 2 timing correction', htmlFor='det2corr'), det2corr]),
+                html.P(),
+                html.Div([html.Label('Detector 4 timing correction', htmlFor='det4corr'), det4corr]),
+            ], width=3),
+        ]),
         html.Br(),
+
         html.H4('Error correction settings'),
         dbc.Row([
-          dbc.Col([
+            dbc.Col([
+                html.Br(),
+                html.Div([error_corr_switch, ' Error correction']),
+                html.Br(),
+                html.Div([privacy_ampl_switch, ' Privacy amplification']),
+            ], width=3),
             html.Br(),
-            html.Div([error_corr_switch, ' Error correction']), 
-            html.Br(),
-            html.Div([privacy_ampl_switch, ' Privacy amplification'])], 
-          width=3),
-           html.Br(),
-           dbc.Col([html.Div([html.Label('Minimal block size', htmlFor='minimal_block_size'), 
-                    minimal_block_size]), 
-                    html.P(),
-                    html.Div([html.Label('Target bit error', htmlFor='target_bit_error'), target_bit_error])], width=3)
+            dbc.Col([
+                html.Div([html.Label('Minimal block size', htmlFor='minimal_block_size'), minimal_block_size]),
+                html.P(),
+                html.Div([html.Label('Target bit error', htmlFor='target_bit_error'), target_bit_error]),
+            ], width=3),
         ]),
-
-        html.Div(html.Br())
+        html.Div(html.Br()),
     ])
     return layout
-    # return target_ip_input
 
 
 # Ugly!! need to keep this updated with the input fields.
