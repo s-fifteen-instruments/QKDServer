@@ -268,7 +268,8 @@ def time_difference_find():
             -D /{dataroot}/t1 \
             -e 0x{first_epoch} \
             -n {use_periods} -V 1 \
-            -q {fft_buffer_order}'
+            -q {fft_buffer_order} \
+            -R 256'
     logger.info(f'starting pfind with: {args}')
     with open(f'/{dataroot}/pfinderror', 'a+') as f:
         proc_pfind = subprocess.Popen([prog_pfind, *args.split()],
@@ -416,7 +417,7 @@ def _start_readevents(det_dead_time: int = 30000):
         finally:
             proc_readevents = None
     # Flush readevents with -q 2
-    flush_args = f'-a1 -A -s -X -q 2 -Q\
+    flush_args = f'-a1 -A -s -X -q 2 \
                    -D {det1corr},{det2corr},{det3corr},{det4corr}' # this is using 1/256ns res
     proc_readevents = subprocess.Popen((prog_readevents,*flush_args.split()),stdout=subprocess.DEVNULL)
     proc_readevents.wait()
@@ -425,7 +426,7 @@ def _start_readevents(det_dead_time: int = 30000):
     # Actual useful data
     fd = os.open(PipesQKD.RAWEVENTS, os.O_WRONLY)  # non-blocking
     f_stdout = os.fdopen(fd, 'a')  # non-blocking
-    args = f'-A -a 1 -X -s -Q\
+    args = f'-A -a 1 -X -s \
              -D{det1corr},{det2corr},{det3corr},{det4corr}' # this is using 1/256ns res
     logger.info(f'readevents started with these arguments: {args}')
     with open(f'/{dataroot}/readeventserror', 'a+') as f_stderr:
