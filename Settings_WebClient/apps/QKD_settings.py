@@ -8,12 +8,12 @@ import json
 import re
 
 from app import app
-from S15qkd.qkd_globals import config_file
+from S15qkd.qkd_globals import config_file as CONFIG_FILE
 
 
 def serve_layout():
-    debounce = True
-    with open(config_file, 'r') as f:
+    # TODO(Matthias): Add debouncing to inputs
+    with open(CONFIG_FILE, 'r') as f:
         config = json.load(f)
 
     # Network settings
@@ -95,7 +95,8 @@ def serve_layout():
     )
 
     layout = dbc.Container([
-        html.Div(id='hidden-div', style={'display': 'none'}),  # used for memory
+        # Placeholder div needed to pipe output from 'update_values()' - values are discarded
+        html.Div(id='hidden-div', style={'display': 'none'}),
         html.H1('QKD settings'),
 
         html.H4('Network connection settings'),
@@ -167,35 +168,68 @@ def serve_layout():
     return layout
 
 
-# Ugly!! need to keep this updated with the input fields.
-property_list = ['target_ip', 'port_num',
-                 'pfind_epochs', 'remote_coincidence_window',
-                 'tracking_window', 'track_filter_time_constant',
-                 'minimal_block_size', 'target_bit_error',
-                 'det1corr', 'det2corr', 'det3corr', 'det4corr',
-                 'FFT_buffer_order', 'identity']
-switch_settings_list = ['error_correction', 'privacy_amplification']
+# Update these lists concurrently with inputs generated in 'serve_layout()' above
+property_values = [
+
+    # Network settings
+    'identity',
+    'target_ip',
+    'port_num',
+    'port_num_authd',
+
+    # Peak finder and tracking
+    'pfind_epochs',
+    'remote_coincidence_window',
+    'tracking_window',
+    'track_filter_time_constant',
+    'FFT_buffer_order',
+
+    # Detector timing corrections
+    'det1corr',
+    'det2corr',
+    'det3corr',
+    'det4corr',
+
+    # Error correction settings
+    'minimal_block_size',
+    'target_bit_error',
+]
+property_switches = [
+    # Error correction settings
+    'error_correction',
+    'privacy_amplification',
+]
 
 @app.callback(
     Output('hidden-div', 'children'),
-    [*[Input(i, 'value') for i in property_list],
-     *[Input(i, 'on') for i in switch_settings_list]])
-def display_value(*values):
-    ctx = dash.callback_context
-    trigger_id = ctx.triggered[0]['prop_id']
-    trigger_id = trigger_id.rstrip('on').rstrip('value').rstrip('.')
-    trigger_value = dash.callback_context.triggered[0]['value']
+    [
+        *[Input(i, 'value') for i in property_values],
+        *[Input(i, 'on') for i in property_switches],
+    ],
+)
+def update_values(*values):
+    """Saves values modified in GUI to global config file.
+
+    Note:
+        To avoid accidental override of variables, ensure that
+        only a single client is updating the shared global config.
+    """
+    event = dash.callback_context.triggered[0]  # get first of input events (usually only one) 
+    trigger_id = event['prop_id'].rstrip('onvalue').rstrip('.')  # remove field name
+    trigger_value = event['value']
+
+    # Incremental write to saved configuration if event is valid
     if trigger_id != '':
-        with open(config_file, 'r') as f:
+
+        with open(CONFIG_FILE, 'r') as f:
             config = json.load(f)
+
         if re.search('det\dcorr', trigger_id):
-            config["local_detector_skew_correction"][trigger_id] = trigger_value
+            config['local_detector_skew_correction'][trigger_id] = trigger_value
         else:
             config[trigger_id] = trigger_value
-        json_config_writer(config)
-    return f'{trigger_id}, {trigger_value}'
 
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(config, f, indent=2)
 
-def json_config_writer(config):
-    with open(config_file, 'w') as outfile:
-        json.dump(config, outfile, indent=2)
+    return ''
