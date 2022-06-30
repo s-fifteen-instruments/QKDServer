@@ -124,7 +124,7 @@ def serve_layout():
             dbc.Col([
                 html.Div([html.Label('Tracking window (1/8 ns)', htmlFor='tracking_window'), html.Br(), tracking_window]),
                 html.P(),
-                html.Div([html.Label('Tracking time filter constant (ns)', htmlFor='track_filter_time_constant'),track_filter_time_constant]),
+                html.Div([html.Label('Tracking time filter constant (ns)', htmlFor='track_filter_time_constant'), track_filter_time_constant]),
             ], width=3),
             dbc.Col([
                 html.Div([html.Label('FFT buffer order', htmlFor='FFT_buffer_order'), html.Br(), FFT_buffer_order]),
@@ -135,10 +135,9 @@ def serve_layout():
         html.H4('Detector correction settings (1/256ns)'),
         dbc.Row([
             dbc.Col([
-                html.Div([
-                    html.Label('Detector 1 timing correction', htmlFor='det1corr'), det1corr]),
-                    html.P(),
-                    html.Div([html.Label('Detector 3 timing correction', htmlFor='det3corr'), det3corr]),
+                html.Div([html.Label('Detector 1 timing correction', htmlFor='det1corr'), det1corr]),
+                html.P(),
+                html.Div([html.Label('Detector 3 timing correction', htmlFor='det3corr'), det3corr]),
             ], width=3),
             dbc.Col([
                 html.Div([html.Label('Detector 2 timing correction', htmlFor='det2corr'), det2corr]),
