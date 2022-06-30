@@ -13,7 +13,7 @@ It ties together the quantum channel and the classical channel and generates enc
    - `authd.qkdb.cert`
    - `authd.qkda.key` or `authd.qkdb.key`
 
-2. Modify the following configuration variables in `qkd_engine_config.json` so as to align with local deployment environment:
+2. Modify the following configuration variables in `qkd_engine_config.json` so as to align with local deployment environment (or alternatively modify `qkd_engine_config.qkda.json` and run `make qkda`):
    
    - `target_hostname`: IP address / URL of opposing QKD server which this server communicates with
    - `remote_cert`: Path to certificate used by opposing QKD server
