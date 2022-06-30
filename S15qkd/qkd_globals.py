@@ -59,7 +59,7 @@ cwd = os.getcwd()
 # MODULE_ROOT_DIR = os.path.dirname(root_module.__file__)
 
 
-config_file = 'qkd_engine_config.json'
+config_file = '/root/code/QKDserver/S15qkd/qkd_engine_config.json'
 
 with open(config_file, 'r') as f:
     config = json.load(f)
