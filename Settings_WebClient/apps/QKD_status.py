@@ -1,12 +1,11 @@
+from dash import html, dcc
+from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-from dash import html
-from dash import dcc
 import plotly.graph_objects as go
 import numpy as np
-# import dash_html_components as html
-from dash.dependencies import Input, Output, State
-from app import app
 
+from app import app
 import S15qkd.controller as qkd_ctrl
 
 # Maximum allowed QBER in percentage (for graphing)
@@ -160,17 +159,6 @@ def serve_layout():
     return layout
 
 
-@app.callback(
-    Output('transferd-collapse', 'is_open'),
-    [Input('transferd-collapse-button', 'n_clicks')],
-    [State('transferd-collapse', 'is_open')],
-)
-def toggle_collapse(n, is_open):
-    if n:
-        return not is_open
-    return False
-
-
 process_list = [
     'transferd',
     'readevents',
@@ -314,28 +302,18 @@ def update_graph_bitrate(n):
     [Input('start_raw_key_gen', 'n_clicks')],
 )
 def on_button_click(n):
-    if n is not None:
-        print('starting key gen')
-        qkd_ctrl.start_service_mode()
+    if n is None:
+        raise PreventUpdate
+    qkd_ctrl.start_service_mode()
     return ''
 
 
 @app.callback(
     Output('hidden-div-2', 'children'),
-    [Input('transferd_status', 'n_clicks')],
-)
-def on_button_click_comm(n):
-    if n is not None:
-        print('starting transferd')
-        qkd_ctrl.start_communication()
-    return ''
-
-
-@app.callback(
-    Output('start_raw_key_gen', 'children'),
     [Input('kill_all_processes', 'n_clicks')],
 )
 def on_kill_button_click(n):
-    if n is not None:
-        qkd_ctrl.stop_key_gen()
-    return 'Start key generation'
+    if n is None:
+        raise PreventUpdate
+    qkd_ctrl.stop_key_gen()
+    return ''
