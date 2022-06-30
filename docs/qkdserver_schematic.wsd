@@ -1,0 +1,171 @@
+''' PlantUML '''
+@startuml qkdserver_schematic
+
+artifact readevents4a
+artifact polarization_compensator
+note "[service mode]\nminimize QBER and\nstart BBM92 mode" as N7
+polarization_compensator .. N7
+
+queue RAWEVENTS
+queue CMD
+folder RAWKEYS
+folder FINALKEYS
+
+readevents4a "stdout" --> RAWEVENTS
+
+rectangle communication {
+    folder RECEIVEFILES
+    folder SENDFILES
+    artifact transferd
+    artifact transferd_remote
+    queue MSGIN
+    queue MSGOUT
+    queue TRANSFERLOG
+    interface " " as to_splicer
+    note "record\nfirst epoch" as N2
+    to_splicer .. N2
+}
+
+rectangle "high count side" as high_counts {
+    artifact chopper2
+    queue T1LOG
+    folder T1FILES
+    interface " " as from_t1log
+    note "record first epoch" as N1
+    N1 .up. from_t1log
+}
+
+RAWEVENTS -r-> "-i" chopper2
+chopper2 "-D" --> T1FILES
+chopper2 "-l" --> T1LOG
+T1LOG --> from_t1log
+
+rectangle "low count side" as low_counts {
+    artifact chopper
+    queue T2LOG
+    folder T3FILES
+    interface " " as to_cmd
+    note "extract epoch" as N3
+
+    RAWEVENTS --> "-i" chopper
+
+    chopper "-l" --> T2LOG
+    T2LOG --> to_cmd
+    N3 .. to_cmd
+    to_cmd --> CMD
+
+    chopper "-d" --> T3FILES
+}
+
+'Message flow
+chopper "-D" --> SENDFILES
+SENDFILES --> "-d" transferd
+transferd "-M" --> MSGOUT
+transferd "-m" <-- MSGIN
+MSGIN <.. transferd_remote
+MSGOUT ..> transferd_remote
+' artifact controller
+' controller --> MSGIN
+' controller <-- MSGOUT
+
+'transferd stuff
+CMD --> "-c" transferd
+transferd "-l" --> TRANSFERLOG
+RECEIVEFILES <-- "-D" transferd
+TRANSFERLOG --> to_splicer
+
+''' SPLICER '''
+rectangle low_counts {
+    artifact splicer
+    queue GENLOG as GENLOG_low
+    queue SPLICER
+    queue EC_QUEUE
+    interface " " as from_splicer
+note "[BBM92 mode]\nqueue epoch for EC" as N8
+}
+
+to_splicer --> SPLICER
+splicer "-E" <-- SPLICER
+RECEIVEFILES --> "-D" splicer
+T3FILES --> "-d" splicer
+splicer "-m" --> GENLOG_low
+splicer "-f" --> RAWKEYS
+
+GENLOG_low --> from_splicer
+RAWKEYS .> from_splicer
+' note on link: [service mode]\nretrieve rawkey
+from_splicer --> polarization_compensator
+' note on link: [service mode]
+from_splicer --> EC_QUEUE
+N8 .right. from_splicer
+
+''' COSTREAM '''
+rectangle high_counts {
+    artifact costream
+    queue GENLOG as GENLOG_high
+    interface " " as from_genlog
+    note "calculate signal-noise\nfor keygen restart" as N6
+    N6 .left. from_genlog
+}
+
+T1FILES --> "-D" costream
+RECEIVEFILES --> "-d" costream
+costream "-F" --> SENDFILES
+costream "-M" --> CMD
+costream "-f" --> GENLOG_high
+costream "-n" --> RAWKEYS
+
+GENLOG_high --> from_genlog
+from_genlog --> polarization_compensator
+' note on link: [service mode]
+RAWKEYS .> from_genlog
+
+''' ERROR CORRECTION '''
+rectangle "error correction" as ec2 {
+    artifact error_correction
+    queue "ECQUERY" as ECQUERY
+    queue ECNOTE
+    queue "ECRESP" as ECQUERY_RESP
+    queue ECCMD
+    queue ECR
+    queue ECS
+}
+
+interface " " as from_ecnote
+note "check QBER\nfor service fallback" as N5
+N5 .left. from_ecnote
+
+rectangle low_counts {
+    artifact diagbb84
+    interface " " as ec_controller
+    note "concat raw epochs" as N4
+    N4 .. ec_controller
+}
+
+transferd "-E" -> ECR
+transferd "-e" <- ECS
+note on link: send EC data from\nhigh to low count
+
+RAWKEYS --> diagbb84
+diagbb84 --> ec_controller: rawkeys
+EC_QUEUE --> ec_controller: epoch
+ec_controller --> ECCMD: full epoch
+ECCMD --> "-c" error_correction
+ECR --> "-r" error_correction
+ECS <-- "-s" error_correction
+RAWKEYS --> "-d" error_correction
+error_correction "-Q" <-- ECQUERY
+error_correction "-q" --> ECQUERY_RESP
+error_correction "-f" --> FINALKEYS
+error_correction "-l" --> ECNOTE
+ECNOTE --> from_ecnote
+
+''' AESTHETICS '''
+' from_genlog -[hidden]up-> transferd
+' from_genlog -[hidden]r-> ECS
+' ECCMD -[hidden]r-> ECR
+' chopper -[hidden]r-> splicer
+T1FILES -[hidden]r-> T1LOG
+' transferd -[hidden]l-> transferd_remote
+
+@enduml

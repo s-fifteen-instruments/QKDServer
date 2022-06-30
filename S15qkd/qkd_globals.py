@@ -62,24 +62,24 @@ cwd = os.getcwd()
 config_file = 'qkd_engine_config.json'
 if not os.path.exists(config_file):
     dictionary = {
-        "target_hostname": "b.qkd.internal",
-        "remote_cert": "authd.qkdb.crt",
-        "local_cert": "authd.qkda.crt",
-        "local_key": "authd.qkda.key",
+        "target_hostname": "a.qkd.internal",
+        "remote_cert": "authd.qkda.crt",
+        "local_cert": "authd.qkdb.crt",
+        "local_key": "authd.qkdb.key",
         "port_authd": 55555,
         "port_transd": 4855,
         "local_authd_ip": "localhost",
         "data_root": "tmp/cryptostuff",
         "program_root": "bin/remotecrypto",
-        "identity": "QKD-A",
+        "identity": "QKD-B (Pol Comp)",
         "remote_coincidence_window": 6,
         "tracking_window": 30,
         "track_filter_time_constant": 2000000,
-        "FFT_buffer_order": 22,
+        "FFT_buffer_order": 23,
         "local_detector_skew_correction": {
-            "det1corr": -28,
-            "det2corr": 6,
-            "det3corr": 30,
+            "det1corr": 64,
+            "det2corr": -78,
+            "det3corr": -15,
             "det4corr": 0
         },
         "max_event_time_pause": 20000,
@@ -97,12 +97,12 @@ if not os.path.exists(config_file):
         "privacy_amplification": True,
         "errcd_killfile_option": False,
         "QBER_limit": 0.11,
-        "default_QBER": 0.06,
+        "default_QBER": 0.07,
         "minimal_block_size": 5000,
         "target_bit_error": 1e-09,
         "servo_blocks": 5,
-        "do_polarization_compensation": False,
-        "LCR_polarization_compensator_path": ""
+        "do_polarization_compensation": True,
+        "LCR_polarization_compensator_path": "/dev/serial/by-id/usb-S-Fifteen_Instruments_Quad_LCD_driver_LCDD-001-if00"
     }
     json_object = json.dumps(dictionary, indent=4)
     with open(config_file, "w") as outfile:
@@ -218,6 +218,10 @@ class PipesQKD(str, Enum):
     ECQUERY = f'/tmp/cryptostuff' + '/ecquery'
     ECRESP = f'/tmp/cryptostuff' + '/ecresp'
 
+    # NB: FoldersQKD.prepare_folders *must* be called prior to
+    #     pipe initialization, which is done so in controller.start_communication
+    ECNOTE_GUARDIAN = '/epoch_files/notify.pipe'
+
     @classmethod
     def prepare_pipes(cls):
         for pipe in cls:
@@ -307,11 +311,9 @@ logFormatter = logging.Formatter(
 
 fileHandler = MyTimedRotatingFileHandler('logs')
 fileHandler.setFormatter(logFormatter)
-#fileHandler.setLevel(logging.INFO)
 fileHandler.setLevel(logging.DEBUG)
 consoleHandler = logging.StreamHandler(sys.stdout)
 consoleHandler.setFormatter(logFormatter)
-#consoleHandler.setLevel(logging.INFO)
 consoleHandler.setLevel(logging.DEBUG)
 
 logger.addHandler(fileHandler)

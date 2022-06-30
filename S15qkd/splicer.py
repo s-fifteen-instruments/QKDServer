@@ -140,7 +140,7 @@ def _splice_pipe_digest(qkd_protocol, config_file_name: str = qkd_globals.config
                         f'Service mode, QBER: {diagnosis.quantum_bit_error}, Epoch: {message}')
                     if config.do_polarization_compensation is True:
                         polarization_compensator.update_QBER(
-                            diagnosis.quantum_bit_error)
+                            diagnosis.quantum_bit_error, epoch=message)
         except OSError:
             pass
         except Exception as a:

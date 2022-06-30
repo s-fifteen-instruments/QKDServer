@@ -25,7 +25,7 @@ from types import SimpleNamespace
 import qkd_globals
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
     datefmt="%Y%m%d_%H%M%S"
 )
@@ -122,7 +122,7 @@ try:
 
         # Make sure authd connection is available
         if conn is None:
-            logger.debug("Attempting reconnection to authd.")
+            logger.info("Attempting reconnection to authd.")
             if is_server:
                 conn, sock = connect_as_authd_server(ssock)
             else:
@@ -137,7 +137,7 @@ try:
 
         # Make sure transferd connection is available
         if conn_td is None:
-            logger.debug("Attempting reconnection to transferd.")
+            logger.info("Attempting reconnection to transferd.")
             conn_td = connect_as_transferd_server(ssock_td)
 
         # Handle connection error / dropouts

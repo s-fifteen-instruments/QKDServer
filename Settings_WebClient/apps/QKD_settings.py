@@ -131,8 +131,7 @@ def serve_layout():
             ]),
         ]),
         html.Br(),
-
-        html.H4('Detector correction settings (1/256ns)'),
+        html.H4('Detector correction settings 1/256ns (timing attack countermeasure)'),
         dbc.Row([
             dbc.Col([
                 html.Div([html.Label('Detector 1 timing correction', htmlFor='det1corr'), det1corr]),

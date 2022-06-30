@@ -406,11 +406,20 @@ def _start_readevents(det_dead_time: int = 30000):
     '''
     global proc_readevents, prog_readevents
 
+    # Block duplicate readevents
+    if proc_readevents is not None:
+        try:
+            qkd_globals.kill_process(proc_readevents)
+            proc_readevents = None
+        except:
+            logger.debug(f'Cannot kill readevents')
+        finally:
+            proc_readevents = None
     # Flush readevents with -q 2
     flush_args = f'-a1 -A -s -X -q 2 -Q\
                    -D {det1corr},{det2corr},{det3corr},{det4corr}' # this is using 1/256ns res
-    p2 = subprocess.Popen((prog_readevents,*flush_args.split()),stdout=subprocess.DEVNULL)
-    p2.wait()
+    proc_readevents = subprocess.Popen((prog_readevents,*flush_args.split()),stdout=subprocess.DEVNULL)
+    proc_readevents.wait()
     #p2=os.system("/root/code/qcrypto/remotecrypto/readevents -a2 -q2 -Q") # low-level flush
 
     # Actual useful data

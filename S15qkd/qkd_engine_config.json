@@ -1,22 +1,22 @@
 {
-    "target_hostname": "b.qkd.internal",
-    "remote_cert": "authd.qkdb.crt",
-    "local_cert": "authd.qkda.crt",
-    "local_key": "authd.qkda.key",
+    "target_hostname": "a.qkd.internal",
+    "remote_cert": "authd.qkda.crt",
+    "local_cert": "authd.qkdb.crt",
+    "local_key": "authd.qkdb.key",
     "port_authd": 55555,
     "port_transd": 4855,
-    "local_authd_ip": "localhost",
+    "local_authd_ip": "127.0.0.1",
     "data_root": "tmp/cryptostuff",
     "program_root": "bin/remotecrypto",
-    "identity": "QKD-A",
+    "identity": "QKD-B (Pol Comp)",
     "remote_coincidence_window": 6,
     "tracking_window": 30,
     "track_filter_time_constant": 2000000,
-    "FFT_buffer_order": 22,
+    "FFT_buffer_order": 23,
     "local_detector_skew_correction": {
-        "det1corr": -28,
-        "det2corr": 6,
-        "det3corr": 30,
+        "det1corr": 64,
+        "det2corr": -78,
+        "det3corr": -15,
         "det4corr": 0
     },
     "max_event_time_pause": 20000,
@@ -38,7 +38,7 @@
     "minimal_block_size": 5000,
     "target_bit_error": 1e-09,
     "servo_blocks": 5,
-    "do_polarization_compensation": false,
-    "LCR_polarization_compensator_path": ""
+    "do_polarization_compensation": true,
+    "LCR_polarization_compensator_path": "/dev/serial/by-id/usb-S-Fifteen_Instruments_Quad_LCD_driver_LCDD-001-if00"
 }
 
