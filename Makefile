@@ -27,3 +27,14 @@ default:
 		   --entrypoint="/root/entrypoint.sh" \
 		   --device=/dev/ioboards/usbtmst0 $(serial_devs) \
 		   --device-cgroup-rule='a *:* rwm' -p 8080:8000 -p 55555:55555 s-fifteen/qkdserver:qkd
+
+no-device:
+	docker run \
+		--volume /home/s-fifteen/code/QKDServer/S15qkd:/root/code/QKDserver/S15qkd \
+		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/certs:/root/code/QKDserver/Settings_WebClient/certs \
+		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/apps/QKD_settings.py:/root/code/QKDserver/Settings_WebClient/apps/QKD_settings.py \
+		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/apps/QKD_status.py:/root/code/QKDserver/Settings_WebClient/apps/QKD_status.py \
+		--volume /home/s-fifteen/code/QKDServer/entrypoint.sh:/root/entrypoint.sh \
+		--name qkd_nodev --rm -dit \
+		--entrypoint="/root/entrypoint.sh" \
+		-p 8080:8000 -p 55566:55555 s-fifteen/qkdserver:qkd
