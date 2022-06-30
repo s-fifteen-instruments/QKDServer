@@ -5,9 +5,9 @@ serial_devs = $(shell for dev in /dev/serial/by-id/* ;\
 all: stop default
 
 build_fresh:
-	docker build --no-cache -t s-fifteen/qkdserver:qkd .
+	docker build --network host --no-cache -t s-fifteen/qkdserver:qkd .
 build:
-	docker build -t s-fifteen/qkdserver:qkd .
+	docker build --network host -t s-fifteen/qkdserver:qkd .
 
 restart: stop default log
 

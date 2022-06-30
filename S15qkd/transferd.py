@@ -279,11 +279,11 @@ def measure_local_count_rate(config_file_name: str = qkd_globals.config_file):
         config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
     localcountrate = -1
     cmd = prog_readevents
-    args = f'-a 1 -X -q1 -Q'
+    args = f'-a 1 -X -q1'
     p0 = subprocess.Popen([cmd, *args.split()])
     p0.wait()
 
-    args = f'-a 1 -X -Q'
+    args = f'-a 1 -X'
     p1 = subprocess.Popen([cmd, *args.split()],
                           stdout=subprocess.PIPE)
     logger.info('started readevents')

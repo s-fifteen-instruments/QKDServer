@@ -407,7 +407,7 @@ def _start_readevents(det_dead_time: int = 30000):
     global proc_readevents, prog_readevents
 
     # Flush readevents with -q 2
-    flush_args = f'-a1 -A -s -X -q 2 -Q\
+    flush_args = f'-a1 -A -s -X -q 2 \
                    -D {det1corr},{det2corr},{det3corr},{det4corr}' # this is using 1/256ns res
     p2 = subprocess.Popen((prog_readevents,*flush_args.split()),stdout=subprocess.DEVNULL)
     p2.wait()
@@ -416,7 +416,7 @@ def _start_readevents(det_dead_time: int = 30000):
     # Actual useful data
     fd = os.open(PipesQKD.RAWEVENTS, os.O_WRONLY)  # non-blocking
     f_stdout = os.fdopen(fd, 'a')  # non-blocking
-    args = f'-A -a 1 -X -s -Q\
+    args = f'-A -a 1 -X -s \
              -D{det1corr},{det2corr},{det3corr},{det4corr}' # this is using 1/256ns res
     logger.info(f'readevents started with these arguments: {args}')
     with open(f'/{dataroot}/readeventserror', 'a+') as f_stderr:
