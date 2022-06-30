@@ -21,6 +21,7 @@ stop:
 	sleep 7
 
 default:
+	test -f "S15qkd/qkd_engine_config.json" || { echo "No configuration file found - run 'make qkda' or 'make qkdb' first."; exit 1; }
 	docker run \
 		--volume /home/s-fifteen/code/QKDServer/S15qkd:/root/code/QKDserver/S15qkd \
 		--volume /home/s-fifteen/code/QKDServer/entrypoint.sh:/root/entrypoint.sh \
