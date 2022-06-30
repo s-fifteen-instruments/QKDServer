@@ -43,7 +43,6 @@ default:
 # NB: If editing QKDServer, the entire Python package needs to be reinstalled as well,
 #     which is achieved by injecting the installation code in the entrypoint.sh script.
 
-
 no-device:
 	docker run \
 		--volume /home/s-fifteen/code/QKDServer/S15qkd:/root/code/QKDserver/S15qkd \
@@ -54,3 +53,11 @@ no-device:
 		--name qkd_nodev --rm -dit \
 		--entrypoint="/root/entrypoint.sh" \
 		-p 8080:8000 -p 55566:55555 s-fifteen/qkdserver:qkd
+
+# Apply example QKD-A settings
+qkda:
+	cp S15qkd/qkd_engine_config.qkda.json S15qkd/qkd_engine_config.json
+
+# Apply example QKD-B settings
+qkdb:
+	cp S15qkd/qkd_engine_config.qkdb.json S15qkd/qkd_engine_config.json
