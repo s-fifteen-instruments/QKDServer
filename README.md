@@ -13,7 +13,7 @@ It ties together the quantum channel and the classical channel and generates enc
    - `authd.qkdb.cert`
    - `authd.qkda.key` or `authd.qkdb.key`
 
-2. Modify the following configuration variables in `qkd_engine_config.json` so as to align with local deployment environment (or alternatively modify `qkd_engine_config.qkda.json` and run `make qkda`):
+2. For each server, modify the following variables in their corresponding configuration files (i.e. `qkd_engine_config.qkda.json` or `qkd_engine_config.qkdb.json`, note the names `qkda` and `qkdb` is only by convention), so as to align with local deployment environment:
    
    - `target_hostname`: IP address / URL of opposing QKD server which this server communicates with
    - `remote_cert`: Path to certificate used by opposing QKD server
@@ -24,9 +24,11 @@ It ties together the quantum channel and the classical channel and generates enc
    - `do_polarization_compensation`: Set to `false` if QKD server running on high count side
    - `LCR_polarization_compensator_path`: Path to local polarization compensator, typically deployed on QKD low count side
 
-3. Remove lines that map and reinstalls local changes to packages in the Docker container, see `Makefile` and `entrypoint.sh` (these are introduced to cut down redeployment time incurred from rebuilding Docker images).
+3. Run `make qkda` or `make qkdb` to deploy the corresponding configuration.
 
-4. Run the server using `make`.
+4. Remove lines that redeploys local changes within the Docker container, see `Makefile` and `entrypoint.sh` (these are introduced to cut down redeployment time incurred from rebuilding Docker images).
+
+5. Run the server using `make`.
 
 ## Architecture
 
