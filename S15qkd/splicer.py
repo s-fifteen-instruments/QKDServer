@@ -37,13 +37,10 @@ __email__ = 'mathias.seidler@s-fifteen.com'
 __status__ = 'dev'
 
 import json
-import sys
 import threading
 import os
 import subprocess
 import time
-import select
-import psutil
 from types import SimpleNamespace
 
 from . import qkd_globals
@@ -71,9 +68,8 @@ def _load_splicer_config(config_file_name: str):
 
 
 def initialize(config_file_name: str = qkd_globals.config_file):
-    global cwd, proc_splicer
+    global proc_splicer
     _load_splicer_config(config_file_name)
-    cwd = os.getcwd()
     proc_splicer = None
 
 
@@ -82,7 +78,7 @@ def start_splicer(qkd_protocol: int = QKDProtocol.BBM92):
     Starts the splicer process and attaches a thread digesting 
     the splice pipe and the genlog.
     '''
-    global data_root, cwd, proc_splicer
+    global data_root, proc_splicer
     if is_running() is not None:
         stop_splicer()
     initialize()

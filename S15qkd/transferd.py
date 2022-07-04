@@ -43,7 +43,6 @@ import threading
 import os
 from queue import Queue, Empty
 import time
-import sys
 import psutil
 from enum import Enum, unique, auto
 from types import SimpleNamespace
@@ -60,10 +59,9 @@ class CommunicationStatus(int, Enum):
     
     
 def initialize(config_file_name: str = qkd_globals.config_file):
-    global cwd, sleep_time, communication_status, low_count_side, remote_count_rate
+    global sleep_time, communication_status, low_count_side, remote_count_rate
     global local_count_rate, transferd_proc, first_received_epoch, last_received_epoch
     global prog_readevents, negotiating
-    cwd = os.getcwd()
     sleep_time = 1
     communication_status = CommunicationStatus.OFF
     low_count_side = ''

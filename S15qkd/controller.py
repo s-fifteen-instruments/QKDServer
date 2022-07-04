@@ -92,10 +92,9 @@ def _load_config(config_file_name: str):
 
 def initialize(config_file_name: str = config_file):
     global prog_readevents, prog_pfind, proc_readevents, proc_pfind
-    global cwd, localcountrate, remote_count_rate
+    global localcountrate, remote_count_rate
     global low_count_side, first_epoch, time_diff, sig_long, sig_short
     _load_config(config_file_name)
-    cwd = os.getcwd()
     prog_readevents = qkd_globals.prog_readevents
     prog_pfind = programroot + '/pfind'
     proc_readevents = None

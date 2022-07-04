@@ -42,8 +42,6 @@ import json
 import subprocess
 import os
 import threading
-import sys
-import psutil
 import time
 import queue
 import collections
@@ -83,14 +81,13 @@ def _load_error_correction_config(config_file_name: str):
 
 
 def initialize(config_file_name: str = qkd_globals.config_file):
-    global ec_queue, total_ec_key_bits, cwd
+    global ec_queue, total_ec_key_bits
     global undigested_epochs_info, init_QBER_info, ec_raw_bits
     global ec_epoch, ec_final_bits, ec_err_fraction, first_epoch_info, ec_key_gen_rate
     global proc_error_correction, ec_err_fraction_history, ec_err_key_length_history
     _load_error_correction_config(config_file_name)
     ec_queue = queue.Queue()  # used to queue raw key files
     total_ec_key_bits = 0  # counts the final error-corrected key bits
-    cwd = os.getcwd()
     first_epoch_info = ''
     undigested_epochs_info = 0
     init_QBER_info = 0

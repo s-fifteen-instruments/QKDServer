@@ -32,8 +32,6 @@ import json
 import subprocess
 import os
 import threading
-import sys
-import psutil
 import select
 from types import SimpleNamespace
 
@@ -48,7 +46,6 @@ def start_chopper2(config_file_name: str = qkd_globals.config_file):
     
     with open(config_file_name, 'r') as f:
         config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
-    cwd = os.getcwd()
     proc_chopper2 = None
     t1_epoch_count = 0
     t1logpipe_digest_thread_flag = False

@@ -46,18 +46,11 @@ import logging
 import logging.handlers
 import time
 import json
-import shutil
 import codecs
 import contextlib
 from enum import unique, Enum, auto
 
 EPOCH_DURATION = 2**32 / 8 * 1e-9
-
-cwd = os.getcwd()
-# root_name, _, _ = __name__.partition('.')
-# root_module = sys.modules[root_name]
-# MODULE_ROOT_DIR = os.path.dirname(root_module.__file__)
-
 
 config_file = '/root/code/QKDserver/S15qkd/qkd_engine_config.json'
 

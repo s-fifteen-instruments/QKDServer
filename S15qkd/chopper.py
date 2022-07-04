@@ -40,8 +40,6 @@ import json
 import subprocess
 import os
 import threading
-import sys
-import psutil
 import time
 from types import SimpleNamespace
 
@@ -61,7 +59,6 @@ def start_chopper(qkd_protocol, config_file_name: str = qkd_globals.config_file)
     with open(config_file_name, 'r') as f:
         config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
     prog_chopper = config.program_root + '/chopper'
-    cwd = os.getcwd()
     proc_chopper = None
     t2logpipe_thread = threading.Thread(target=_t2logpipe_digest, args=())
     args = f'-i {PipesQKD.RAWEVENTS} \
