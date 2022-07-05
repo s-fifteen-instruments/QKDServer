@@ -23,6 +23,7 @@ stop:
 default:
 	docker run \
 		--volume /home/s-fifteen/code/QKDServer/S15qkd:/root/code/QKDserver/S15qkd \
+		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/qkd_engine_config.json:/root/code/QKDserver/Settings_WebClient/qkd_engine_config.json \
 		--volume /home/s-fifteen/code/QKDServer/entrypoint.sh:/root/entrypoint.sh \
 		--name qkd --rm -dit \
 		--entrypoint="/root/entrypoint.sh" \
