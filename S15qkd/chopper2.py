@@ -27,86 +27,77 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# Built-in/Generic Imports
-import json
-import subprocess
-import os
-import threading
-import select
-from types import SimpleNamespace
+from .utils import Process
+from .qkd_globals import logger, PipesQKD, FoldersQKD, config_file
 
-from . import qkd_globals
-from .qkd_globals import logger, PipesQKD, FoldersQKD
+class Chopper2(Process):
 
+    def __init__(self, program):
+        super().__init__(program)
+        self._t1_epoch_count = 0
+        self._first_epoch = None
+    
+    def start(self):
+        assert not self.is_running()
+        
+        self.read(PipesQKD.T1LOG, self.digest_t1logpipe, 'T1LOG')
+
+        args = [
+            '-i', PipesQKD.RAWEVENTS,
+            '-D', FoldersQKD.T1FILES,
+            '-l', PipesQKD.T1LOG,
+            '-V', 3,
+            '-U',
+            '-F',
+            '-m', Process.config.max_event_diff,
+        ]
+        super().start(args, stderr="chopper2error")
+        logger.info('Started chopper2.')
+
+    def digest_t1logpipe(self, pipe):
+        """Digest the t1log pipe written by chopper2.
+
+        Chopper2 runs on the high-count side.
+        Also counts the number of epochs recorded by chopper2.
+        """
+        message = pipe.readline().decode().rstrip('\n').lstrip('\x00')
+        if len(message) == 0:
+            return
+        
+        logger.debug(f'[read msg] {message}')
+        if self._t1_epoch_count == 0:
+            self._first_epoch = message.split()[0]
+            logger.info(f'First_epoch: {self._first_epoch}')
+        self._t1_epoch_count += 1
+
+    @property
+    def t1_epoch_count(self):
+        return self._t1_epoch_count
+
+    @property
+    def first_epoch(self):
+        return self._first_epoch
+
+
+# Wrapper
+Process.load_config()
+chopper2 = Chopper2(Process.config.program_root + '/chopper2')
+
+# Original interface
 proc_chopper2 = None
 first_epoch = None
+t1_epoch_count = 0
 
-def start_chopper2(config_file_name: str = qkd_globals.config_file):
-    global proc_chopper2, first_epoch, t1logpipe_digest_thread_flag, t1_epoch_count
-    
-    with open(config_file_name, 'r') as f:
-        config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
-    proc_chopper2 = None
-    t1_epoch_count = 0
-    t1logpipe_digest_thread_flag = False
-    first_epoch = None
-    prog_chopper2 = config.program_root + '/chopper2'
-
-    args = f'-i {PipesQKD.RAWEVENTS} \
-             -l {PipesQKD.T1LOG} -V 3 \
-             -D {FoldersQKD.T1FILES} \
-             -U -F -m {config.max_event_diff}'
-    t1logpipe_thread = threading.Thread(
-        target=_t1logpipe_digest, args=(), daemon=True)
-    t1logpipe_thread.start()
-    with open(f'/{config.data_root}/chopper2error', 'a+') as f:
-        proc_chopper2 = subprocess.Popen((prog_chopper2, *args.split()),
-                                         stdout=subprocess.PIPE, stderr=f)
-    logger.info('Started chopper2.')
-
-
-def _t1logpipe_digest():
-    '''
-    Digest the t1log pipe written by chopper2.
-    Chopper2 runs on the high-count side.
-    Also counts the number of epochs recorded by chopper2.
-    '''
-    global t1logpipe_digest_thread_flag, t1_epoch_count, first_epoch
-    t1_epoch_count = 0
-    t1logpipe_digest_thread_flag = True
-
-    while t1logpipe_digest_thread_flag is True:
-        for message in _reader(PipesQKD.T1LOG):
-            logger.debug(f'[read msg] {message}')
-            if t1_epoch_count == 0:
-                first_epoch = message.split()[0]
-                logger.info(f'First_epoch: {first_epoch}')
-            t1_epoch_count += 1
-    logger.info(f'Thread finished.')
-
+def start_chopper2(config_file_name: str = config_file):
+    global proc_chopper2, first_epoch, t1_epoch_count
+    Process.load_config(config_file_name)
+    chopper2.start()
+    proc_chopper2 = chopper2.process
 
 def stop_chopper2():
-    global proc_chopper2, t1logpipe_digest_thread_flag
-    qkd_globals.kill_process(proc_chopper2)
+    global proc_chopper2
+    chopper2.stop()
     proc_chopper2 = None
-    t1logpipe_digest_thread_flag = False
-
-
-def _reader(file_name: str):
-    fd = os.open(file_name, os.O_RDWR)
-    f = os.fdopen(fd, 'r')  # non-blocking
-    readers = select.select([f], [], [], 3)[0]
-    for r in readers:
-        if f == r:
-            yield ((f.readline()).rstrip('\n')).lstrip('\x00')
-
 
 def is_running():
-    return not (proc_chopper2 is None or proc_chopper2.poll() is not None)
-
-
-if __name__ == '__main__':
-    import time
-    start_chopper2()
-    time.sleep(5)
-    stop_chopper2()
+    return chopper2.is_running()
