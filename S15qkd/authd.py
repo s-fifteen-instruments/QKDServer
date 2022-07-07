@@ -163,7 +163,7 @@ try:
                         try:
                             msg = c.recv(2048)  # hardcoded
                         except ssl.SSLWantReadError:
-                            logger.warning("Problematic SSL handshake. Ignoring.")
+                            # logger.warning("Problematic SSL handshake. Ignoring.")
                             continue
                         logger.debug(f"[  authd    ->] {repr(msg)}")
                         if msg == b"":
