@@ -24,6 +24,11 @@ default:
 	test -f "S15qkd/qkd_engine_config.json" || { echo "No configuration file found - run 'make qkda' or 'make qkdb' first."; exit 1; }
 	docker run \
 		--volume /home/s-fifteen/code/QKDServer/S15qkd:/root/code/QKDserver/S15qkd \
+		--volume /home/s-fifteen/code/QKDServer/S15qkd/qkd_engine_config.json:/root/code/QKDserver/Settings_WebClient/qkd_engine_config.json \
+		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/apps/QKD_status.py:/root/code/QKDserver/Settings_WebClient/apps/QKD_status.py \
+		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/apps/QKD_settings.py:/root/code/QKDserver/Settings_WebClient/apps/QKD_settings.py \
+		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/app.py:/root/code/QKDserver/Settings_WebClient/app.py \
+		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/index.py:/root/code/QKDserver/Settings_WebClient/index.py \
 		--volume /home/s-fifteen/code/QKDServer/entrypoint.sh:/root/entrypoint.sh \
 		--name qkd --rm -dit \
 		--entrypoint="/root/entrypoint.sh" \
