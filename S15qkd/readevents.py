@@ -8,7 +8,10 @@ from .qkd_globals import logger, PipesQKD
 
 class Readevents(Process):
 
-    def start(self):
+    def start(
+            self, 
+            callback_restart=None,    # to restart keygen
+        ):
         assert not self.is_running()
 
         det1corr = Process.config.local_detector_skew_correction.det1corr
@@ -31,7 +34,7 @@ class Readevents(Process):
         # Persist readevents
         # TODO(Justin): Check default default directory
         #               and pipe O_APPEND.
-        super().start(args, stdout=PipesQKD.RAWEVENTS, stderr="readeventserror")
+        super().start(args, stdout=PipesQKD.RAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
 
     def measure_local_count_rate(self):
         """Measure local photon count rate."""

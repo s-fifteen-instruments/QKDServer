@@ -40,7 +40,10 @@ class Chopper2(Process):
         self._t1_epoch_count = 0
         self._first_epoch = None
     
-    def start(self):
+    def start(
+            self,
+            callback_restart=None,    # to restart keygen
+        ):
         assert not self.is_running()
         self._reset()
 
@@ -53,7 +56,7 @@ class Chopper2(Process):
             '-F',
             '-m', Process.config.max_event_diff,
         ]
-        super().start(args, stderr="chopper2error")
+        super().start(args, stderr="chopper2error", callback_restart=callback_restart)
         
         self.read(PipesQKD.T1LOG, self.digest_t1logpipe, wait=0.1, name="T1LOG")
         logger.info('Started chopper2.')

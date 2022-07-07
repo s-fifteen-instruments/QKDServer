@@ -76,6 +76,7 @@ class Transferd(Process):
             self,
             callback_msgout=None,
             callback_localrate=None,  # to readevents measurement
+            callback_restart=None,    # to restart keygen
         ):
         assert not self.is_running()
         if self.communication_status != CommunicationStatus.DISCONNECTED:
@@ -100,7 +101,7 @@ class Transferd(Process):
             # Non-existent IP to avoid port binding conflict with authd
             '-s', '127.0.0.2', 
         ]
-        super().start(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        super().start(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, callback_restart=callback_restart)
 
         self.read(self.process.stdout, self.digest_stdout, wait=0.5, name="transferd.stdout")
         self.read(self.process.stderr, self.digest_stderr, wait=0.5, name="transferd.stderr")

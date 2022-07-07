@@ -41,6 +41,7 @@ class Splicer(Process):
             qkd_protocol,
             callback_ecqueue = None,  # message passing of epoch to error correction
             callback_start_keygen=None,  # callback to pass to polarization controller
+            callback_restart=None,    # to restart keygen
         ):
         """
 
@@ -64,7 +65,7 @@ class Splicer(Process):
             '-p', qkd_protocol.value,
             '-m', PipesQKD.GENLOG,
         ]
-        super().start(args, stdout='splicer_stdout', stderr='splicer_stderr')
+        super().start(args, stdout='splicer_stdout', stderr='splicer_stderr', callback_restart=callback_restart)
 
         if Process.config.do_polarization_compensation:
             self._polarization_compensator = PolarizationDriftCompensation(

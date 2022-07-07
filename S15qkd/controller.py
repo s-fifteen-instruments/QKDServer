@@ -32,6 +32,7 @@ SOFTWARE.
 
 # Built-in/Generic Imports
 import pathlib
+import threading
 import time
 from typing import Optional
 
@@ -49,97 +50,6 @@ from .utils import Process
 from . import error_correction
 from . import qkd_globals
 from .qkd_globals import logger, QKDProtocol, QKDEngineState
-
-# class ProcessWatchDog(threading.Thread):
-#     '''Monitors all processes neccessary to generate QKD keys.
-
-#     Basic logging of events and restart processes in case they crash.
-#     '''
-
-#     def __init__(self, log_file_name: str = 'process_watchdog.log'):
-#         super(ProcessWatchDog, self).__init__()
-#         self._running = True
-#         self._logger = logging.getLogger('processes_watchdog')
-#         self._logger.setLevel(logging.DEBUG)
-#         self._fh = logging.FileHandler(log_file_name, mode="a+")
-#         self._fh.setLevel(logging.DEBUG)
-#         self._fh.setFormatter(logging.Formatter(
-#             '%(asctime)s | %(process)d | %(levelname)s | %(module)s | %(message)s'))
-#         self._logger.addHandler(self._fh)
-#         self._logger.info('Initialized watchdog.')
-#         # store process states to obsrver changes
-#         self.prev_proc_states = get_process_states()
-#         self.prev_status = get_status_info()
-#         self._logger.info(self.prev_proc_states)
-
-#     def terminate(self):
-#         self._running = False
-
-#     def run(self):
-#         global proc_readevents
-#         while self._running:
-#             time.sleep(0.5)
-#             proc_states = get_process_states()
-#             status = get_status_info()
-#             for key in proc_states:
-#                 if self.prev_proc_states[key] != proc_states[key]:
-#                     if proc_states[key]:
-#                         self._logger.info(f'{key} started.')
-#                     else:
-#                         self._logger.info(f'{key} stopped.')
-#             if status['connection_status'] == CommunicationStatus.DISCONNECTED and self.prev_status['connection_status'] == CommunicationStatus.CONNECTED:
-#                 self._logger.info('Disconnected.')
-#                 self._logger.info('Stopping all key generation processes')
-#                 chopper.stop_chopper()
-#                 chopper2.stop_chopper2()
-#                 splicer.stop_splicer()
-#                 costream.stop_costream()
-#                 error_correction.stop_error_correction()
-#                 qkd_globals.kill_process(proc_readevents)
-#             self.prev_proc_states = proc_states
-#             self.prev_status = status
-#             self.crash_detection_and_restart(proc_states)
-
-#     def crash_detection_and_restart(self, process_states):
-#         '''
-#         Checks if processes are running and restarts if any abnormalities are detected.
-#         '''
-
-#         if qkd_engine_state in [QKDEngineState.SERVICE_MODE, QKDEngineState.KEY_GENERATION]:
-#             if process_states['transferd'] is False:
-#                 self._logger.error(f'Transferd crashed. Trying to restart communication and key generation.')
-#                 stop_key_gen()
-#                 transferd.stop_communication()
-#                 start_communication()
-#                 time.sleep(1)
-#                 logger.debug('I killed something')
-#                 start_service_mode()
-#                 return
-#             if transferd.low_count_side is True:
-#                 if False in [process_states['readevents'],
-#                              process_states['chopper'],
-#                              process_states['splicer']]:
-#                     self._logger.error(f'Crash detected. Processes running: Readevents: {process_states["readevents"]} \
-#                                    Chopper: {process_states["chopper"]} \
-#                                    Splicer: {process_states["splicer"]}')
-#                     stop_key_gen()
-#                     start_service_mode()
-#             elif transferd.low_count_side is False:
-#                 if False in [process_states['readevents'],
-#                              process_states['chopper2'],
-#                              process_states['costream']]:
-#                     self._logger.error(f"Crash detected. Processes running: readevents: {process_states['readevents']} \
-#                                    chopper2: {process_states['chopper2']} \
-#                                    costream: {process_states['costream']}")
-#                     stop_key_gen()
-#                     start_service_mode()
-
-#         if qkd_engine_state == QKDEngineState.KEY_GENERATION:
-#             if process_states['error_correction'] is False:
-#                 self._logger.error(f'Error correction not started. stopping key gen')
-#                 stop_key_gen()
-#                 start_service_mode()
-
 
 # TODO(Justin): Rename 'program_root' in config.
 
@@ -303,7 +213,7 @@ class Controller:
         # Initiate SERVICE mode
         self.send("serv_st1")
 
-    def _start_key_generation(self):
+    def start_key_generation(self):
         """Restarts key generation mode.
         
         Typically this will be automatically called after SERVICE mode finishes
@@ -318,6 +228,16 @@ class Controller:
         
         # Initiate BBM92 mode
         self.send("st1")
+
+    def restart_protocol(self):
+        """Restarts respective SERVICE/KEYGEN mode.
+        
+        Useful as convenience function + process monitor restarting.
+        """
+        if self._qkd_protocol == QKDProtocol.SERVICE:
+            self.start_service_mode()
+        else:
+            self.start_key_generation()
 
 
 
@@ -390,8 +310,8 @@ class Controller:
             if qkd_protocol == QKDProtocol.BBM92:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
             self.transferd.send(prepend_if_service("st2"))
-            self.chopper2.start()
-            self.readevents.start()
+            self.chopper2.start(self.restart_protocol)
+            self.readevents.start(self.restart_protocol)
             
         if seq == "st2":
             if not low_count_side:
@@ -401,11 +321,12 @@ class Controller:
             # Old comment: Provision to send signals to timestamps. Not used currently.
             if qkd_protocol == QKDProtocol.BBM92:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
-            self.chopper.start(qkd_protocol)
-            self.readevents.start()
+            self.chopper.start(qkd_protocol, self.restart_protocol)
+            self.readevents.start(self.restart_protocol)
             self.splicer.start(
                 qkd_protocol,
                 lambda msg: error_correction.ec_queue.put(msg),
+                self.restart_protocol,
             )
 
             # Important: 'st3' message is delayed so that both chopper and chopper2 can
@@ -424,10 +345,7 @@ class Controller:
                 logger.debug(f"{start_epoch} {periods} {hex(int(start_epoch, 16) + periods)}")
                 td, sl, ss = self.pfind.measure_time_diff(start_epoch, periods)
             except RuntimeError:
-                if qkd_protocol == QKDProtocol.SERVICE:
-                    self.start_service_mode()
-                else:
-                    self._start_key_generation()
+                self.restart_protocol()
                 return
 
             # These variables should only be set here.
@@ -440,8 +358,8 @@ class Controller:
                 td,
                 start_epoch,
                 qkd_protocol,
-                self.start_service_mode if QKDProtocol.SERVICE else self._start_key_generation,
-                self._start_key_generation,
+                self.restart_protocol,
+                self.start_key_generation,
             )
             if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
                 error_correction.start_error_correction()  # TODO
@@ -540,6 +458,9 @@ def start_service_mode():
     """Initiated by QKD controller via the QKD server status page."""
     controller.start_service_mode()  # passthrough
 
+def start_key_generation():
+    controller.start_key_generation()
+
 def stop_key_gen():
     """Initiated by QKD controller via the QKD server status page."""
     controller.stop_key_gen()
@@ -552,8 +473,3 @@ def get_process_states():
 
 def get_error_corr_info():
     return controller.get_error_corr_info()
-
-# initialize()
-# watchdog = ProcessWatchDog()
-# watchdog.daemon = True
-# watchdog.start()

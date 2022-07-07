@@ -7,11 +7,12 @@ import threading
 from pathlib import Path
 import subprocess
 from types import SimpleNamespace
+from typing import Union
 
 import psutil
 
 from . import qkd_globals
-from .qkd_globals import logger, PipesQKD, FoldersQKD
+from .qkd_globals import QKDProtocol, logger, PipesQKD, FoldersQKD
 
 class Process:
     """Represents a single process.
@@ -32,6 +33,7 @@ class Process:
         self.program = program
         self.process = None
         self._persist_read = None  # See read() below.
+        self._expect_running = False  # See monitor() below.
     
     @classmethod
     def load_config(cls, path=None):
@@ -40,14 +42,24 @@ class Process:
         with open(path, 'r') as f:
             cls.config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
 
-    def start(self, args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL):
+    def start(
+            self,
+            args: list,
+            stdout: Union[int, str, PipesQKD] = subprocess.DEVNULL,
+            stderr: Union[int, str, PipesQKD] = subprocess.DEVNULL,
+            callback_restart=None,
+        ):
         """Starts the process with specified args and standard streams.
-
-        #TODO(justin): args...
 
         Standard input must be open to allow argument passing.
 
         Process pipes to '/dev/null'-equivalent file by default.
+
+        Args:
+            args: Command line arguments for program.
+            stdout: Standard output stream.
+            stderr: Standard error stream.
+            callback_restart: Callback to controller to perform restart.
 
         Note:
             An alternative implementation to write to file is previously performed as:
@@ -68,6 +80,11 @@ class Process:
                    descriptor remains open.
 
             For semantic reasons, this is translated to a file descriptor picture.
+
+            Process monitoring can also consider introducing a 'monitor' kwargs defaulting
+            to True, to allow override of '_expect_running' so that processes designed to
+            terminate (wait) do not inadvertently force a restart. This is currently mitigated
+            by adding a one-second interval between process start and monitor start.
 
             [1]: https://docs.python.org/3/library/subprocess.html#:~:text=inheritable%20flag
         """
@@ -106,10 +123,22 @@ class Process:
         # Close file descriptors
         if is_stdout_fd: os.close(stdout)
         if is_stderr_fd: os.close(stderr)
+
+        # Issue monitoring thread
+        # TODO(Justin): Consider scenario where services stops and starts immediately,
+        # but callback_restart is not updated to new condition. Can be mitigated by
+        # shorter polling duration compared to process start time.
+        #
+        # Activate callback restart only if defined
+        if callback_restart:
+            self._expect_running = True
+            self.monitor(callback_restart)
     
     def stop(self, timeout=3):
         if self.process is None:
             return
+
+        self._expect_running = False
 
         # Stop persistence read pipes attached to process
         if self._persist_read:
@@ -141,6 +170,7 @@ class Process:
         self.process = None
 
     def wait(self):
+        self._expect_running = False
         return self.process.wait()
 
     def is_running(self):
@@ -234,3 +264,24 @@ class Process:
         if not name:
             name = path
         logger.debug(f"'{message}' written to '{name}'.")
+
+    def monitor(self, callback_restart):
+        """Restarts keygen if process terminates without a wait/stop trigger.
+        
+        Polls performed every 1 second.
+        """
+        
+        def monitor_daemon():
+            time.sleep(1)
+            while self._expect_running:
+                if not self.is_running():
+                    logger.debug("Activated process monitor for '{self.program}' ('{self.process}')")
+                    callback_restart()
+                    return
+                time.sleep(1)
+            logger.debug("Terminated process monitor for '{self.program}' ('{self.process}')")
+    
+        logger.debug(f"Starting process monitor for '{self.program}' ('{self.process}')")
+        thread = threading.Thread(target=monitor_daemon)
+        thread.daemon = True
+        thread.start()

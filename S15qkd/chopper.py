@@ -30,7 +30,11 @@ from .qkd_globals import logger, PipesQKD, FoldersQKD, config_file
 
 class Chopper(Process):
 
-    def start(self, qkd_protocol):
+    def start(
+            self,
+            qkd_protocol,
+            callback_restart=None,    # to restart keygen
+        ):
         """
         
         Needs to know current protocol (SERVICE or KEYGEN) to change up verbosity
@@ -55,7 +59,7 @@ class Chopper(Process):
             '-y', 20,
             '-m', Process.config.max_event_diff,
         ]
-        super().start(args, stderr="choppererror")
+        super().start(args, stderr="choppererror", callback_restart=callback_restart)
 
         logger.info('Started chopper.')
 

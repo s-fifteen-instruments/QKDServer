@@ -92,7 +92,7 @@ class Costream(Process):
             '-h', Process.config.costream_histo_number,
         ]
         logger.info(f'costream starts with the following arguments: {args}')
-        super().start(args, stderr="costreamerror")
+        super().start(args, stderr="costreamerror", callback_restart=callback_restart)
         
         self.read(PipesQKD.GENLOG, self.digest_genlog, 'GENLOG')
 
