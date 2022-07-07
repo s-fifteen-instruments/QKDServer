@@ -28,24 +28,30 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from enum import Enum, unique, auto
+from enum import Enum, auto, unique
 import subprocess
+import time
 
 from .utils import Process
-from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD, QKDEngineState, config_file
-from .polarization_compensation import PolarizationDriftCompensation
-from .rawkey_diagnosis import RawKeyDiagnosis
-
-# TODO(Justin): Remove this when code migrates to controller
-from .readevents import readevents
+from .qkd_globals import logger, PipesQKD, FoldersQKD
 
 # Almost guaranteed to be connected due to authd
+# Removing state 'OFF' 
 @unique
 class CommunicationStatus(int, Enum):
-    OFF = 0
-    CONNECTED = 1
-    DISCONNECTED = 2
+    """Represents connection state to remote transferd.
+    
+    In practice, transferd connection status is almost guaranteed to be
+    connected due to dropout mitigation by authd.
 
+    Note:
+        OFF status is deprecated since this is equivalent to the combination
+        'is_running() == False' and 'communication_status == DISCONNECTED'.
+    """
+    DISCONNECTED = 0
+    CONNECTED = 1
+
+# Note this is very much tied to 'low_count_side' status.
 class SymmetryNegotiationState(int, Enum):
     NOTDONE = 0
     PENDING = 1
@@ -55,28 +61,27 @@ class Transferd(Process):
 
     def __init__(self, program):
         super().__init__(program)
-        self._communication_status = CommunicationStatus.OFF
-        self._low_count_side = ''
-        self._remote_count_rate = -1
-        self._local_count_rate = -1
+        self._reset()
+    
+    def _reset(self):
+        self._communication_status = CommunicationStatus.DISCONNECTED
+        self._low_count_side = None  # SST
+        self._remote_count_rate = None
+        self._local_count_rate = None
         self._first_received_epoch = None
-        self._last_received_epoch = ''
+        self._last_received_epoch = None
         self._negotiating = SymmetryNegotiationState.NOTDONE
-
-        # Messaging
-        self._callback_msgout = None
-        self._callback_localrate = None
 
     def start(
             self,
-            callback_msgout=callback_local,
+            callback_msgout=None,
             callback_localrate=None,  # to readevents measurement
-            config_file_name: str = config_file
         ):
         assert not self.is_running()
-        if self.communication_status != CommunicationStatus.OFF:
+        if self.communication_status != CommunicationStatus.DISCONNECTED:
             return
 
+        self._reset()
         self._callback_msgout = callback_msgout
         self._callback_localrate = callback_localrate
         
@@ -97,8 +102,8 @@ class Transferd(Process):
         ]
         super().start(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        self.read(self.process.stdout, self.digest_stdout, wait=0.5)
-        self.read(self.process.stderr, self.digest_stderr, wait=0.5)
+        self.read(self.process.stdout, self.digest_stdout, wait=0.5, name="transferd.stdout")
+        self.read(self.process.stderr, self.digest_stderr, wait=0.5, name="transferd.stderr")
         self.read(PipesQKD.MSGOUT, self.digest_msgout, wait=0.05)
         self.read(PipesQKD.TRANSFERLOG, self.digest_transferlog, wait=0.1)
 
@@ -127,7 +132,8 @@ class Transferd(Process):
         This function usually runs as a thread and watches the transferlog file. 
         If this is the low count side this function notifies the splicer about file arrival.
         '''
-        message = f.readline().decode().rstrip()
+        # message = pipe.readline().decode().rstrip()
+        message = pipe.readline().rstrip()
         if len(message) == 0:
             return
         
@@ -141,7 +147,8 @@ class Transferd(Process):
             logger.debug(f'Sent epoch name {message} to splicer.')
 
     def digest_msgout(self, pipe):
-        message = f.readline().decode().lstrip('\x00').rstrip('\n')
+        # message = pipe.readline().decode().lstrip('\x00').rstrip('\n')
+        message = pipe.readline().lstrip('\x00').rstrip('\n')
         if len(message) == 0:
             return
         
@@ -151,7 +158,7 @@ class Transferd(Process):
         else:
             self._callback_msgout(message)
     
-    def negotiate_symmetry(message: str = ''):
+    def negotiate_symmetry(self, message: str = ''):
         """Negotiates low/high-count sides with remote server.
 
         If no message (response) is supplied, symmetry negotiation is initiated
@@ -161,15 +168,15 @@ class Transferd(Process):
             message: Response from remote transferd (optional)
             callback_localrate: ...
         """
-        assert self.is_running()
+        assert self.is_connected()
 
         # Initialize with local count rate
-        if self._local_count_rate == -1:
+        if self._local_count_rate == None:
             self._local_count_rate = self._callback_localrate()
         
         # Sending out negotiation request
         if not message and self._negotiating != SymmetryNegotiationState.FINISHED:
-            self.send_msgin(f'ne1:{self._local_count_rate}')
+            self.send(f'ne1:{self._local_count_rate}')
             self._negotiating = SymmetryNegotiationState.PENDING
             return
 
@@ -187,7 +194,7 @@ class Transferd(Process):
         # remote -> (local)
         if msg_code == 'ne1':
             self._remote_count_rate = reported_remote_rate
-            self.send_msgin(f'ne2:{self._local_count_rate}:{reported_remote_rate}')
+            self.send(f'ne2:{self._local_count_rate}:{reported_remote_rate}')
 
         # Reply to response from negotiation request
         # local -> remote -> (local)
@@ -201,7 +208,7 @@ class Transferd(Process):
                 self._negotiating = SymmetryNegotiationState.NOTDONE
                 return
 
-            self.send_msgin(f'ne3:{self._local_count_rate}:{self._remote_count_rate}')
+            self.send(f'ne3:{self._local_count_rate}:{self._remote_count_rate}')
             if reported_local_rate <= reported_remote_rate:
                 self._low_count_side = True
                 logger.info('[ne2] This is the low count side.')
@@ -231,36 +238,8 @@ class Transferd(Process):
             logger.info(f'[ne3] Symmetry negotiation succeeded.')
             self._negotiating = SymmetryNegotiationState.FINISHED
 
-            
-
-        if msg_code == 'ne2':
-            remote_count_rate = int(msg_split[1])
-            if int(msg_split[2]) == local_count_rate:
-                send_message(f'ne3:{local_count_rate}:{remote_count_rate}')
-                if local_count_rate <= remote_count_rate:
-                    low_count_side = True
-                    logger.info(f'[ne2] This is the low count side.')
-                else:
-                    low_count_side = False
-                    logger.info(f'[ne2] This the high count side.')
-                negotiating = SymmetryNegotiationState.FINISHED
-
-        if msg_code == 'ne3':
-            if int(msg_split[2]) == local_count_rate and int(msg_split[1]) == remote_count_rate:
-                if local_count_rate < remote_count_rate:
-                    low_count_side = True
-                    logger.info(f'[ne3] This is the low count side.')
-                else:
-                    low_count_side = False
-                    logger.info(f'[ne3] This is the high count side.')
-                logger.info(f'[ne3] Symmetry negotiation succeeded.')
-                negotiating = SymmetryNegotiationState.FINISHED
-            else:
-                logger.info(f'[ne3] Count rates in the messages do not agree. \
-                    Symmetry negotiation failed')
-                negotiating = SymmetryNegotiationState.NOTDONE
-
-    def send_msgin(message: str):
+    def send(self, message: str):
+        """Writes to MSGIN pipe, which is forwarded to remote."""
         Process.write(PipesQKD.MSGIN, message)
         logger.info(message)
         time.sleep(1)
@@ -271,8 +250,17 @@ class Transferd(Process):
         # effectively the same since marked only when is_running checked
         # TODO(Justin): Check if this is actually necessary
         if not result:
-            self._communication_status = CommunicationStatus.OFF
+            self._communication_status = CommunicationStatus.DISCONNECTED
         return result
+    
+    def is_connected(self):
+        """Returns True if transferd is running and connected.
+        
+        Note:
+            Avoids exposing CommunicationStatus.
+        """
+        return self.is_running() \
+            and self._communication_status == CommunicationStatus.CONNECTED
 
 
     @property
@@ -302,59 +290,3 @@ class Transferd(Process):
     @property
     def negotiating(self):
         return self._negotiating
-
-
-# Wrapper
-Process.load_config()
-transferd = Transferd(Process.config.program_root + '/transferd')
-
-# Carried over wholesale
-def callback_local(msg: str):
-    '''
-    The transferd process has a msgout pipe which contains received messages.
-    Usually we let another script manage the response to these messages, 
-    however when no response function is defined this function is used as a default response.
-
-
-    Arguments:
-        msg {str} -- Contains the messages received in the msgout pipe.
-    '''
-    logger.info(f'The msgout pipe is printed locally by the transferd modul.\n\
-          Define a callback function in start_communication to digest the msgout output in your custom function.')
-    logger.info(msg)
-
-
-# Original interface
-transferd_proc = None
-
-def start_communication(
-        callback_msgout=callback_local,
-        config_file_name: str = config_file
-    ):
-    global transferd_proc
-    transferd.start(
-        callback_msgout,
-        readevents.measure_local_count_rate,
-        config_file_name,
-    )
-    transferd_proc = transferd.process
-
-def stop_communication():
-    global transferd_proc
-    if not transferd.is_running():
-        return
-
-    transferd.stop()
-    transferd.communication_status = CommunicationStatus.OFF
-    transferd_proc = None
-
-send_message = transferd.send_msgin
-symmetry_negotiation = transferd.negotiate_symmetry
-
-def is_running():
-    return transferd.is_running()
-
-# Exposes class properties as global variables
-# using module-level __getattr__ available in Python 3.7+
-def __getattr__(name):
-    return getattr(costream, name)

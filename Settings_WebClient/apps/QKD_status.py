@@ -66,7 +66,7 @@ def serve_layout():
     # Raw key generation status
     connection_status = html.Div(['Connection status: ', html.Nobr(id='connection_status')])
     symmetry_status = html.Div(['Symmetry: ', html.Nobr(id='symmetry')])
-    protocol_status = html.Div(['Protocol: ', html.Nobr( id='protocol')])
+    protocol_status = html.Div(['Protocol: ', html.Nobr(id='protocol')])
     init_time_diff_status = html.Div(['Initial time difference: ', html.Nobr(id='init_time_diff')])
     tracked_time_diff_status = html.Div(['Tracked time difference: ', html.Nobr(id='tracked_time_diff')])
     received_epoch_status = html.Div(['Last received epoch: ', html.Nobr(id='last_received_epoch')])
@@ -92,6 +92,18 @@ def serve_layout():
     ])
 
     # Error correction status
+    #
+    # Encountered stray errors like before, even when callbacks are defined correctly:
+    #
+    # Exception on /_dash-update-component [POST]
+    # Traceback (most recent call last):
+    #   File "/usr/local/lib/python3.9/site-packages/dash/dash.py", line 1422, in dispatch
+    #     cb = self.callback_map[output]
+    # KeyError: '..first_epoch.children...//...init_QBER.children..'
+    #
+    # Might be a silly webpage caching issue that might be solved by performing a
+    # hard refresh - otherwise can try switching the variables around until the error goes away.
+    #
     total_ec_bits_status = html.Div(['Total error-corrected bits: ', html.Nobr(id='total_ec_key_bits')])
     start_epoch_status = html.Div(['Start epoch: ', html.Nobr(id='first_epoch')])
     num_epoch_status = html.Div(['Number of epochs: ', html.Nobr(id='undigested_epochs')])
@@ -186,7 +198,11 @@ def load_process_states(value):
             proc_color_dict[i] = 'success'
     return [*proc_status_dict.values(), *proc_color_dict.values()]
 
-
+symmetry_matching = {
+    True: 'Low count side',
+    False: 'High count side',
+    None: '',
+}
 raw_keygen_info_list = [
     'connection_status',
     'symmetry',
@@ -205,9 +221,9 @@ raw_keygen_info_list = [
     [Input('proc_status_interval', 'n_intervals')],
 )
 def load_state_info(n):
-    status_dct = dict(qkd_ctrl.get_status_info())  # copy values
-    status_dct['symmetry'] = 'Low count side' if status_dct['symmetry'] else 'High count side'
-    status_dct['protocol'] = 'BBM92' if status_dct['protocol'] == 1 else 'unknown'
+    status_dct = qkd_ctrl.get_status_info()
+    status_dct['symmetry'] = symmetry_matching[status_dct['symmetry']]
+    status_dct['protocol'] = 'BBM92 mode' if status_dct['protocol'] == 1 else 'Service mode'
     return [status_dct[info] for info in raw_keygen_info_list]
 
 

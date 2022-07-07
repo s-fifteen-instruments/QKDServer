@@ -34,13 +34,15 @@ class Chopper2(Process):
 
     def __init__(self, program):
         super().__init__(program)
+        self._reset()
+    
+    def _reset(self):
         self._t1_epoch_count = 0
         self._first_epoch = None
     
     def start(self):
         assert not self.is_running()
-        
-        self.read(PipesQKD.T1LOG, self.digest_t1logpipe, 'T1LOG')
+        self._reset()
 
         args = [
             '-i', PipesQKD.RAWEVENTS,
@@ -52,6 +54,8 @@ class Chopper2(Process):
             '-m', Process.config.max_event_diff,
         ]
         super().start(args, stderr="chopper2error")
+        
+        self.read(PipesQKD.T1LOG, self.digest_t1logpipe, wait=0.1, name="T1LOG")
         logger.info('Started chopper2.')
 
     def digest_t1logpipe(self, pipe):
@@ -60,7 +64,8 @@ class Chopper2(Process):
         Chopper2 runs on the high-count side.
         Also counts the number of epochs recorded by chopper2.
         """
-        message = pipe.readline().decode().rstrip('\n').lstrip('\x00')
+        # message = pipe.readline().decode().rstrip('\n').lstrip('\x00')
+        message = pipe.readline().rstrip('\n').lstrip('\x00')
         if len(message) == 0:
             return
         
@@ -77,27 +82,3 @@ class Chopper2(Process):
     @property
     def first_epoch(self):
         return self._first_epoch
-
-
-# Wrapper
-Process.load_config()
-chopper2 = Chopper2(Process.config.program_root + '/chopper2')
-
-# Original interface
-proc_chopper2 = None
-first_epoch = None
-t1_epoch_count = 0
-
-def start_chopper2(config_file_name: str = config_file):
-    global proc_chopper2, first_epoch, t1_epoch_count
-    Process.load_config(config_file_name)
-    chopper2.start()
-    proc_chopper2 = chopper2.process
-
-def stop_chopper2():
-    global proc_chopper2
-    chopper2.stop()
-    proc_chopper2 = None
-
-def is_running():
-    return chopper2.is_running()

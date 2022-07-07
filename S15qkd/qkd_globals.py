@@ -170,6 +170,7 @@ class PipesQKD(str, Enum):
 
     @classmethod
     def prepare_pipes(cls):
+        os.makedirs('/tmp/cryptostuff', exist_ok=True)
         for pipe in cls:
             if os.path.exists(pipe):
                 if stat.S_ISFIFO(os.stat(pipe).st_mode):
@@ -190,15 +191,28 @@ class PipesQKD(str, Enum):
         f = os.fdopen(fd, 'rb', 0)
         f.readall()
 
+    def __str__(self):
+        """Allows implicit conversion to value.
+        
+        See mixin effect on str(v) vs f'{v}' [1].
+        In particular, subclassing as class(str,Enum) allows certain
+        libraries (e.g. os, f-strings), to interpret the enum member
+        as a string directly, while the __str__ method allows implicit
+        conversion of the enum to a string.
+        
+        [1]: https://docs.python.org/3/library/enum.html#others
+        """
+        return self.value
+
 
 class FoldersQKD(str, Enum):
-    DATAROOT = '/' + data_root
-    SENDFILES = DATAROOT + '/sendfiles'
-    RECEIVEFILES = DATAROOT + '/receivefiles'
-    T1FILES = DATAROOT + '/t1'
-    T3FILES = DATAROOT + '/t3'
-    RAWKEYS = DATAROOT + '/rawkey'
-    HISTOS = DATAROOT + '/histos'
+    DATAROOT = data_root
+    SENDFILES = data_root + '/sendfiles'
+    RECEIVEFILES = data_root + '/receivefiles'
+    T1FILES = data_root + '/t1'
+    T3FILES = data_root + '/t3'
+    RAWKEYS = data_root + '/rawkey'
+    HISTOS = data_root + '/histos'
     FINALKEYS = '/epoch_files'
 
     @classmethod
@@ -213,6 +227,10 @@ class FoldersQKD(str, Enum):
         for folder in [cls.RECEIVEFILES + '/*', cls.SENDFILES + '/*', cls.T1FILES + '/*', cls.T3FILES + '/*']:
             for f in glob.glob(folder):
                 os.remove(f)
+
+    def __str__(self):
+        """See FoldersQKD.__str__ for documentation."""
+        return self.value
 
 @contextlib.contextmanager
 def my_open(file_name: str):

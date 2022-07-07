@@ -6,7 +6,7 @@
     "port_authd": 55555,
     "port_transd": 4855,
     "local_authd_ip": "localhost",
-    "data_root": "tmp/cryptostuff",
+    "data_root": "/tmp/cryptostuff",
     "program_root": "bin/remotecrypto",
     "identity": "QKD-A",
     "remote_coincidence_window": 6,

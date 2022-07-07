@@ -34,23 +34,13 @@ from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD, QKDEngineSta
 from .polarization_compensation import PolarizationDriftCompensation
 from .rawkey_diagnosis import RawKeyDiagnosis
 
-# TODO(Justin): Remove these when instantiation parked under main loop,
-#               and use callbacks instead.
-from . import error_correction
-from . import controller
-
 class Splicer(Process):
-
-    def __init__(self, program):
-        super().__init__(program)
-        self._qkd_protocol = None
-        self._polarization_compensator = None
         
     def start(
             self,
-            qkd_protocol: int = QKDProtocol.BBM92,
+            qkd_protocol,
             callback_ecqueue = None,  # message passing of epoch to error correction
-            callback_servicemode=None,  # message passing to mark as service mode 
+            callback_start_keygen=None,  # callback to pass to polarization controller
         ):
         """
 
@@ -58,11 +48,12 @@ class Splicer(Process):
         the splice pipe and the genlog.
         """
         assert not self.is_running()
-        self._protocol = qkd_protocol
-        self._callback_ecqueue = callback_ecqueue
-        self._callback_servicemode = callback_servicemode
 
-        self.read(PipesQKD.GENLOG, self.digest_splicepipe, 'GENLOG')
+        self.read(PipesQKD.GENLOG, self.digest_splicepipe, 'GENLOG', persist=True)
+
+        self._qkd_protocol = qkd_protocol
+        self._polarization_compensator = None
+        self._callback_ecqueue = callback_ecqueue
 
         args = [
             '-d', FoldersQKD.T3FILES,
@@ -70,19 +61,19 @@ class Splicer(Process):
             '-f', FoldersQKD.RAWKEYS,
             '-E', PipesQKD.SPLICER,
             Process.config.kill_option,
-            '-p', qkd_protocol,
+            '-p', qkd_protocol.value,
             '-m', PipesQKD.GENLOG,
         ]
-
         super().start(args, stdout='splicer_stdout', stderr='splicer_stderr')
 
         if Process.config.do_polarization_compensation:
             self._polarization_compensator = PolarizationDriftCompensation(
                 Process.config.LCR_polarization_compensator_path
-            )
+            ) # TODO(Justin): Pass 'callback_start_keygen'
 
     def digest_splicepipe(self, pipe):
-        message = pipe.readline().decode().rstrip('\n').lstrip('\x00')
+        # message = pipe.readline().decode().rstrip('\n').lstrip('\x00')
+        message = pipe.readline().rstrip('\n').lstrip('\x00')
         if len(message) == 0:
             return
         
@@ -93,7 +84,6 @@ class Splicer(Process):
             self._callback_ecqueue(message)
             
         elif qkd_protocol == QKDProtocol.SERVICE:
-            self._callback_servicemode()
             diagnosis = RawKeyDiagnosis(
                 pathlib.Path(FoldersQKD.RAWKEYS) / message
             )
@@ -106,31 +96,3 @@ class Splicer(Process):
                 self._polarization_compensator.update_QBER(
                     diagnosis.quantum_bit_error, epoch=message,
                 )
-
-
-# Wrapper
-Process.load_config()
-splicer = Splicer(Process.config.program_root + '/splicer')
-
-def callback_ecqueue(message):
-    error_correction.ec_queue.put(message)
-
-# Conflicting states between qkd_protocol and controller.qkd_engine_state...
-def callback_servicemode():
-    controller.qkd_engine_state = QKDEngineState.SERVICE_MODE
-
-# Original interface
-proc_splicer = None
-
-def start_splicer(qkd_protocol: int = QKDProtocol.BBM92):
-    global proc_splicer
-    splicer.start(qkd_protocol, callback_ecqueue, callback_servicemode)
-    proc_splicer = splicer.process
-
-def stop_splicer():
-    global proc_splicer
-    splicer.stop()
-    proc_splicer = None
-
-def is_running():
-    return splicer.is_running()

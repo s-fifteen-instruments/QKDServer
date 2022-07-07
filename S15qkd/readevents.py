@@ -4,14 +4,17 @@ import pathlib
 import subprocess
 
 from .utils import Process
+from .qkd_globals import logger, PipesQKD
 
 class Readevents(Process):
 
     def start(self):
-        if self.is_running():
-            self.stop()
-        
         assert not self.is_running()
+
+        det1corr = Process.config.local_detector_skew_correction.det1corr
+        det2corr = Process.config.local_detector_skew_correction.det2corr
+        det3corr = Process.config.local_detector_skew_correction.det3corr
+        det4corr = Process.config.local_detector_skew_correction.det4corr
         args = [
             '-a', 1,  # outmode 1
             '-X',
@@ -30,7 +33,7 @@ class Readevents(Process):
         #               and pipe O_APPEND.
         super().start(args, stdout=PipesQKD.RAWEVENTS, stderr="readeventserror")
 
-    def measure_local_count_rate():
+    def measure_local_count_rate(self):
         """Measure local photon count rate."""
         assert not self.is_running()
         args = [
@@ -56,13 +59,3 @@ class Readevents(Process):
 
         # Extract measured local count rate
         return int(proc_getrate.stdout.read().decode())
-
-
-# Wrapper
-
-Process.load_config()
-readevents = Readevents(Process.config.program_root + '/chopper2')
-
-# Original globals
-
-proc_readevents = None

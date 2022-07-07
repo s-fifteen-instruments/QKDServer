@@ -31,6 +31,7 @@ class Process:
     def __init__(self, program):
         self.program = program
         self.process = None
+        self._persist_read = None  # See read() below.
     
     @classmethod
     def load_config(cls, path=None):
@@ -73,22 +74,34 @@ class Process:
         # Parse stdout/stderr strings into file descriptors
         is_stdout_fd = is_stderr_fd = False
 
-        if isinstance(stdout, str):
-            path = Path(Process.config.data_root) / str(stdout)
-            stdout = os.open(path, os.O_APPEND)
+        if isinstance(stdout, PipesQKD):
+            stdout = os.open(stdout, os.O_WRONLY)
+            # stdout = os.open(stdout, os.O_WRONLY | os.O_NONBLOCK) TODO
             is_stdout_fd = True
 
-        if isinstance(stderr, str):
-            path = Path(Process.config.data_root) / str(stdout)
-            stdout = os.open(path, os.O_APPEND)
+        elif isinstance(stdout, str):
+            path = Path(Process.config.data_root) / stdout
+            stdout = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT)
+            is_stdout_fd = True
+        
+        if isinstance(stderr, PipesQKD):
+            stderr = os.open(stderr, os.O_WRONLY)
+            # stderr = os.open(stderr, os.O_WRONLY | os.O_NONBLOCK) TODO
+            is_stderr_fd = True
+
+        elif isinstance(stderr, str):
+            path = Path(Process.config.data_root) / stderr
+            stderr = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT)
             is_stderr_fd = True
 
         # Run program in child process
         # psutil.Popen used for continuous tracking of PID
+        command = [self.program, *list(map(str, args))]
         self.process = psutil.Popen(
-            [self.program, *list(map(str, args))],
+            command,
             stdout=stdout, stderr=stderr,  # file descriptors are inherited
         )
+        logger.debug(f"Started: {' '.join(map(str, command))}")
 
         # Close file descriptors
         if is_stdout_fd: os.close(stdout)
@@ -98,22 +111,32 @@ class Process:
         if self.process is None:
             return
 
-        procs = self.process.children(recursive=True)  # stop process tree
-        procs.append(self.process)  # stop process itself as well
+        # Stop persistence read pipes attached to process
+        if self._persist_read:
+            self._persist_read = False
 
-        # Attempt graceful terminate
-        for p in procs:
-            p.terminate()
+        try:
+            # 'qcrypto' likely does not have child processes, but
+            # gathering them all up to avoid any orphaned zombie processes.
+            procs = self.process.children(recursive=True)  # stop process tree
+            procs.append(self.process)  # stop process itself as well
             
-        # Wait on terminated processes and kill processes that are still alive
-        gone, alive = psutil.wait_procs(
-            procs,
-            timeout=timeout,
-            callback=lambda p: logger.debug(f'Process {p} terminated.')
-        )
-        for p in alive:
-            p.kill()
-            logger.debug(f'Process {p} killed.')
+            # Attempt graceful terminate
+            for p in procs:
+                p.terminate()
+                
+            # Wait on terminated processes and kill processes that are still alive
+            gone, alive = psutil.wait_procs(
+                procs,
+                timeout=timeout,
+                callback=lambda p: logger.debug(f'Process {p} terminated.')
+            )
+            for p in alive:
+                p.kill()
+                logger.debug(f'Process {p} killed.')
+
+        except psutil.NoSuchProcess:
+            logger.debug(f"Process '{self.process}' already prematurely terminated ('{self.program}')")
 
         self.process = None
 
@@ -124,34 +147,69 @@ class Process:
         return self.process and self.process.poll() is None
     
     # Helper
-    def read(self, pipe, callback, name='', wait=0.1):
+    def read(self, pipe, callback, name='', wait=0.1, persist=False):
         """TODO
+
+        If opening any pipes from the same parent thread, ensure that
+        the process itself has been started first. The opened pipe
+        is designed to terminate automatically together with the process.
+        
+        Notably, some processes cannot start if the pipe is not already there, e.g.
+        chopper, splicer. If persist set to True, a single-valued boolean
+        container (list) will be provided to signal termination.
 
         Args:
             pipe: Can be actual opened pipe, or path to pipe in filesystem.
         """
-        def func(pipe):
+        if persist:
+            self._persist_read = True
+        
+        def func(pipe, name):
             # Create pipe if is not already open for reading
             if not isinstance(pipe, io.IOBase):
+                if not name:
+                    name = pipe
                 # Create file descriptor for read-only non-blocking pipe
-                fd = os.open(pipe, os.O_RDONLY | os.O_NONBLOCK)
+                # TODO(Justin): Why must a single threaded pipe read be non-blocking?
+                fd = os.open(pipe, os.O_RDONLY)
                 # Open file descriptor with *no* buffer
-                pipe = os.fdopen(fd, 'rb', 0)
+                pipe = os.fdopen(fd, 'r')
+
+                # TODO
+                # pipe = os.fdopen(fd, 'rb', 0)
             
             # Run callback on pipe until termination instruction
             with pipe:
+                if name:
+                    logger.info(f"Named pipe '{name}' opened.")
                 assert pipe.readable()
-                while not self.is_running():
+
+                # Swap between parent process or persistence flag
+                predicate = lambda: self.is_running()
+                if self._persist_read is not None:
+                    predicate = lambda: self._persist_read
+
+                while predicate():
                     if wait:
                         time.sleep(wait)
+
+                    # Note that the try-except around pipe to catch OSError is *necessary*,
+                    # observed in Python 3.6, specifically for unbuffered non-blocking pipes.
+                    # A read performed when the pipe (_io.FileIO) has no data, even though
+                    # readable() returns true, raises:
+                    #    OSError: read() should have returned a bytes object, not 'NoneType'
+                    # Possibly related unresolved bug: https://bugs.python.org/issue13322
+                    #
+                    # Implementation ported from old code.
+                    # TODO(Justin): Consider switching to a line buffered pipe.
                     try:
                         callback(pipe)
                     except OSError:
                         pass
             if name:
-                logger.info(f"Pipe '{name}' closed.")
+                logger.info(f"Named pipe '{name}' closed.")
 
-        thread = threading.Thread(target=func, args=(pipe,))
+        thread = threading.Thread(target=func, args=(pipe,name))
         thread.start()
     
     @staticmethod
