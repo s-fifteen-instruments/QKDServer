@@ -28,8 +28,8 @@ class Readevents(Process):
         ]
 
         # Flush readevents
-        super().start(args + ['-q2'])
-        self.wait()
+        #super().start(args + ['-q2'])  # With proper termination with sigterm, this is not necessary anymore.
+        #self.wait()
 
         # Persist readevents
         # TODO(Justin): Check default default directory
@@ -46,8 +46,8 @@ class Readevents(Process):
 
         # Flush readevents
         # Terminates after single event retrieved
-        super().start(args + ['-q1'])
-        self.wait()
+        #super().start(args + ['-q1'])
+        #self.wait()
 
         # Retrieve one round of counting events
         # Terminate when getrate terminates

@@ -103,10 +103,10 @@ class Transferd(Process):
         ]
         super().start(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, callback_restart=callback_restart)
 
-        self.read(self.process.stdout, self.digest_stdout, wait=0.5, name="transferd.stdout")
-        self.read(self.process.stderr, self.digest_stderr, wait=0.5, name="transferd.stderr")
-        self.read(PipesQKD.MSGOUT, self.digest_msgout, wait=0.05)
-        self.read(PipesQKD.TRANSFERLOG, self.digest_transferlog, wait=0.1)
+        self.read(self.process.stdout, self.digest_stdout, wait=0.5, name="transferd.stdout", persist=True)
+        self.read(self.process.stderr, self.digest_stderr, wait=0.5, name="transferd.stderr", persist=True)
+        self.read(PipesQKD.MSGOUT, self.digest_msgout, wait=0.05, persist=True)
+        self.read(PipesQKD.TRANSFERLOG, self.digest_transferlog, wait=0.1, persist=True)
 
         time.sleep(0.2)  # give some time to connect to the partnering computer
 
@@ -170,6 +170,10 @@ class Transferd(Process):
             callback_localrate: ...
         """
         assert self.is_connected()
+
+        # Negotiation was done, skip
+        if self._low_count_side is not None and self._negotiating == SymmetryNegotiationState.FINISHED:
+            return
 
         # Initialize with local count rate
         if self._local_count_rate == None:

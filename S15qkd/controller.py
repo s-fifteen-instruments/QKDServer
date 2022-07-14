@@ -115,6 +115,7 @@ class Controller:
         self.transferd.start(
             self.callback_msgout,
             self.readevents.measure_local_count_rate,
+            self.restart_protocol,
         )
         
         # Verify connection status, timeout 10s
@@ -168,8 +169,8 @@ class Controller:
 
         # Stop own transferd to terminate all incoming instructions from remote,
         # since some commands may initiate certain processes to restart themselves
-        self.transferd.stop()
-        self.qkd_engine_state = QKDEngineState.OFF
+        #self.transferd.stop()
+        #self.qkd_engine_state = QKDEngineState.OFF
         
         # Stop own processes (except transferd)
         self.readevents.stop()
@@ -361,8 +362,8 @@ class Controller:
                 self.restart_protocol,
                 self.start_key_generation,
             )
-            if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
-                error_correction.start_error_correction()  # TODO
+        if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
+            error_correction.start_error_correction()  # TODO
 
     @requires_transferd
     def _retrieve_epoch_overlap(self):
