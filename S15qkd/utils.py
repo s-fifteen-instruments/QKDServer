@@ -275,11 +275,11 @@ class Process:
             time.sleep(1)
             while self._expect_running:
                 if not self.is_running():
-                    logger.debug("Activated process monitor for '{self.program}' ('{self.process}')")
+                    logger.debug(f"Activated process monitor for '{self.program}' ('{self.process}')")
                     callback_restart()
                     return
                 time.sleep(1)
-            logger.debug("Terminated process monitor for '{self.program}' ('{self.process}')")
+            logger.debug(f"Terminated process monitor for '{self.program}' ('{self.process}')")
     
         logger.debug(f"Starting process monitor for '{self.program}' ('{self.process}')")
         thread = threading.Thread(target=monitor_daemon)

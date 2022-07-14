@@ -168,8 +168,8 @@ class Controller:
 
         # Stop own transferd to terminate all incoming instructions from remote,
         # since some commands may initiate certain processes to restart themselves
-        self.transferd.stop()
-        self.qkd_engine_state = QKDEngineState.OFF
+        #self.transferd.stop()
+        #self.qkd_engine_state = QKDEngineState.OFF
         
         # Stop own processes (except transferd)
         self.readevents.stop()
@@ -224,7 +224,7 @@ class Controller:
         self.stop_key_gen()
         
         # Initiate symmetry negotiation
-        self._negotiate_symmetry()
+        #self._negotiate_symmetry()
         
         # Initiate BBM92 mode
         self.send("st1")
@@ -252,6 +252,7 @@ class Controller:
     def _negotiate_symmetry(self):
         """Forwards symmetry negotiation request to transferd and set low_count_side."""
         # TODO(Justin): Check if negotiation proceeds when symmetry previously negotiated.
+        # TODO(Justin): No recovery when symmetry negotiation times out
         self.transferd.negotiate_symmetry()
 
         # Await response from transferd
@@ -361,8 +362,8 @@ class Controller:
                 self.restart_protocol,
                 self.start_key_generation,
             )
-            if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
-                error_correction.start_error_correction()  # TODO
+        if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
+            error_correction.start_error_correction()  # TODO
 
     @requires_transferd
     def _retrieve_epoch_overlap(self):

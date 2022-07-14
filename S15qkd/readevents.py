@@ -27,9 +27,9 @@ class Readevents(Process):
             '-D', f'{det1corr},{det2corr},{det3corr},{det4corr}',
         ]
 
-        # Flush readevents
-        super().start(args + ['-q2'])
-        self.wait()
+        # Flush readevents 
+        #super().start(args + ['-q2']) # With proper termination with sigterm, this is not necessary anymore. 
+        #self.wait()
 
         # Persist readevents
         # TODO(Justin): Check default default directory
@@ -46,8 +46,12 @@ class Readevents(Process):
 
         # Flush readevents
         # Terminates after single event retrieved
-        super().start(args + ['-q1'])
-        self.wait()
+        #super().start(args + ['-q1'])
+        #self.wait()
+
+        # TODO(Justin): Problematic if the above just hangs, i.e.
+        # wait does nothing. Might consider performing a timeout kill
+        # in Process.wait.
 
         # Retrieve one round of counting events
         # Terminate when getrate terminates
