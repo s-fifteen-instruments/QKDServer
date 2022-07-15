@@ -31,7 +31,7 @@ class RawKeyDiagnosis(object):
                 self.coincidences_ADAD + self.coincidences_DD
             qber_denominator = self.coincidences_ADD + self.coincidences_DAD + \
                 self.coincidences_HV + self.coincidences_VH + qber_numerator
-            self.quantum_bit_error = qber_numerator / qber_denominator
+            self.quantum_bit_error = qber_numerator / (qber_denominator + 1)
             self.total_coincidences = results[16]
             self.total_counts = results[17]
         else:

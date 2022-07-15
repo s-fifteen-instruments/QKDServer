@@ -2,6 +2,7 @@
 
 import pathlib
 import subprocess
+import os
 
 from .utils import Process
 from .qkd_globals import logger, PipesQKD
@@ -28,13 +29,35 @@ class Readevents(Process):
         ]
 
         # Flush readevents
-        #super().start(args + ['-q2'])  # With proper termination with sigterm, this is not necessary anymore.
-        #self.wait()
+        super().start(args + ['-q1'])  # With proper termination with sigterm, this should not be necessary anymore.
+        self.wait()
 
         # Persist readevents
         # TODO(Justin): Check default default directory
         #               and pipe O_APPEND.
         super().start(args, stdout=PipesQKD.RAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
+
+    def measure_local_count_rate_system(self):
+        """Measure local photon count rate through shell. Done to solve process not terminated nicely for >160000 count rate per epoch.
+           Don't need to handle pipes, but harder to recover if things don't work.""" 
+        assert not self.is_running()
+        # Flush readevents
+        # Terminates after single event retrieved
+        super().start(['-q1'])
+        self.wait()
+
+        command = [ pathlib.Path(Process.config.program_root).absolute().as_posix(),
+                    '/readevents -a1 -X | ',
+                    pathlib.Path(Process.config.program_root).absolute().as_posix(),
+                    '/getrate']
+        command = ''.join(command)
+        proc = os.popen(command)
+        if not proc :
+            logger.warning(f'getrate returned error')
+        counts = int(proc.read().rstrip('\n'))
+        proc.close()
+
+        return counts 
 
     def measure_local_count_rate(self):
         """Measure local photon count rate."""
@@ -46,8 +69,8 @@ class Readevents(Process):
 
         # Flush readevents
         # Terminates after single event retrieved
-        #super().start(args + ['-q1'])
-        #self.wait()
+        super().start(args + ['-q1'])
+        self.wait()
 
         # Retrieve one round of counting events
         # Terminate when getrate terminates

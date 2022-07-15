@@ -98,6 +98,7 @@ class Controller:
         self._sig_long: Optional[int] = None
         self._sig_short: Optional[int] = None
         self._qkd_protocol = QKDProtocol.SERVICE  # TODO(Justin): Deprecate this field.
+        self.transferd._first_received_epoch = None # Reset this value if not restarting/resetting transferd
     
     def _establish_connection(self):
         """Establish classical communication channel via transferd.
@@ -114,7 +115,7 @@ class Controller:
         self._initialize_pipes()
         self.transferd.start(
             self.callback_msgout,
-            self.readevents.measure_local_count_rate,
+            self.readevents.measure_local_count_rate_system,
             self.restart_protocol,
         )
         
@@ -225,7 +226,7 @@ class Controller:
         self.stop_key_gen()
         
         # Initiate symmetry negotiation
-        self._negotiate_symmetry()
+        #self._negotiate_symmetry() # 
         
         # Initiate BBM92 mode
         self.send("st1")
