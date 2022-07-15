@@ -179,7 +179,7 @@ class Transferd(Process):
             self._local_count_rate = self._callback_localrate()
         
         # Sending out negotiation request
-        if not message and self._negotiating != SymmetryNegotiationState.FINISHED:
+        if not message: # and self._negotiating != SymmetryNegotiationState.FINISHED:
             self.send(f'ne1:{self._local_count_rate}')
             self._negotiating = SymmetryNegotiationState.PENDING
             return
@@ -246,7 +246,7 @@ class Transferd(Process):
         """Writes to MSGIN pipe, which is forwarded to remote."""
         Process.write(PipesQKD.MSGIN, message)
         logger.info(message)
-        time.sleep(1)
+        #time.sleep(1)
 
     def is_running(self):
         result = super().is_running()

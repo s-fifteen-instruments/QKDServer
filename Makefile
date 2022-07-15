@@ -14,7 +14,7 @@ restart: stop default log
 log:
 	docker logs -f qkd
 exec:
-	docker exec -it qkd /bin/sh
+	docker exec -w /root/code/QKDserver/Settings_WebClient -it qkd /bin/sh
 
 stop:
 	-docker stop qkd
