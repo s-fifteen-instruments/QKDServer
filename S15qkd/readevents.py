@@ -69,8 +69,8 @@ class Readevents(Process):
 
         # Flush readevents
         # Terminates after single event retrieved
-        #super().start(args + ['-q1'])
-        #self.wait()
+        super().start(args + ['-q1'])
+        self.wait()
 
         # TODO(Justin): Problematic if the above just hangs, i.e.
         # wait does nothing. Might consider performing a timeout kill

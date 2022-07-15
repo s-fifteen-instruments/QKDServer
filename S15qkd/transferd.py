@@ -76,6 +76,7 @@ class Transferd(Process):
             self,
             callback_msgout=None,
             callback_localrate=None,  # to readevents measurement
+            callback_restart=None,    # to restart keygen
         ):
         assert not self.is_running()
         if self.communication_status != CommunicationStatus.DISCONNECTED:
@@ -213,13 +214,13 @@ class Transferd(Process):
                 return
 
             self.send(f'ne3:{self._local_count_rate}:{self._remote_count_rate}')
+            self._negotiating = SymmetryNegotiationState.FINISHED
             if reported_local_rate <= reported_remote_rate:
                 self._low_count_side = True
                 logger.info('[ne2] This is the low count side.')
             else:
                 self._low_count_side = False
                 logger.info('[ne2] This the high count side.')
-            self._negotiating = SymmetryNegotiationState.FINISHED
         
         # Positive confirmation for symmetry state, no response needed
         # remote -> local -> remote -> (local)
