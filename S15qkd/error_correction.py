@@ -218,8 +218,8 @@ class ErrorCorr(Process):
                         PipesQKD.ECCMD, f'0x{first_epoch} {undigested_epochs} {float("{0:.4f}".format(self.servoed_QBER))}')
                     logger.info(
                         f'Started error correction for {undigested_epochs} epochs starting with epoch {first_epoch}.')
-                    self.first_epoch_info = first_epoch
-                    self.undigested_epochs_info = undigested_epochs
+                    self._first_epoch_info = first_epoch
+                    self._undigested_epochs_info = undigested_epochs
                     self._init_QBER_info = self.servoed_QBER
                     undigested_raw_bits = 0
                     undigested_epochs = 0
