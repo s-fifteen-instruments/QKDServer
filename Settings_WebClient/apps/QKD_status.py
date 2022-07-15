@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import numpy as np
 
 from app import app
-import S15qkd.controller as qkd_ctrl
+from S15qkd.controller import controller as qkd_ctrl
 
 # Maximum allowed QBER in percentage (for graphing)
 MAX_ALLOWED_QBER = 12
@@ -269,7 +269,7 @@ graph_axis_format = {
     [Input('proc_status_interval', 'n_intervals')],
 )
 def update_graph_qber(n):
-    y = np.array(list(qkd_ctrl.error_correction.ec_err_fraction_history)) * 100  # convert to percentage
+    y = np.array(list(qkd_ctrl.errc._ec_err_fraction_history)) * 100  # convert to percentage
     x = np.arange(0, len(y), 1)
     y_maxqber = np.ones(len(y)) * MAX_ALLOWED_QBER
     ylim = np.max(y) + 5 if len(y) > 0 else 1
@@ -297,7 +297,7 @@ def update_graph_qber(n):
     [Input('proc_status_interval', 'n_intervals')],
 )
 def update_graph_bitrate(n):
-    y = np.array(list(qkd_ctrl.error_correction.ec_err_key_length_history))
+    y = np.array(list(qkd_ctrl.errc._ec_err_key_length_history))
     x = np.arange(0, len(y), 1)
     ylim = 1 if len(y) == 0 else np.ceil(np.max(y)/100)*100 + 5  # ensure upper bound (units of 100) is visible
 

@@ -45,9 +45,9 @@ from .splicer import Splicer
 from .readevents import Readevents
 from .pfind import Pfind
 from .utils import Process
+from .error_correction import ErrorCorr
 
 # Own modules
-from . import error_correction
 from . import qkd_globals
 from .qkd_globals import logger, QKDProtocol, QKDEngineState
 
@@ -79,6 +79,7 @@ class Controller:
         self.costream = Costream(dir_qcrypto / 'costream')
         self.splicer = Splicer(dir_qcrypto / 'splicer')
         self.pfind = Pfind(dir_qcrypto / 'pfind')
+        self.errc = ErrorCorr(dir_qcrypto / 'errcd')
 
         # Statuses
         self.qkd_engine_state = QKDEngineState.OFF
@@ -184,7 +185,7 @@ class Controller:
         self._reset()
         
         # TODO(Justin): Refactor error correction and pipe creation
-        error_correction.stop_error_correction()
+        #error_correction.stop_error_correction()
         qkd_globals.PipesQKD.drain_all_pipes()
         qkd_globals.FoldersQKD.remove_stale_comm_files()
 
@@ -254,7 +255,6 @@ class Controller:
     def _negotiate_symmetry(self):
         """Forwards symmetry negotiation request to transferd and set low_count_side."""
         # TODO(Justin): Check if negotiation proceeds when symmetry previously negotiated.
-        # TODO(Justin): No recovery when symmetry negotiation times out
         self.transferd.negotiate_symmetry()
 
         # Await response from transferd
@@ -306,7 +306,7 @@ class Controller:
         # 'serv_st1' is equivalent to a 'START' command
         if seq == "st1":
             if low_count_side:
-                # Reflect message back to remote
+                # Reflect message back to high_count_side
                 self.transferd.send(prepend_if_service("st1"))
                 return
             
@@ -328,9 +328,10 @@ class Controller:
             self.readevents.start(self.restart_protocol)
             self.splicer.start(
                 qkd_protocol,
-                lambda msg: error_correction.ec_queue.put(msg),
+               lambda msg: error_correction.ec_queue.put(msg),
                 self.restart_protocol,
             )
+
 
             # Important: 'st3' message is delayed so that both chopper and chopper2 can
             # generate sufficient initial epochs first.
@@ -365,7 +366,11 @@ class Controller:
                 self.start_key_generation,
             )
         if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
-            error_correction.start_error_correction()  # TODO
+            if not self.errc.is_running():
+                self.errc.start(
+                    qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
+                    self.restart_protocol,
+                )  # TODO
 
     @requires_transferd
     def _retrieve_epoch_overlap(self):
@@ -413,7 +418,7 @@ class Controller:
             'chopper2': self.chopper2.is_running(),
             'costream': self.costream.is_running(),
             'splicer': self.splicer.is_running(),
-            'error_correction': error_correction.is_running()
+            'error_correction': self.errc.is_running()
         }
 
     def get_status_info(self):
@@ -433,14 +438,14 @@ class Controller:
 
     def get_error_corr_info(self):
         return {
-            'first_epoch': error_correction.first_epoch_info,
-            'undigested_epochs': error_correction.undigested_epochs_info,
-            'ec_raw_bits': error_correction.ec_raw_bits,
-            'ec_final_bits': error_correction.ec_final_bits,
-            'ec_err_fraction': error_correction.ec_err_fraction,
-            'key_file_name': error_correction.ec_epoch,
-            'total_ec_key_bits': error_correction.total_ec_key_bits,
-            'init_QBER': error_correction.init_QBER_info,
+            'first_epoch': self.errc._first_epoch_info,
+            'undigested_epochs': self.errc._undigested_epochs_info,
+            'ec_raw_bits': self.errc._ec_raw_bits,
+            'ec_final_bits': self.errc._ec_final_bits,
+            'ec_err_fraction': self.errc._ec_err_fraction,
+            'key_file_name': self.errc._ec_epoch,
+            'total_ec_key_bits': self.errc._total_ec_key_bits,
+            'init_QBER': self.errc.init_QBER_info,
         }
 
     @property
@@ -454,8 +459,8 @@ class Controller:
 
 
 Process.load_config()
-identity = Process.config.identity
 controller = Controller()
+controller.identity = Process.config.identity
 
 def start_service_mode():
     """Initiated by QKD controller via the QKD server status page."""
