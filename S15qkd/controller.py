@@ -185,7 +185,7 @@ class Controller:
         self._reset()
         
         # TODO(Justin): Refactor error correction and pipe creation
-        #error_correction.stop_error_correction()
+        #self.errc.stop()
         qkd_globals.PipesQKD.drain_all_pipes()
         qkd_globals.FoldersQKD.remove_stale_comm_files()
 
@@ -328,7 +328,7 @@ class Controller:
             self.readevents.start(self.restart_protocol)
             self.splicer.start(
                 qkd_protocol,
-               lambda msg: error_correction.ec_queue.put(msg),
+               lambda msg: self.errc.ec_queue.put(msg),
                 self.restart_protocol,
             )
 

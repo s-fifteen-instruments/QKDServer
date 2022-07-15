@@ -84,6 +84,7 @@ class PolarizationDriftCompensation(object):
                 np.savetxt(self.LCRvoltages_file_name, [self.V1, self.V2, self.V3, self.V4])
                 controller.stop_key_gen()
                 logger.info('Attempting to start key generation')
+                time.sleep(1)
                 controller.start_key_generation()
                 return
             if qber_mean < self.last_qber:
