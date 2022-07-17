@@ -228,6 +228,7 @@ class Controller:
         
         # Initiate symmetry negotiation
         #self._negotiate_symmetry()
+        time.sleep(0.8)
         
         # Initiate BBM92 mode
         self.send("st1")
