@@ -149,8 +149,11 @@ class Costream(Process):
 
             # Perform polarization compensation while still in SERVICE mode
             if self._polarization_compensator and pairs_over_accidentals > 2.5:
+            #    self._polarization_compensator.send_diagnosis(
+            #            diagnosis, epoch = message[:8] 
+            #            )
                 self._polarization_compensator.update_QBER(
-                    diagnosis.quantum_bit_error, epoch=message,
+                     diagnosis.quantum_bit_error, epoch=message,
                 )
 
     # Coding defensively... ensure these properties are not

@@ -2,16 +2,24 @@
 
 import os
 import numpy as np
+import pandas as pd
+import math
 import time
 from typing import Tuple
+
 from S15lib.instruments import LCRDriver
-from .qkd_globals import logger
-from . import controller
+#from . import controller
+from S15qkd.rawkey_diagnosis import RawKeyDiagnosis
+from S15qkd.qkd_globals import logger, PipesQKD, FoldersQKD
 
 LCR_VOlT_FILENAME = 'latest_LCR_voltages.txt'
 VOLT_MIN = 0.9
 VOLT_MAX = 5.5
+LCVR1_CALLIBRATION_FILEPATH = '../S15qkd/lcvr_callibration.csv'
+LCVR2_CALLIBRATION_FILEPATH = '../S15qkd/lcvr_callibration.csv'
 
+# Lookup table to convert retardances to LCVR voltages
+_df = pd.read_csv('../S15qkd/lcvr_callibration.csv')
 
 def qber_cost_func(qber: float, desired_qber: float = 0.04, amplitude: float = 6) -> float:
     return amplitude * (qber - desired_qber)**2
@@ -44,6 +52,20 @@ class PolarizationDriftCompensation(object):
         self.last_qber = 1
         self.qber_counter = 0
         self.next_epoch = None
+        self.stokes_v = []
+
+    def send_diagnosis(self, diagnosis, epoch: str = None):
+        if not self.stokes_v: 
+            self.stokes_v, self.dop  = self.get_stokes_vector(diagnosis, epoch)
+            logger.debug(f'First stokes setting {epoch} {self.next_epoch}')
+            return
+        if not self.stokes_v[3]:
+            self.stokes_v, self.dop = self.get_stokes_vector(diagnosis, epoch) 
+            logger.debug(f'Second stokes setting {epoch} {self.next_epoch}')
+            return
+        logger.debug(f'QBER {diagnosis.quantum_bit_error}, epoch {epoch}')
+        self.lcvr_instant_find()
+        logger.debug(f'QBER {diagnosis.quantum_bit_error}, epoch {epoch}')
 
     def update_QBER(self, qber: float, qber_threshold: float = 0.086, epoch: str = None):
         self.qber_counter += 1
@@ -82,10 +104,11 @@ class PolarizationDriftCompensation(object):
                 f'Avg(qber): {qber_mean:.2f} averaging over {self.averaging_n} epochs. V_range: {qber_cost_func(qber_mean):.2f}')
             if qber_mean < qber_threshold:
                 np.savetxt(self.LCRvoltages_file_name, [self.V1, self.V2, self.V3, self.V4])
-                controller.stop_key_gen()
+                #controller.stop_key_gen()
                 logger.info('Attempting to start key generation')
                 time.sleep(1)
-                controller.start_key_generation()
+                #controller.start_key_generation()
+                controller.service_to_BBM92()
                 return
             if qber_mean < self.last_qber:
                 self.last_voltage_list= [self.V1, self.V2, self.V3, self.V4]
@@ -114,6 +137,138 @@ class PolarizationDriftCompensation(object):
         self.lcr_driver.V2= self.V2
         self.lcr_driver.V3= self.V3
         self.lcr_driver.V4= self.V4
+
+    def lcvr_instant_find(self):
+        """To replace the current random walk method.
+
+        i.e. lcvr_narrow_down()
+        """
+        #stokes_vector, dop = self.get_stokes_vector()
+        stokes_vector = self.stokes_v
+        phi1, phi2 = self.compute_polarization_compensation(stokes_vector)
+
+        # Convert phi1, phi2 to voltages with lookup table
+        v1 = self.voltage_lookup(phi1, LCVR1_CALLIBRATION_FILEPATH)
+        v2 = self.voltage_lookup(phi2, LCVR2_CALLIBRATION_FILEPATH)
+
+        # Update lcvr voltage list
+        self.V1 = 5.5
+        self.V2 = 5.5
+        self.V3 = v1
+        self.V4 = v2
+
+        self.lcr_driver.V1 = self.V1
+        self.lcr_driver.V2 = self.V2
+        self.lcr_driver.V3 = self.V3
+        self.lcr_driver.V4 = self.V4
+
+        # Can return degree of polarization here if needed
+        #return dop
+
+    def get_stokes_vector(self, diagnosis, epoch):
+        """Main measurement loop.
+
+        Measures the individual Stokes vectors and returns them as a list. 
+        Also returns the degree of polarization parameter.
+        """
+        if not self.stokes_v and not self.next_epoch: 
+            # Set LCVR to transparent state
+            lcrVoltages = [5.5,5.5,5.5,5.5]
+            self.lcr_driver.V1 = lcrVoltages[0]
+            self.lcr_driver.V2 = lcrVoltages[1]
+            self.lcr_driver.V3 = lcrVoltages[2]
+            self.lcr_driver.V4 = lcrVoltages[3]
+        
+            self.next_epoch = get_current_epoch()
+        
+
+
+        if self.next_epoch and epoch:
+            # Compare epochs to see if reached
+            epoch_int = int(epoch, 16)
+            if epoch_int <= self.next_epoch:
+                logger.debug(f'Ignored epoch: {epoch}')
+                return self.stokes_v , 0
+
+            # Now at target epoch
+            self.next_epoch = None
+            # Measure S0
+            if not self.stokes_v: 
+                total_coincidences = diagnosis.total_coincidences
+                S0 = total_coincidences
+
+                # Measure S1
+                HH = diagnosis.coincidences_HH
+                VV = diagnosis.coincidences_VV
+                S1 = (HH-VV)/total_coincidences
+
+                # Measure S2
+                ADAD = diagnosis.coincidences_ADAD
+                DD = diagnosis.coincidences_DD
+                S2 = (ADAD - DD)/total_coincidences
+                stokes_vector = [S0, S1, S2, None]
+            
+                # Set horizontal LCVR to phi = pi/4 retardance
+                # 2.8V value estimated from Jyh Harng's thesis as a placeholder
+                self.lcr_driver.V4 = 2.8
+                self.next_epoch = get_current_epoch()
+            
+                return stokes_vector, 0 
+            else:
+                # Measure S3
+                S0 = diagnosis.total_coincidences
+                HH = diagnosis.coincidences_HH
+                VV = diagnosis.coincidences_VV
+
+                RR = diagnosis.coincidences_HH
+                LL = diagnosis.coincidences_VV
+                S3 = (RR - LL)/S0
+
+                self.stokes_v[3] = S3
+                S1 = self.stokes_v[1]
+                S2 = self.stokes_v[2]
+                degree_of_polarization = \
+                    math.sqrt((S1)**2 + (S2)**2 + (S3)**2)/S0
+                stokes_vector = [S0, S1, S2, S3]
+                return stokes_vector, degree_of_polarization
+
+    def compute_polarization_compensation(self,stokes_vector: list):
+        """Computes LCVR retardances from a given Stokes vector.
+        
+        In order to correct the input to purely linear polarization.
+        """
+        #assert(len(stokes_vector) == 4)
+
+        s1,s2 = stokes_vector[1], stokes_vector[2]
+        phi1 = math.asin(-s2/math.sqrt(1-s1**2))
+        phi2 = math.acos(-s1)
+
+        return phi1,phi2
+
+    def voltage_lookup(self, retardance, table):
+        """For a given retardance value, gets the corresponding LCVR voltage.
+
+        Args:
+            Retardance: Desired retardance in radians.
+            Table: File path to callibration table of the target LCVR.
+        """
+        df = pd.read_csv(table)
+        lookup_table = df.copy()
+        lookup_table = lookup_table.assign(retdiff = 0)
+        lookup_table[["retdiff"]] = lookup_table[["ret"]] - retardance
+
+        # The index that is closest to the target retardance is chosen
+        # by looking only at the positive differences between the target
+        # and the lookup values.
+        min_idx_series = lookup_table[lookup_table["retdiff"] > 0][["retdiff"]].idxmin()
+        min_idx = int(min_idx_series)
+        min_retdiff = lookup_table["retdiff"][min_idx]
+        min_grad = lookup_table["grad"][min_idx]
+        min_volt = lookup_table["V"][min_idx]
+        voltage_raw = float(min_volt + (min_grad * min_retdiff))
+        voltage = round(voltage_raw,3)
+
+        return voltage
 
     def get_qber_4ep(self, dia_file: str = '/tmp/cryptostuff/diagdata'):
         try:
