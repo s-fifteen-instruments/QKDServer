@@ -159,6 +159,49 @@ class Controller:
 
     # MAIN CONTROL METHODS
 
+    def service_to_BBM92(self):
+        """Stops the programs which needs protocol, namely
+        chopper, splicer and costream and restart them in non-service mode.
+        Doing this, because readevents was not stopped, the time difference
+        that pfind found should still be correct.
+        """
+        low_count_side = self.transferd.low_count_side
+        if low_count_side:
+            self.splicer.stop()
+            self.chopper.stop()
+            qkd_protocol = QKDProtocol.BBM92
+            self._qkd_protocol = qkd_protocol
+            self.chopper.start(qkd_protocol, self.restart_protocol)
+            self.splicer.wait()
+            self.splicer.start(
+                qkd_protocol,
+                lambda msg: self.errc.ec_queue.put(msg),
+                self.restart_protocol,
+            )
+        else:
+            # Assume called from High count side
+            self.send('serv_to_st')
+            # Get current time difference before stopping costream
+            td = self._time_diff + self.costream.latest_deltat
+            last_service_epoch = self.tranferd.last_received_epoch
+            #
+            self.costream.stop()
+            qkd_protocol = QKDProtocol.BBM92
+            self._qkd_protocol = qkd_protocol
+            start_epoch = _retrieve_secure_remote_epoch_overlap(last_service_epoch)
+            self.costream.start(
+                td,
+                start_epoch,
+                qkd_protocol,
+                self.restart_protocol,
+            )
+        if Process.config.error_correction:
+            if not self.errc.is_running():
+                self.errc.start(
+                    qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
+                    self.restart_protocol,
+                )  # TODO
+
     # TODO(Justin): Rename to 'stop' and update callback in QKD_status.py
     def stop_key_gen(self, inform_remote: bool = True):
         """Stops all processes locally and (best effort) remotely.
@@ -281,6 +324,11 @@ class Controller:
         message_components = message.split(':')
         code = message_components[0]
 
+        # Bypass stopping and restarting readevents
+        if code == "serv_to_st":
+            self.service_to_BBM92()
+            return
+
         # Handle stopping of all processes
         if code == "stop":
             self.stop_key_gen(inform_remote=False)
@@ -364,7 +412,8 @@ class Controller:
                 start_epoch,
                 qkd_protocol,
                 self.restart_protocol,
-                self.start_key_generation,
+                #self.start_key_genration,
+                self.service_to_BBM92,
             )
         if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
             if not self.errc.is_running():
@@ -372,6 +421,19 @@ class Controller:
                     qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
                     self.restart_protocol,
                 )  # TODO
+
+    @requires_transferd
+    def _retrieve_secure_remote_epoch_overlap(self):
+        """Retrieve new epochs with correct protocol from remote(chopper) epoch
+        and match with local (chopper2) epoch
+
+        Performed by high count side.
+        """
+        remote_epoch = int(self.transferd.last_received_epoch)
+        def get_bit_packing():
+            return bits_per_entry
+
+        return start_epoch
 
     @requires_transferd
     def _retrieve_epoch_overlap(self):
