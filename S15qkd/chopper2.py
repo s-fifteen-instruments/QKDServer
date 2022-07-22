@@ -27,8 +27,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import threading
-import time
 from .utils import Process
 from .qkd_globals import logger, PipesQKD, FoldersQKD, config_file
 
@@ -49,6 +47,7 @@ class Chopper2(Process):
         ):
         assert not self.is_running()
         self._reset()
+        self._callback_restart = callback_restart
 
         args = [
             '-i', PipesQKD.RAWEVENTS,
@@ -61,9 +60,7 @@ class Chopper2(Process):
             '-4', # Force four detector option
         ]
         super().start(args, stderr="chopper2error", callback_restart=callback_restart)
-        
         self.read(PipesQKD.T1LOG, self.digest_t1logpipe, wait=0.1, name="T1LOG")
-        self.monitor_counts(callback_restart)
         logger.info('Started chopper2.')
 
     def digest_t1logpipe(self, pipe):
@@ -80,9 +77,10 @@ class Chopper2(Process):
         logger.debug(f'[read msg] {message}')
         if self._t1_epoch_count == 0:
             self._first_epoch = message.split()[0]
-            self._det_counts = list(map(int,message.split()[1:6]))
             logger.info(f'First_epoch: {self._first_epoch}')
         self._t1_epoch_count += 1
+        self._det_counts = list(map(int,message.split()[1:6]))
+        self.monitor_counts()
 
     @property
     def t1_epoch_count(self):
@@ -98,27 +96,15 @@ class Chopper2(Process):
         """
         return self._det_counts
 
-    def monitor_counts(self, callback_restart):
+    def monitor_counts(self):
         """Restarts keygen if detector counts goes to zero.
-        Polls performed every 1 second.
         """
 
-        def monitor_daemon():
-            time.sleep(1)
-            while self.is_running():
-                det_counts = self.det_counts
-                for counts in det_counts:
-                    if counts == 0:
-                        logger.debug(f"Counts monitor for '{self.program}' ('{self.process}') reported zero")
-                        callback_restart()
-                        return
-                time.sleep(1)
-            logger.debug(f"Terminated counts monitor for '{self.program}' ('{self.process}')")
-
-        logger.debug(f"Starting counts monitor for '{self.program}' ('{self.process}')")
-        thread = threading.Thread(target=monitor_daemon)
-        thread.daemon = True
-        thread.start()
-        logger.debug(f"Started counts monitor for '{self.program}' ('{self.process}')")
+        for counts in self.det_counts:
+            if counts == 0:
+                logger.debug(f"Counts monitor for '{self.program}' ('{self.process}') reported zero")
+                self._callback_restart()
+                return
+        return
 
 
