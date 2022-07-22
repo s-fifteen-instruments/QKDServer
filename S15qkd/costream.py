@@ -125,7 +125,8 @@ class Costream(Process):
 
         # restart time difference finder if pairs to accidentals is too low
         pairs_over_accidentals = int(self._latest_coincidences) / (int(self._latest_accidentals) + 1) #incase of divide by zero
-        self._pairs_over_accidentals_avg = (self._pairs_over_accidentals_avg * 19 + pairs_over_accidentals) / 20
+        avg_num = 5
+        self._pairs_over_accidentals_avg = (self._pairs_over_accidentals_avg * (avg_num - 1) + pairs_over_accidentals) / avg_num
         if self._pairs_over_accidentals_avg < 2.5:
             logger.error(
                 f'Pairs to accidental ratio bad: avg(p/a) = {self._pairs_over_accidentals_avg:.2f}'
