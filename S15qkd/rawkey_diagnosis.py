@@ -93,7 +93,7 @@ class RawKeyDiagnosis(object):
             if ((a >= 0) and (b >= 0)) :
                 matrix[a * 4 + b] += 1
                 okcount += 1;
-        return matrix, garbage1, garbage2, okcount
+        return matrix, okcount, length_entry, garbage2, garbage1
 
 if __name__ == "__main__":
     diag = RawKeyDiagnosis('b2331bef')
