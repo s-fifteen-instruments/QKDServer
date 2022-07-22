@@ -34,6 +34,7 @@ SOFTWARE.
 import pathlib
 import threading
 import time
+import struct
 from typing import Optional
 
 # Internal processes
@@ -166,35 +167,41 @@ class Controller:
         that pfind found should still be correct.
         """
         low_count_side = self.transferd.low_count_side
-        if low_count_side:
+        if low_count_side:  
             self.splicer.stop()
             self.chopper.stop()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
+            time.sleep(0.6) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol)
-            self.splicer.wait()
             self.splicer.start(
                 qkd_protocol,
                 lambda msg: self.errc.ec_queue.put(msg),
                 self.restart_protocol,
             )
         else:
-            # Assume called from High count side
+            # Assume called from High count side. Only need to restart costream with elapsed time difference and new epoch
             self.send('serv_to_st')
             # Get current time difference before stopping costream
-            td = self._time_diff + self.costream.latest_deltat
-            last_service_epoch = self.tranferd.last_received_epoch
+            td = int(self._time_diff) + int(self.costream.latest_deltat)
+            last_service_epoch = self.transferd.last_received_epoch
             #
             self.costream.stop()
+            qkd_globals.PipesQKD.drain_all_pipes()
+            qkd_globals.FoldersQKD.remove_stale_comm_files()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
-            start_epoch = _retrieve_secure_remote_epoch_overlap(last_service_epoch)
+            logger.debug(f'BBM92 protocol set')
+            start_epoch = self._retrieve_secure_remote_epoch(last_service_epoch)
+            logger.debug(f'Retrieve_secure is {start_epoch}')
+            time.sleep(0.6) # to allow costream thread to end gracefully
             self.costream.start(
                 td,
                 start_epoch,
                 qkd_protocol,
                 self.restart_protocol,
             )
+            logger.debug(f'costream restarted')
         if Process.config.error_correction:
             if not self.errc.is_running():
                 self.errc.start(
@@ -403,7 +410,7 @@ class Controller:
 
             # These variables should only be set here.
             self._first_epoch = start_epoch
-            self._time_diff = td
+            self._time_diff = int(td)
             self._sig_long = sl
             self._sig_short = ss
 
@@ -423,17 +430,35 @@ class Controller:
                 )  # TODO
 
     @requires_transferd
-    def _retrieve_secure_remote_epoch_overlap(self):
+    def _retrieve_secure_remote_epoch(self, last_service_epoch: str ):
         """Retrieve new epochs with correct protocol from remote(chopper) epoch
         and match with local (chopper2) epoch
 
         Performed by high count side.
         """
-        remote_epoch = int(self.transferd.last_received_epoch)
-        def get_bit_packing():
-            return bits_per_entry
+        epoch = last_service_epoch
+        file_name = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
+        logger.debug(f'Filename {file_name}')
+        bits_per_entry = self.get_bit_packing(file_name)
+        logger.debug(f'BITS per entry {bits_per_entry}')
+        while bits_per_entry != 1:
+            logger.debug(f'{file_name} {epoch} {bits_per_entry}')
+            epoch = hex(int(epoch,16)+1)[2:]
+            time.sleep(qkd_globals.EPOCH_DURATION)
+            file_name = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
+            bits_per_entry = self.get_bit_packing(file_name)
 
-        return start_epoch
+        return epoch
+
+    def get_bit_packing(self, file_name: str):
+        if pathlib.Path(file_name).is_file():
+            with open(file_name, 'rb') as f:
+                head_info = f.read(4*6)
+        else:
+            return 4
+        tag, epoc, length_bits, time_order, base_bits, protocol = struct.unpack('iIIiii', head_info)
+        logger.debug(f"{tag} {epoc} {length_bits} {time_order} {base_bits} {protocol}")
+        return base_bits
 
     @requires_transferd
     def _retrieve_epoch_overlap(self):
@@ -535,6 +560,9 @@ def start_key_generation():
 def stop_key_gen():
     """Initiated by QKD controller via the QKD server status page."""
     controller.stop_key_gen()
+
+def service_to_BBM92():
+    return controller.service_to_BBM92()
 
 def get_status_info():
     return controller.get_status_info()

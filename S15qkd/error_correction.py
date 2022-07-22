@@ -201,13 +201,16 @@ class ErrorCorr(Process):
             #    logger.error(f'Either epoch file is not a BB84 file or more than 1 bit per entry.')
             #    continue
 
+            logger.debug(f'Attempting to send file_name = {file_name}')
+            file_path = f'{FoldersQKD.RAWKEYS}/{file_name}'
+            bits_len, epoch_file, bits_per_entry = self.read_T3_header(file_path)
+            if (bits_per_entry != 1):
+                logger.warning(f'Entry in rawkey consists of more than 1 bit per entry. Discarding epoch')
+                continue
             if undigested_epochs == 0:
                 first_epoch = file_name
                 logger.debug(f'First epoch is {first_epoch}')
             undigested_epochs += 1
-            logger.debug(f'Attempting to send file_name = {file_name}')
-            file_path = f'{FoldersQKD.RAWKEYS}/{file_name}'
-            bits_len = self.read_T3_header(file_path)
             undigested_raw_bits += bits_len
             # Execute error correction when enough raw bits are accumulated.
             # Could be also based on number of epochs.
@@ -242,9 +245,7 @@ class ErrorCorr(Process):
             logger.error(f'{file_name} is not a Type3 header file')
         if hex(epoc) != ('0x' + file_name.split('/')[-1]):
             logger.error(f'Epoch in header {hex(epoc)} does not match epoc filename {file_name}')
-        if (bits_per_entry != 1):
-            logger.warning(f'Entry in rawkey consists of more than 1 bit per entry.')
-        return length_bits 
+        return length_bits, epoc, bits_per_entry
 
     @property
     def ec_raw_bits(self):
