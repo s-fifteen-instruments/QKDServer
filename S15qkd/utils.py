@@ -4,10 +4,12 @@ import os
 import time
 import io
 import threading
+import math
+from struct import unpack
 from pathlib import Path
 import subprocess
 from types import SimpleNamespace
-from typing import Union
+from typing import Union, Optional, NamedTuple
 
 import psutil
 
@@ -285,3 +287,99 @@ class Process:
         thread = threading.Thread(target=monitor_daemon)
         thread.daemon = True
         thread.start()
+
+class HeadT1(NamedTuple):
+    tag: int
+    epoch: int
+    length_bits: int
+    bits_per_entry: int
+    base_bits: int
+
+class HeadT2(NamedTuple):
+    tag: int
+    epoch: int
+    length_bits: int
+    timeorder: int
+    base_bits: int
+    protocol: int
+
+class HeadT3(NamedTuple):
+    tag: int
+    epoch: int
+    length_entry: int
+    bits_per_entry: int
+
+class ServiceT3(NamedTuple):
+    head: HeadT3
+    coinc_matrix: list
+    garbage: list
+    okcount: int
+    qber: float
+
+def read_T2_header(file_name: str):
+    if Path(file_name).is_file():
+        with open(file_name, 'rb') as f:
+            head_info = f.read(4*6)
+    else:
+        return 4
+    headt2 = HeadT2._make(unpack('iIIiii', head_info))
+    if (headt2.tag != 0x102 and headt2.tag != 2) :
+        logger.error(f'{file_name} is not a Type2 header file')
+    if hex(headt2.epoch) != ('0x' + file_name.split('/')[-1]):
+        logger.error(f'Epoch in header {headt2.epoch} does not match epoc filename {file_name}')
+    #logger.debug(f"{tag} {epoc} {length_bits} {time_order} {base_bits} {protocol}")
+    return headt2
+
+def read_T3_header(file_name: str) -> Optional[HeadT3]:
+    if Path(file_name).is_file():
+        with open(file_name, 'rb') as f:
+            head_info = f.read(16) # 16 bytes of T3 header https://qcrypto.readthedocs.io/en/documentation/file%20specification.html
+
+    headt3 = HeadT3._make(unpack('iIIi', head_info)) #int, unsigned int, unsigned int, int
+    if (headt3.tag != 0x103 and headt3.tag != 3) :
+        logger.error(f'{file_name} is not a Type3 header file')
+    if hex(headt3.epoch) != ('0x' + file_name.split('/')[-1]):
+        logger.error(f'Epoch in header {headt3.epoch} does not match epoc filename {file_name}')
+    return headt3
+
+def service_T3(file_name: str) -> Optional[ServiceT3]:
+    body = []
+    decode = [-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1] # translate valid bit values to 4 array index
+    headt3 = read_T3_header(file_name)
+    header_info_size = 16
+    with open(file_name,'rb') as f:
+        f.seek(4)
+        word = f.read(4)
+        while word != b"":
+            dat, = unpack('<I', word) # comma is important to get correct type
+            # unpacking was done wrongly in original diagnosis.c code.
+            dat_bytes = dat.to_bytes(4,'little')
+            body.append(dat_bytes[3])
+            body.append(dat_bytes[2])
+            body.append(dat_bytes[1])
+            body.append(dat_bytes[0])
+            word = f.read(4)
+
+    service = ServiceT3(headt3,[],[],0,1)
+    if (headt3.bits_per_entry !=8):
+        logger.warning(f'Not a service file with 8 bits per entry')
+    total_bytes = math.ceil((headt3.length_entry*headt3.bits_per_entry)/8) + header_info_size
+    total_words = math.ceil(total_bytes/4)
+    if total_words*4 != (len(body) + header_info_size):
+        logger.error(f'stream 3 size inconsistency')
+    for i in range(headt3.length_entry):
+        b = decode[body[i] & 0xf] # Bob 
+        a = decode[(body[i]>>4) & 0xf] # Alice
+        if a < 0:
+            service.garbage[0] += 1
+        if b < 0:
+            service.garbage[1] += 1
+        if ((a >= 0) and (b >= 0)) :
+            service.coinc_matrix[a * 4 + b] += 1
+            service.okcount += 1
+    err_coinc_id = [0, 5, 10, 15] #VV, ADAD, HH, DD
+    service.qber = service.coinc_matrix[err_coinc_id]/service.okcount #ignore garbage
+    return service
+
+
+
