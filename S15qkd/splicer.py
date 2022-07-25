@@ -31,7 +31,6 @@ import pathlib
 
 from .utils import Process
 from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD, QKDEngineState
-from .polarization_compensation import PolarizationDriftCompensation
 from .rawkey_diagnosis import RawKeyDiagnosis
 
 class Splicer(Process):
@@ -40,8 +39,8 @@ class Splicer(Process):
             self,
             qkd_protocol,
             callback_ecqueue = None,  # message passing of epoch to error correction
-            callback_start_keygen=None,  # callback to pass to polarization controller
-            callback_restart=None,    # to restart keygen
+            callback_pol_comp_epoch = None,  # callback to pass to polarization controller
+            callback_restart = None,    # to restart keygen
         ):
         """
 
@@ -53,7 +52,7 @@ class Splicer(Process):
         self.read(PipesQKD.GENLOG, self.digest_splicepipe, 'GENLOG', persist=True)
 
         self._qkd_protocol = qkd_protocol
-        self._polarization_compensator = None
+        self._pol_compensator = callback_pol_comp_epoch
         self._callback_ecqueue = callback_ecqueue
 
         args = [
@@ -67,11 +66,6 @@ class Splicer(Process):
         ]
         super().start(args, stdout='splicer_stdout', stderr='splicer_stderr', callback_restart=callback_restart)
 
-        if Process.config.do_polarization_compensation:
-            self._polarization_compensator = PolarizationDriftCompensation(
-                Process.config.LCR_polarization_compensator_path
-            ) # TODO(Justin): Pass 'callback_start_keygen'
-
     def digest_splicepipe(self, pipe):
         # message = pipe.readline().decode().rstrip('\n').lstrip('\x00')
         message = pipe.readline().rstrip('\n').lstrip('\x00')
@@ -83,17 +77,8 @@ class Splicer(Process):
         if qkd_protocol == QKDProtocol.BBM92:
             logger.debug(f'Add {message} to error correction queue')
             self._callback_ecqueue(message)
-            
-        elif qkd_protocol == QKDProtocol.SERVICE:
-            diagnosis = RawKeyDiagnosis(
-                pathlib.Path(FoldersQKD.RAWKEYS) / message
-            )
-            logger.debug(
-                f'Service mode, QBER: {diagnosis.quantum_bit_error}, Epoch: {message}'
-            )
 
-            # Perform polarization compensation while still in SERVICE mode
-            if self._polarization_compensator:
-                self._polarization_compensator.update_QBER(
-                    diagnosis.quantum_bit_error, epoch=message,
-                )
+        if self._pol_compensator:
+            epoch = message[0]
+            self._pol_compensator(epoch)
+
