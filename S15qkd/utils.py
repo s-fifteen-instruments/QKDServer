@@ -309,7 +309,10 @@ class HeadT3(NamedTuple):
     length_entry: int
     bits_per_entry: int
 
-class ServiceT3(NamedTuple):
+from dataclasses import dataclass
+
+@dataclass
+class ServiceT3:
     head: HeadT3
     coinc_matrix: list
     garbage: list
@@ -343,12 +346,14 @@ def read_T3_header(file_name: str) -> Optional[HeadT3]:
     return headt3
 
 def service_T3(file_name: str) -> Optional[ServiceT3]:
-    body = []
     decode = [-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1] # translate valid bit values to 4 array index
+    er_coinc_id = [0, 5, 10, 15] #VV, ADAD, HH, DD
+    gd_coinc_id = [2, 7, 8, 13] #VH, ADD, HV, DAD 
+    body = []
     headt3 = read_T3_header(file_name)
     header_info_size = 16
     with open(file_name,'rb') as f:
-        f.seek(4)
+        f.seek(header_info_size)
         word = f.read(4)
         while word != b"":
             dat, = unpack('<I', word) # comma is important to get correct type
@@ -360,7 +365,7 @@ def service_T3(file_name: str) -> Optional[ServiceT3]:
             body.append(dat_bytes[0])
             word = f.read(4)
 
-    service = ServiceT3(headt3,[],[],0,1)
+    service = ServiceT3(headt3,[0]*16,[0,0],0,1)
     if (headt3.bits_per_entry !=8):
         logger.warning(f'Not a service file with 8 bits per entry')
     total_bytes = math.ceil((headt3.length_entry*headt3.bits_per_entry)/8) + header_info_size
@@ -377,8 +382,12 @@ def service_T3(file_name: str) -> Optional[ServiceT3]:
         if ((a >= 0) and (b >= 0)) :
             service.coinc_matrix[a * 4 + b] += 1
             service.okcount += 1
-    err_coinc_id = [0, 5, 10, 15] #VV, ADAD, HH, DD
-    service.qber = service.coinc_matrix[err_coinc_id]/service.okcount #ignore garbage
+
+
+    er_coin = sum(service.coinc_matrix[i] for i in er_coinc_id)
+    gd_coin = sum(service.coinc_matrix[i] for i in gd_coinc_id)
+
+    service.qber = float(round(er_coin /(er_coin + gd_coin),3)) #ignore garbage
     return service
 
 

@@ -39,6 +39,7 @@ import numpy as np
 import math
 import time
 from typing import Tuple, NamedTuple, Any
+from dataclasses import dataclass
 
 from S15lib.instruments import LCRDriver
 from .utils import HeadT1, ServiceT3, service_T3
@@ -58,38 +59,46 @@ class PolComp(object):
     class LCR_Tab(NamedTuple):
         tab: Any
 
+    #@dataclass
     class LCR_V(NamedTuple):
+        target_host: str
+        volt_file: str
         V1: float
         V2: float
         V3: float
         V4: float
 
-    def __init___(self, lcr_path: str = qkd_globals.config.LCR_polarization_compensator_path):
+    def __init__(self, lcr_path: str = '' ):
         self.lcr = LCRDriver(lcr_path)
         self.lcr.all_channels_on()
-        self.LCR_volt_info = qkd_globals.config['LCR_volt_info']
-        self.set_voltage = self.LCR_V(*self.LCR_volt_info.values())
+        LCR_volt_info = qkd_globals.config['LCR_volt_info']
+        self.LCR_params = self.LCR_V(qkd_globals.config['target_hostname'],*LCR_volt_info.values())
+        self.set_voltage = self.LCR_params[2:6]
         self._set_voltage()
         self.last_voltage_list = self.set_voltage
+        self._load_lut()
+        self._reset()
+        logger.debug(f'pol com initialized')
+
+    def _reset(self):
         self.qber_list = []
         self.last_qber = 1
         self.qber_counter = 0
         self.next_epoch = None
         self.stokes_v = []
-        self._load_lut()
 
     def _load_lut(self):
         file = '../S15qkd/lcvr_callibration.csv'
         #file = qkd_globals.config['LCR_calibration_table']
         self.LUT = [self.LookupTab(0,0,0,0)]
         self.LUT.clear() # Just to get syntax highlighting in VScode
-        table = self.LookupTab(0,0,0,0)
         for i in [0,1,2,3]:
             data = np.genfromtxt(file, delimiter = ',', skip_header=1)
-            table.id = i
-            table.volt_V = data[:,0]
-            table.ret_V = data[:,1]
-            table.grad_V = data[:,2]
+            id = i
+            volt_V = data[:,0]
+            ret_V = data[:,1]
+            grad_V = data[:,2]
+            table = self.LookupTab(i,volt_V,ret_V,grad_V)
             self.LUT.append(table)
 
     def _set_retardance(self, retardances):
@@ -113,6 +122,7 @@ class PolComp(object):
         return
 
     def send_epoch(self, epoch_path: str = None):
+        logger.debug(f'Received {epoch_path}')
         epoch = epoch_path.split('/')[-1]
         self.diagnosis = service_T3(epoch_path)
         if not self.stokes_v: 
@@ -182,7 +192,7 @@ class PolComp(object):
 
                 S2 = ((VD + HAD + ADH + DV) - (VAD + HD + ADV + DH)) \
                    / ((VD + HAD + ADH + DV) + (VAD + HD + ADV + DH))
-                stokes_vector = [S0, S1, S2, None]
+                stokes_vector = [1, S1, S2, None]
             
                 # Set horizontal LCVR to phi = pi/4 retardance
                 # 2.8V value estimated from Jyh Harng's thesis as a placeholder
@@ -211,7 +221,7 @@ class PolComp(object):
                 S2 = self.stokes_v[2]
                 degree_of_polarization = \
                     math.sqrt((S1)**2 + (S2)**2 + (S3)**2)/S0
-                stokes_vector = [S0, S1, S2, S3]
+                stokes_vector = [1, S1, S2, S3]
                 return stokes_vector, degree_of_polarization
 
     def lcvr_instant_find(self):
@@ -220,8 +230,9 @@ class PolComp(object):
         i.e. lcvr_narrow_down()
         """
         stokes_vector = self.stokes_v
+        logger.debug(f'Stokes vector is {stokes_vector}')
         phi1, phi2, phi3, phi4 = self.compute_polarization_compensation(stokes_vector)
-        logger.debug(f'Angles phi1 {phi1} and phi2 {phi2}')
+        logger.debug(f'Angles phi {phi1} {phi2} {phi3} {phi4}')
         retardances = [phi1, phi2, phi3, phi4 ]
         self.set_voltage[2] = self.voltage_lookup(phi3,2)
         self.set_voltage[3] = self.voltage_lookup(phi4,3)
@@ -235,7 +246,7 @@ class PolComp(object):
         theta1=0 and theta2=0 and phi1=0, phi2=0
         In order to correct the input to purely linear polarization.
         """
-        assert(len(stokes_vector == 4))
+        assert(len(stokes_vector) == 4)
 
         s1,s2,s3 = stokes_vector[1], stokes_vector[2], stokes_vector[3]
         phi3 = -math.atan2(s2,s3)

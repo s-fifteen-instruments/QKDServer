@@ -30,8 +30,6 @@ import pathlib
 
 from .utils import Process
 from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD
-from .polarization_compensation import PolarizationDriftCompensation
-from .rawkey_diagnosis import RawKeyDiagnosis
 
 class Costream(Process):
 
@@ -132,8 +130,9 @@ class Costream(Process):
             return
 
         if self._pol_compensator:
-            epoch = message[0]
-            self._pol_compensator(epoch)
+            epoch = self._latest_outepoch
+            epoch_path = FoldersQKD.RAWKEYS + '/' + epoch
+            self._pol_compensator(epoch_path)
 
     '''Move polarization compensation to controller
         # If in SERVICE mode, mark as SERVICE mode in QKD engine
