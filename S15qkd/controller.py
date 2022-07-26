@@ -83,7 +83,7 @@ class Controller:
         self.pfind = Pfind(dir_qcrypto / 'pfind')
         self.errc = ErrorCorr(dir_qcrypto / 'errcd')
         if Process.config.do_polarization_compensation:
-            self.polcom = PolComp(Process.config.LCR_polarization_compensation_path)
+            self.polcom = PolComp(Process.config.LCR_polarization_compensator_path)
         else:
             self.polcom = None
             self.callback_epoch = None
@@ -249,11 +249,11 @@ class Controller:
         else:
             self.start_key_generation()
 
-    def callback_epoch(self):
+    def callback_epoch(self, msg):
         """ Only send epochs to polarization compensation in servicemode
          and if LCVR exist"""
         if self._qkd_protocol == QKDProtocol.SERVICE and self.polcom:
-            lambda msg: self.polcom.send_epoch(msg)
+            self.polcom.send_epoch(msg)
         else:
             None
 

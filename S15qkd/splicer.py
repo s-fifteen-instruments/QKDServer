@@ -31,7 +31,6 @@ import pathlib
 
 from .utils import Process
 from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD, QKDEngineState
-from .rawkey_diagnosis import RawKeyDiagnosis
 
 class Splicer(Process):
         
@@ -79,6 +78,7 @@ class Splicer(Process):
             self._callback_ecqueue(message)
 
         if self._pol_compensator:
-            epoch = message[0]
-            self._pol_compensator(epoch)
+            epoch = message
+            epoch_path = FoldersQKD.RAWKEYS + '/' + epoch
+            self._pol_compensator(epoch_path)
 
