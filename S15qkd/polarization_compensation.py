@@ -47,6 +47,9 @@ from .utils import HeadT1, ServiceT3, service_T3
 from . import qkd_globals
 from .qkd_globals import logger, FoldersQKD
 
+VOLT_MIN = 0.9
+VOLT_MAX = 5.5
+
 class PolComp(object):
     """Class for polarization compensation.
     """
@@ -118,7 +121,6 @@ class PolComp(object):
             self.set_voltage[i] = self.voltage_lookup(i,ind)
         return
 
-
     def _set_voltage(self):
         self.lcr.V1 = self.set_voltage[0]
         self.lcr.V2 = self.set_voltage[1]
@@ -126,9 +128,18 @@ class PolComp(object):
         self.lcr.V4 = self.set_voltage[3]
         return
 
-    def send_qber(self, qber: float, epoch: str):
+    def send_qber(self, qber: float, epoch_path: str):
         logger.debug(f'Received {qber}')
-        self.do_walks()
+        # i-th LCVR
+        for i in range(4):
+            walks_array = self.do_walks(i)
+            qber_list = []
+            for row in walks_array:
+                epoch = row[-1]
+                qber = self.find_qber_from_epoch(epoch)
+                qber_list.append(qber)
+            min_idx = qber_list.index(min(qber_list))
+            self.set_voltage[i] = qber_list[min_idx]
         return
 
     def epoch_passed(self,epoch) -> Boolean:
@@ -138,18 +149,49 @@ class PolComp(object):
             return False
         return True
 
-    def do_walks(self):
-        if not self.next_epoch:
+    def do_walks(self, lcvr_idx):
+        """Performs walking in the LCVR space.
+        Returns an array (nested list) of LCVR settings 
+        and the corresponding epoch.
+        [[*voltages1, epoch1],
+         [*voltages2, epoch2],
+         ...
+        ] 
+        """
+        walks_array = []
+        voltage_list = np.linspace(VOLT_MIN, VOLT_MAX, num=5)
+            # Try a range of voltages
+        for voltage in voltage_list:
+            self.set_voltage[lcvr_idx] = voltage
+            # Change LCVR setting
+            self._set_voltage()
+            # Get epoch when LCVR setting was changed
+            curr_epoch = get_current_epoch()
+            voltages = self.set_voltage.copy()
+            voltages.append(curr_epoch)
+            walks_array.append(voltages)
+        return walks_array
+                    
+    def find_qber_from_epoch(self, epoch_path):
+        # Update self.diagnosis
+        self.send_epoch(epoch_path)
+        # Pull relevant qber value
+        qber = self.diagnosis.qber
+        return qber
 
-            self.throw_dart()
-
-            return
-
-    def throw_dart():
-        voltage_list = [2]*4
-        return voltage_list
+    def throw_dart(self, voltage_list):
+        self.set_voltage = voltage_list
+        self._set_voltage()
+        return
 
     def send_epoch(self, epoch_path: str = None):
+        """Receives the epoch from controller and performs
+           polarization compensation. Only done in 
+           SERVICE mode.
+           The function name makes more sense from the
+           controller side. This script is actually
+           receiving the epoch.
+        """
         logger.debug(f'Received {epoch_path}')
         epoch = epoch_path.split('/')[-1]
         self.diagnosis = service_T3(epoch_path)
