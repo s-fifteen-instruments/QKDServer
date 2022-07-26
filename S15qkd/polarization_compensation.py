@@ -569,8 +569,6 @@ class PolarizationDriftCompensation(object):
         
         In order to correct the input to purely linear polarization.
         """
-        assert(len(stokes_vector == 4))
-
         s1,s2,s3 = stokes_vector[1], stokes_vector[2], stokes_vector[3]
         phi1 = -math.atan2(s2,s3)
         phi2 = math.acos(s1)
