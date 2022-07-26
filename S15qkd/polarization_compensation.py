@@ -35,6 +35,7 @@ __maintainer__ = ''
 __email__ = 'info@s-fifteen.com'
 __status__ = 'dev'
 
+from xmlrpc.client import Boolean
 import numpy as np
 import math
 import time
@@ -86,6 +87,10 @@ class PolComp(object):
         self.qber_counter = 0
         self.next_epoch = None
         self.stokes_v = []
+        self.retardances = [0]*4
+        self.last_retardances = self.retardances
+        self.cur_stokes_vector = []
+
 
     def _load_lut(self):
         file = '../S15qkd/lcvr_callibration.csv'
@@ -121,10 +126,38 @@ class PolComp(object):
         self.lcr.V4 = self.set_voltage[3]
         return
 
+    def send_qber(self, qber: float, epoch: str):
+        logger.debug(f'Received {qber}')
+        self.do_walks()
+        return
+
+    def epoch_passed(self,epoch) -> Boolean:
+        epoch_int = int(epoch, 16)
+        if epoch_int <= self.next_epoch:
+            logger.debug(f'Ignored epoch: {epoch}')
+            return False
+        return True
+
+    def do_walks(self):
+        if not self.next_epoch:
+
+            self.throw_dart()
+
+            return
+
+    def throw_dart():
+        voltage_list = [2]*4
+        return voltage_list
+
     def send_epoch(self, epoch_path: str = None):
         logger.debug(f'Received {epoch_path}')
         epoch = epoch_path.split('/')[-1]
         self.diagnosis = service_T3(epoch_path)
+        self.get_current_stokes_vector(epoch)
+        logger.debug(f'Stokes V {self.cur_stokes_vector} {epoch} {self.next_epoch}') 
+        logger.debug(f'QBER {self.diagnosis.qber}, epoch {epoch}')
+        return
+        """
         if not self.stokes_v: 
             self.stokes_v, self.dop = self.get_stokes_vector(epoch)
             logger.debug(f'First stokes setting {epoch} {self.next_epoch}')
@@ -137,6 +170,7 @@ class PolComp(object):
         self.lcvr_instant_find()
         logger.debug(f'QBER {self.diagnosis.qber}, epoch {epoch}')
         return
+        """
 
     def get_stokes_vector(self, epoch):
         """Main measurement loop.
@@ -161,37 +195,7 @@ class PolComp(object):
             # Now at target epoch
             self.next_epoch = None
             if not self.stokes_v: 
-                # Measure S0
-                S0 = diagnosis.okcount
-
-                # Measure S1
-                VH = diagnosis.coinc_matrix[2]
-                HV = diagnosis.coinc_matrix[8]
-                ADD = diagnosis.coinc_matrix[7]
-                DAD = diagnosis.coinc_matrix[13]
-                
-                VV = diagnosis.coinc_matrix[0]
-                HH = diagnosis.coinc_matrix[10]
-                ADAD = diagnosis.coinc_matrix[5]
-                DD = diagnosis.coinc_matrix[15]
-                
-
-                S1 = ((VH + HV + ADD + DAD ) - (VV + HH + ADAD + DD)) \
-                   / ((VH + HV + ADD + DAD ) + (VV + HH + ADAD + DD))
-
-                # Measure S2
-                VD = diagnosis.coinc_matrix[3]
-                HAD = diagnosis.coinc_matrix[9]
-                ADH = diagnosis.coinc_matrix[6]
-                DV = diagnosis.coinc_matrix[12]
-
-                VAD = diagnosis.coinc_matrix[1]
-                HD = diagnosis.coinc_matrix[11]
-                ADV = diagnosis.coinc_matrix[4]
-                DH = diagnosis.coinc_matrix[14]
-
-                S2 = ((VD + HAD + ADH + DV) - (VAD + HD + ADV + DH)) \
-                   / ((VD + HAD + ADH + DV) + (VAD + HD + ADV + DH))
+                S0, S1, S2 = self.get_S0_S1_S2(diagnosis)
                 stokes_vector = [1, S1, S2, None]
             
                 # Set horizontal LCVR to phi = pi/4 retardance
@@ -224,6 +228,40 @@ class PolComp(object):
                 stokes_vector = [1, S1, S2, S3]
                 return stokes_vector, degree_of_polarization
 
+    def get_S0_S1_S2(self,diagnosis: ServiceT3):
+        # Measure S0
+        S0 = diagnosis.okcount
+
+        # Measure S1
+        VH = diagnosis.coinc_matrix[2]
+        HV = diagnosis.coinc_matrix[8]
+        ADD = diagnosis.coinc_matrix[7]
+        DAD = diagnosis.coinc_matrix[13]
+        
+        VV = diagnosis.coinc_matrix[0]
+        HH = diagnosis.coinc_matrix[10]
+        ADAD = diagnosis.coinc_matrix[5]
+        DD = diagnosis.coinc_matrix[15]
+        
+
+        S1 = ((VH + HV + ADD + DAD ) - (VV + HH + ADAD + DD)) \
+            / ((VH + HV + ADD + DAD ) + (VV + HH + ADAD + DD))
+
+        # Measure S2
+        VD = diagnosis.coinc_matrix[3]
+        HAD = diagnosis.coinc_matrix[9]
+        ADH = diagnosis.coinc_matrix[6]
+        DV = diagnosis.coinc_matrix[12]
+
+        VAD = diagnosis.coinc_matrix[1]
+        HD = diagnosis.coinc_matrix[11]
+        ADV = diagnosis.coinc_matrix[4]
+        DH = diagnosis.coinc_matrix[14]
+
+        S2 = ((VD + HAD + ADH + DV) - (VAD + HD + ADV + DH)) \
+            / ((VD + HAD + ADH + DV) + (VAD + HD + ADV + DH))
+
+        return S0, S1, S2
 
     def get_stokes_vector_redux(self, epoch):
         """Main measurement loop. Ver 2.
@@ -290,6 +328,31 @@ class PolComp(object):
                 stokes_vector = [S0, S1, S2, S3]
                 return stokes_vector, degree_of_polarization
 
+    def get_current_stokes_vector(self, epoch):
+        """Find S0 S1 and S2 of current setting of LCVR voltage.
+        Rotate Last LCVR by pi/4 and find S3.
+        """
+        diagnosis=self.diagnosis
+        if not self.cur_stokes_vector and not self.next_epoch:
+            S0, S1, S2 = self.get_S0_S1_S2(diagnosis)
+            self.cur_stokes_vector = [1, S1, S2, None]
+            phi4 = self.retardances[3] + 3.142/4
+            self.last_retardances = self.retardances
+            self.retardances[3] = phi4
+            self.set_voltage[3] = self.voltage_lookup(phi4,3)
+            self._set_voltage()
+            self.next_epoch = get_current_epoch()
+        elif self.next_epoch and epoch:
+            if self.epoch_passed(epoch):
+                return
+            # Now at target epoch
+            self.next_epoch = None
+            S0, S3, = self.get_S0_S1_S2(diagnosis)
+            self.cur_stokes_vector[3] = S3
+            self.retardances = self.last_retardances
+            self.set_voltage[3] = self.voltage_lookup(self.last_retardances[3],3)
+            return
+
     def lcvr_instant_find(self):
         """To replace the current random walk method.
 
@@ -299,11 +362,11 @@ class PolComp(object):
         logger.debug(f'Stokes vector is {stokes_vector}')
         phi1, phi2, phi3, phi4 = self.compute_polarization_compensation(stokes_vector)
         logger.debug(f'Angles phi {phi1} {phi2} {phi3} {phi4}')
-        retardances = [phi1, phi2, phi3, phi4 ]
+        self.retardances = [phi1, phi2, phi3, phi4 ]
         self.set_voltage[2] = self.voltage_lookup(phi3,2)
         self.set_voltage[3] = self.voltage_lookup(phi4,3)
         self._set_voltage()
-        #self._set_retardance(retardances) # unused for not cause unsure about voltage at zero retardances yet.
+        #self._set_retardance(self.retardances) # unused for not cause unsure about voltage at zero retardances yet.
 
 
     def compute_polarization_compensation(self,stokes_vector: list):
