@@ -214,6 +214,72 @@ class PolComp(object):
                 stokes_vector = [S0, S1, S2, S3]
                 return stokes_vector, degree_of_polarization
 
+
+    def get_stokes_vector_redux(self, epoch):
+        """Main measurement loop. Ver 2.
+
+        Trying an alernate method of calculating stokes' vectors.
+        """
+        diagnosis=self.diagnosis
+        if not self.stokes_v and not self.next_epoch: 
+            # Set LCVR to transparent state
+            self.set_voltage = [5.5,5.5,5.5,5.5]
+            self._set_voltage()
+            self.next_epoch = get_current_epoch()
+        
+        if self.next_epoch and epoch:
+            # Compare epochs to see if reached
+            epoch_int = int(epoch, 16)
+            if epoch_int <= self.next_epoch:
+                logger.debug(f'Ignored epoch: {epoch}')
+                return self.stokes_v , 0
+
+            # Now at target epoch
+            self.next_epoch = None
+            if not self.stokes_v: 
+                # Measure S0
+                S0 = diagnosis.okcount
+
+                # Measure S1
+                HH = diagnosis.coinc_matrix[10]
+                HV = diagnosis.coinc_matrix[8]
+                HAD = diagnosis.coinc_matrix[9]
+                HD = diagnosis.coinc_matrix[11]
+
+                # 2*HH - (HH + HV + HD + HAD)
+                S1 = HH - HV - HD - HAD
+
+                # 2*HD - (HH + HV + HD + HAD)
+                S2 = HD - HH - HV - HAD
+                
+                stokes_vector = [S0, S1, S2, None]
+            
+                # Set horizontal LCVR to phi = pi/4 retardance
+                # 2.8V value estimated from Jyh Harng's thesis as a placeholder
+                self.set_voltage = [5.5,5.5,5.5,2.8]
+                self._set_voltage()
+                self.next_epoch = get_current_epoch()
+            
+                return stokes_vector, 0
+            else:
+                # Measure S3
+                HH = diagnosis.coinc_matrix[10]
+                HV = diagnosis.coinc_matrix[8]
+                HAD = diagnosis.coinc_matrix[9]
+                HD = diagnosis.coinc_matrix[11]
+
+                # 2*HAD - (HH + HV + HD + HAD)
+                S3 = HAD - HH - HV - HD
+
+                self.stokes_v[3] = S3
+                S0 = self.stokes_v[0]
+                S1 = self.stokes_v[1]
+                S2 = self.stokes_v[2]
+                degree_of_polarization = \
+                    math.sqrt((S1)**2 + (S2)**2 + (S3)**2)/S0
+                stokes_vector = [S0, S1, S2, S3]
+                return stokes_vector, degree_of_polarization
+
     def lcvr_instant_find(self):
         """To replace the current random walk method.
 
@@ -235,8 +301,6 @@ class PolComp(object):
         theta1=0 and theta2=0 and phi1=0, phi2=0
         In order to correct the input to purely linear polarization.
         """
-        assert(len(stokes_vector == 4))
-
         s1,s2,s3 = stokes_vector[1], stokes_vector[2], stokes_vector[3]
         phi3 = -math.atan2(s2,s3)
         phi4 = math.acos(s1)
@@ -245,12 +309,12 @@ class PolComp(object):
 
         return phi1, phi2, phi3, phi4
 
-    def voltage_lookup(self, retardance, id: int):
+    def voltage_lookup(self, retardance: float, id: int):
         """For a given retardance value, gets the corresponding LCVR voltage.
 
         Args:
             Retardance: Desired retardance in radians.
-            Table: File path to callibration table of the target LCVR.
+            id: Column index of LookUpTab (LUT) to pull data from.
         """
 
 
