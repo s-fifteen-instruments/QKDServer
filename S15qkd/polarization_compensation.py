@@ -49,6 +49,20 @@ from .qkd_globals import logger, FoldersQKD
 
 VOLT_MIN = 0.9
 VOLT_MAX = 5.5
+RETARDANCE_MAX = 4.58
+RETARDANCE_MIN = 1.18
+
+def qber_cost_func(qber: float, desired_qber: float = 0.04, amplitude: float = 6) -> float:
+    return amplitude * (qber - desired_qber)**2
+
+def get_current_epoch():
+    """Returns the current epoch in integer.
+
+    Hex value of epoch can be checked with 'hex(get_current_epoch())[2:]'.
+    """
+    return time.time_ns() >> 29
+
+
 
 class PolComp(object):
     """Class for polarization compensation.
@@ -73,25 +87,33 @@ class PolComp(object):
         V4: float
 
     def __init__(self, lcr_path: str = '' ):
+        # Get device
         self.lcr = LCRDriver(lcr_path)
         self.lcr.all_channels_on()
+        # Load parameters from config
         LCR_volt_info = qkd_globals.config['LCR_volt_info']
         self.LCR_params = self.LCR_V(qkd_globals.config['target_hostname'],*LCR_volt_info.values())
-        self.set_voltage = self.LCR_params[2:6]
+        self.set_voltage = [self.LCR_params.V1, self.LCR_params.V2,
+                            self.LCR_params.V3, self.LCR_params.V4]
+        self._load_lut()
+        
+        # Apply parameters
         self._set_voltage()
         self.last_voltage_list = self.set_voltage
-        self._load_lut()
         self._reset()
+        self._calculate_retardances()
         logger.debug(f'pol com initialized')
 
     def _reset(self):
         self.qber_list = []
         self.last_qber = 1
         self.qber_counter = 0
-        self.next_epoch = None
+        self.next_epoch = 0
+        self.next_equator = True
+        self.S3_swap = None
         self.stokes_v = []
         self.retardances = [0]*4
-        self.last_retardances = self.retardances
+        self.last_retardances = self.retardances.copy()
         self.cur_stokes_vector = []
 
 
@@ -116,10 +138,17 @@ class PolComp(object):
     
     def _calculate_voltages(self, retardances: list):
         ind = 0
-        for i in retardances:
-            ind = ind 
-            self.set_voltage[i] = self.voltage_lookup(i,ind)
+        for retardance in retardances:
+            self.set_voltage[ind], actual_ret = self.voltage_lookup(retardance,ind)
+            ind += 1 
         return
+
+    def _calculate_retardances(self):
+        ind = 0
+        for volt in self.set_voltage:
+            self.retardances[ind] = self.retardance_lookup(volt,ind)
+            ind +=1
+        return 
 
     def _set_voltage(self):
         self.lcr.V1 = self.set_voltage[0]
@@ -128,7 +157,18 @@ class PolComp(object):
         self.lcr.V4 = self.set_voltage[3]
         return
 
-    def send_qber(self, qber: float, epoch_path: str):
+    def _set_prev_voltage(self):
+        self.lcr.V1 = self.previous_voltage[0]
+        self.lcr.V2 = self.previous_voltage[1]
+        self.lcr.V3 = self.previous_voltage[2]
+        self.lcr.V4 = self.previous_voltage[3]
+        return
+
+    def _set_one_voltage(self,volt: float, id: int):
+        self.lcr.set_voltage(id + 1, volt)
+        return
+
+    def send_qber(self, qber: float, epoch: str):
         logger.debug(f'Received {qber}')
         # i-th LCVR
         for i in range(4):
@@ -145,8 +185,9 @@ class PolComp(object):
     def epoch_passed(self,epoch) -> Boolean:
         epoch_int = int(epoch, 16)
         if epoch_int <= self.next_epoch:
-            logger.debug(f'Ignored epoch: {epoch}')
+            logger.debug(f'Ignored epoch: {epoch}. Next epoch is {hex(self.next_epoch)[2:]}')
             return False
+        logger.debug(f'Good epoch: {epoch}. Next epoch is {hex(self.next_epoch)[2:]}')
         return True
 
     def do_walks(self, lcvr_idx):
@@ -196,19 +237,24 @@ class PolComp(object):
         epoch = epoch_path.split('/')[-1]
         self.diagnosis = service_T3(epoch_path)
         self.get_current_stokes_vector(epoch)
-        logger.debug(f'Stokes V {self.cur_stokes_vector} {epoch} {self.next_epoch}') 
+        if self.cur_stokes_vector[3]:
+            logger.debug(f'Stokes V {self.cur_stokes_vector} {epoch} {self.next_epoch}') 
+            self.lcvr_instant_find()
+            self.cur_stokes_vector = []
         logger.debug(f'QBER {self.diagnosis.qber}, epoch {epoch}')
+
+
         return
         """
+        logger.debug(f'Received {epoch_path} QBER {self.diagnosis.qber}, epoch {epoch}')
         if not self.stokes_v: 
-            self.stokes_v, self.dop = self.get_stokes_vector(epoch)
+            self.get_stokes_vector(epoch)
             logger.debug(f'First stokes setting {epoch} {self.next_epoch}')
             return
         if not self.stokes_v[3]:
-            self.stokes_v, self.dop = self.get_stokes_vector(epoch) 
+            self.get_stokes_vector(epoch) 
             logger.debug(f'Second stokes setting {epoch} {self.next_epoch}')
             return
-        logger.debug(f'QBER {self.diagnosis.qber}, epoch {epoch}')
         self.lcvr_instant_find()
         logger.debug(f'QBER {self.diagnosis.qber}, epoch {epoch}')
         return
@@ -232,7 +278,7 @@ class PolComp(object):
             epoch_int = int(epoch, 16)
             if epoch_int <= self.next_epoch:
                 logger.debug(f'Ignored epoch: {epoch}')
-                return self.stokes_v , 0
+                return
 
             # Now at target epoch
             self.next_epoch = None
@@ -246,7 +292,7 @@ class PolComp(object):
                 self._set_voltage()
                 self.next_epoch = get_current_epoch()
             
-                return stokes_vector, 0 
+                return 
             else:
                 # Measure S3
                 VH = diagnosis.coinc_matrix[2]
@@ -258,8 +304,8 @@ class PolComp(object):
                 HH = diagnosis.coinc_matrix[10]
                 ADAD = diagnosis.coinc_matrix[5]
                 DD = diagnosis.coinc_matrix[15]
-                S3 = ((VH + HV + ADD + DAD ) - (VV + HH + ADAD + DD)) \
-                   / ((VH + HV + ADD + DAD ) + (VV + HH + ADAD + DD))
+                S3 = float(round(((VH + HV + ADD + DAD ) - (VV + HH + ADAD + DD)) \
+                   / ((VH + HV + ADD + DAD ) + (VV + HH + ADAD + DD)),3))
                 
                 self.stokes_v[3] = S3
                 S0 = self.stokes_v[0]
@@ -268,7 +314,7 @@ class PolComp(object):
                 degree_of_polarization = \
                     math.sqrt((S1)**2 + (S2)**2 + (S3)**2)/S0
                 stokes_vector = [1, S1, S2, S3]
-                return stokes_vector, degree_of_polarization
+                return #stokes_vector, degree_of_polarization
 
     def get_S0_S1_S2(self,diagnosis: ServiceT3):
         # Measure S0
@@ -285,9 +331,11 @@ class PolComp(object):
         ADAD = diagnosis.coinc_matrix[5]
         DD = diagnosis.coinc_matrix[15]
         
-
-        S1 = ((VH + HV + ADD + DAD ) - (VV + HH + ADAD + DD)) \
-            / ((VH + HV + ADD + DAD ) + (VV + HH + ADAD + DD))
+        if ((VH + HV + ADD + DAD ) + (VV + HH + ADAD + DD)) == 0:
+            S1 = 0
+        else:
+            S1 = ((VH + HV + ADD + DAD ) - (VV + HH + ADAD + DD)) \
+                / ((VH + HV + ADD + DAD ) + (VV + HH + ADAD + DD))
 
         # Measure S2
         VD = diagnosis.coinc_matrix[3]
@@ -300,9 +348,11 @@ class PolComp(object):
         ADV = diagnosis.coinc_matrix[4]
         DH = diagnosis.coinc_matrix[14]
 
-        S2 = ((VD + HAD + ADH + DV) - (VAD + HD + ADV + DH)) \
-            / ((VD + HAD + ADH + DV) + (VAD + HD + ADV + DH))
-
+        if ((VD + HAD + ADH + DV) + (VAD + HD + ADV + DH)) == 0: 
+            S2 = 0
+        else:
+            S2 = ((VD + HAD + ADH + DV) - (VAD + HD + ADV + DH)) \
+                / ((VD + HAD + ADH + DV) + (VAD + HD + ADV + DH))
         return S0, S1, S2
 
     def get_stokes_vector_redux(self, epoch):
@@ -375,24 +425,42 @@ class PolComp(object):
         Rotate Last LCVR by pi/4 and find S3.
         """
         diagnosis=self.diagnosis
-        if not self.cur_stokes_vector and not self.next_epoch:
+        if not self.epoch_passed(epoch):
+            return
+        if self.next_equator:
             S0, S1, S2 = self.get_S0_S1_S2(diagnosis)
             self.cur_stokes_vector = [1, S1, S2, None]
-            phi4 = self.retardances[3] + 3.142/4
-            self.last_retardances = self.retardances
+            cv = self.set_voltage
+            logger.debug(f'Found S0,S1,S2 at {cv} with {epoch}')
+            phi4 = self.rotate_poles()
+            self.last_retardances = self.retardances.copy()
+            self.previous_voltage = self.set_voltage.copy()
+            volt, phi4 = self.voltage_lookup(phi4,3)
+            self.set_voltage[3] = volt
             self.retardances[3] = phi4
-            self.set_voltage[3] = self.voltage_lookup(phi4,3)
-            self._set_voltage()
+            self._set_one_voltage(volt, 3)
             self.next_epoch = get_current_epoch()
-        elif self.next_epoch and epoch:
-            if self.epoch_passed(epoch):
-                return
+            self.next_equator = False
+            cv = self.set_voltage
+            pv = self.previous_voltage
+            logger.debug(f'Prev {pv} Set_ {cv}')
+            return
+        else:
             # Now at target epoch
             self.next_epoch = None
-            S0, S3, = self.get_S0_S1_S2(diagnosis)
-            self.cur_stokes_vector[3] = S3
-            self.retardances = self.last_retardances
-            self.set_voltage[3] = self.voltage_lookup(self.last_retardances[3],3)
+            S0, S4, S3 = self.get_S0_S1_S2(diagnosis)
+            self.cur_stokes_vector[3] = S3 * self.S3_swap
+            cv = self.set_voltage
+            logger.debug(f'Found S3 at {cv} with {epoch}')
+            self.retardances = self.last_retardances.copy()
+            self.set_voltage = self.previous_voltage.copy()
+            self._set_prev_voltage()
+            self.next_epoch = get_current_epoch()
+            self.S3_swap = None
+            self.next_equator = True
+            cv = self.set_voltage
+            pv = self.previous_voltage
+            logger.debug(f'Prev {pv} Set_ {cv}')
             return
 
     def lcvr_instant_find(self):
@@ -404,11 +472,12 @@ class PolComp(object):
         logger.debug(f'Stokes vector is {stokes_vector}')
         phi1, phi2, phi3, phi4 = self.compute_polarization_compensation(stokes_vector)
         logger.debug(f'Angles phi {phi1} {phi2} {phi3} {phi4}')
-        self.retardances = [phi1, phi2, phi3, phi4 ]
-        self.set_voltage[2] = self.voltage_lookup(phi3,2)
-        self.set_voltage[3] = self.voltage_lookup(phi4,3)
+        self.set_voltage[2], phi3 = self.voltage_lookup(phi3,2)
+        self.set_voltage[3], phi4 = self.voltage_lookup(phi4,3)
+        self.retardances = [phi1, phi2, phi3, phi4]
         self._set_voltage()
         #self._set_retardance(self.retardances) # unused for not cause unsure about voltage at zero retardances yet.
+        return
 
 
     def compute_polarization_compensation(self,stokes_vector: list):
@@ -425,7 +494,7 @@ class PolComp(object):
 
         return phi1, phi2, phi3, phi4
 
-    def voltage_lookup(self, retardance: float, id: int):
+    def voltage_lookup(self, retardance: float, id: int) -> float:
         """For a given retardance value, gets the corresponding LCVR voltage.
 
         Args:
@@ -433,35 +502,75 @@ class PolComp(object):
             id: Column index of LookUpTab (LUT) to pull data from.
         """
 
-
         retdiffVector = self.LUT[id].ret_V - retardance
         min_idx = len(retdiffVector[retdiffVector > 0]) - 1
-        voltage_raw = self.LUT[id].volt_V[min_idx] + (retdiffVector[min_idx] * self.LUT[id].grad_V[min_idx])
+        voltage_raw = self.LUT[id].volt_V[min_idx] + (retdiffVector[min_idx] / self.LUT[id].grad_V[min_idx])
         voltage = float(round(voltage_raw,3))
-
+        
+        if voltage > VOLT_MAX:
+            voltage = self.LUT[id].volt_V[-1]
+            actual_ret = self.LUT[id].ret_V[-1]
+        elif voltage < VOLT_MIN:
+            voltage = self.LUT[id].volt_V[0]
+            actual_ret = self.LUT[id].ret_V[0]
+        else:
+            actual_ret = retardance
+        
+        return voltage, actual_ret
         # The index that is closest to the target retardance is chosen
         # by looking only at the positive differences between the target
         # and the lookup values.
 
-        return voltage
 
-    
-def qber_cost_func(qber: float, desired_qber: float = 0.04, amplitude: float = 6) -> float:
-    return amplitude * (qber - desired_qber)**2
+    def retardance_lookup(self, volt: float, id: int = 3 ) -> float:
+        """For a given voltage value, get the retardance in radians
+        
+        Args:
+            Voltage: Voltage in Volts.
+            id: Column index of LookUpTab (LUT) to pull data from.
+        """
+        voltdiffVector = self.LUT[id].volt_V - volt
+        min_idx = len(voltdiffVector[voltdiffVector > 0]) - 1
+        retardance_raw = self.LUT[id].ret_V[min_idx] + (voltdiffVector[min_idx] * self.LUT[id].grad_V[min_idx])
+        retardance = float(round(retardance_raw,3))
+        return retardance
 
-def get_current_epoch():
-    """Returns the current epoch in integer.
+    def rotate_poles(self):
+        """Looks at self.retardance[3] and add/minus pi/2 depending on the value
+        Set a marker"""
+        pi_2 = 3.142/2
+        if (self.retardances[3] + pi_2) > RETARDANCE_MAX:
+            phi4 = self.retardances[3] - pi_2
+            self.S3_swap = -1.
+            return phi4
+        else:
+            phi4 = self.retardances[3] + pi_2
+            self.S3_swap = 1.
+            return phi4
 
-    Hex value of epoch can be checked with 'hex(get_current_epoch())[2:]'.
-    """
-    return time.time_ns() >> 29
+        
+    @property
+    def voltage(self) -> list:
+        return self._voltage
+
+    @voltage.setter
+    def voltage(self, value: list):
+        assert(len(value) == 4)
+        for i in value:
+            if i > VOLT_MAX:
+                value[i] = VOLT_MAX
+                raise ValueError("Set value exceeded Max volt of " + {VOLT_MAX})
+            elif i < VOLT_MIN:
+                value[i] = VOLT_MIN
+                raise ValueError("Set value subceded Min volt of " + {VOLT_MIN})
+        self._voltage = value  
+
 
 
 import os
 
 LCR_VOlT_FILENAME = 'latest_LCR_voltages.txt'
-VOLT_MIN = 0.9
-VOLT_MAX = 5.5
+
 LCVR1_CALLIBRATION_FILEPATH = 'lcvr_callibration.csv'
 LCVR2_CALLIBRATION_FILEPATH = 'lcvr_callibration.csv'
 

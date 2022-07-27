@@ -386,7 +386,9 @@ def service_T3(file_name: str) -> Optional[ServiceT3]:
 
     er_coin = sum(service.coinc_matrix[i] for i in er_coinc_id)
     gd_coin = sum(service.coinc_matrix[i] for i in gd_coinc_id)
-
+    if (er_coin + gd_coin) == 0:
+        service.qber = 1.0
+        return service
     service.qber = float(round(er_coin /(er_coin + gd_coin),3)) #ignore garbage
     return service
 
