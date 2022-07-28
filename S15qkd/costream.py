@@ -30,8 +30,6 @@ import pathlib
 
 from .utils import Process
 from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD
-from .polarization_compensation import PolarizationDriftCompensation
-from .rawkey_diagnosis import RawKeyDiagnosis
 
 class Costream(Process):
 
@@ -55,8 +53,8 @@ class Costream(Process):
             time_difference: int,
             begin_epoch: str,
             qkd_protocol,
-            callback_restart=None,  # allow costream to force keygen restart,
-            callback_start_keygen=None,  # callback to pass to polarization controller
+            callback_pol_comp_epoch = None,  # callback to pass to polarization controller
+            callback_restart = None,  # allow costream to force keygen restart,
         ):
         assert not self.is_running()
 
@@ -65,7 +63,7 @@ class Costream(Process):
         self._qkd_protocol = qkd_protocol
 
         # Polarization compensation
-        self._polarization_compensator = None
+        self._pol_compensator = callback_pol_comp_epoch
         self._pairs_over_accidentals_avg = 10
         self._callback_restart = callback_restart
 
@@ -95,13 +93,6 @@ class Costream(Process):
         super().start(args, stderr="costreamerror", callback_restart=callback_restart)
         
         self.read(PipesQKD.GENLOG, self.digest_genlog, 'GENLOG')
-
-        # Enable polarization compensation
-        if Process.config.do_polarization_compensation is True \
-                and qkd_protocol == QKDProtocol.SERVICE:
-            self._polarization_compensator = PolarizationDriftCompensation(
-                Process.config.LCR_polarization_compensator_path,
-            ) # TODO(Justin): Pass 'callback_start_keygen'
 
 
     def digest_genlog(self, pipe):
@@ -138,6 +129,12 @@ class Costream(Process):
             self._callback_restart()
             return
 
+        if self._pol_compensator:
+            epoch = self._latest_outepoch
+            epoch_path = FoldersQKD.RAWKEYS + '/' + epoch
+            self._pol_compensator(epoch_path)
+
+    '''Move polarization compensation to controller
         # If in SERVICE mode, mark as SERVICE mode in QKD engine
         if self._qkd_protocol == QKDProtocol.SERVICE:
             logger.debug(message)
@@ -156,6 +153,7 @@ class Costream(Process):
                 self._polarization_compensator.update_QBER(
                      diagnosis.quantum_bit_error, epoch=message,
                 )
+    '''
 
     # Coding defensively... ensure these properties are not
     # modified outside class.

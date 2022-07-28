@@ -89,3 +89,8 @@ class Readevents(Process):
 
         # Extract measured local count rate
         return int(proc_getrate.stdout.read().decode())
+
+    def powercycle(self):
+        assert not self.is_running()
+        super().start(['-q1 -Z'])
+        return

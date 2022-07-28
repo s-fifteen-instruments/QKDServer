@@ -39,5 +39,12 @@
     "target_bit_error": 1e-09,
     "servo_blocks": 5,
     "do_polarization_compensation": false,
-    "LCR_polarization_compensator_path": ""
+    "LCR_polarization_compensator_path": "",
+    "LCR_volt_info": {
+        "LCR_volt_file": "latest_LCR_voltages.txt",
+        "V1": 1.5,
+        "V2": 1.5,
+        "V3": 1.5,
+        "V4": 1.5
+    }
 }
