@@ -324,7 +324,7 @@ def read_T2_header(file_name: str):
         with open(file_name, 'rb') as f:
             head_info = f.read(4*6)
     else:
-        headt2 = HeadT2(2,file_name.split('/')[-1],0,0,4,0)
+        headt2 = HeadT2(2,int(file_name.split('/')[-1],16),0,0,4,0)
         return headt2
     headt2 = HeadT2._make(unpack('iIIiii', head_info))
     if (headt2.tag != 0x102 and headt2.tag != 2) :

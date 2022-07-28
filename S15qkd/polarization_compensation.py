@@ -53,9 +53,10 @@ VOLT_MAX = 5.5
 RETARDANCE_MAX = 4.58
 RETARDANCE_MIN = 1.18
 EPOCH_DURATION = 0.537
+QBER_THRESHOLD = 0.08
 
-def qber_cost_func(qber: float, desired_qber: float = 0.04, amplitude: float = 6) -> float:
-    return amplitude * (qber - desired_qber)**2
+def qber_cost_func(qber: float, desired_qber: float = 0.04, amplitude: float = 0.7855, exponent: float = 1.4) -> float:
+    return amplitude * (qber - desired_qber)**exponent
 
 def get_current_epoch():
     """Returns the current epoch in integer.
@@ -105,7 +106,7 @@ class PolComp(object):
         self._reset()
         self._calculate_retardances()
         self._callback = callback_service_to_BBM92
-        self.qber_threshold = 0.08
+        self.qber_threshold = QBER_THRESHOLD
         logger.debug(f'pol com initialized')
 
 
@@ -113,15 +114,17 @@ class PolComp(object):
         self.qber_list = []
         self.last_qber = 1
         self.qber_counter = 0
+        self.averaging_n = 2
         self.next_epoch = 0
         self.next_equator = True
         self.S3_swap = None
         self.stokes_v = []
         self.retardances = [0]*4
         self.last_retardances = self.retardances.copy()
-        self.cur_stokes_vector = []
+        self.cur_stokes_vector = [None]*4
         self.walks_array = []
         self._voltage_list = []
+        self.narrow_down_list = []
         self.next_id = 0
         self.first_pass = True
 
@@ -141,16 +144,19 @@ class PolComp(object):
             self.LUT.append(table)
 
     def _set_retardance(self, retardances):
-        self._calculate_voltages(retardances)
+        actual_ret = self._calculate_voltages(retardances)
+        self.retardances = actual_ret.copy()
         self._set_voltage()
         return
     
     def _calculate_voltages(self, retardances: list):
+        assert(len(retardances)==4)
         ind = 0
+        actual_ret = [0]*4
         for retardance in retardances:
-            self.set_voltage[ind], actual_ret = self.voltage_lookup(retardance,ind)
+            self.set_voltage[ind], actual_ret[ind] = self.voltage_lookup(retardance,ind)
             ind += 1 
-        return
+        return actual_ret
 
     def _calculate_retardances(self):
         ind = 0
@@ -184,7 +190,7 @@ class PolComp(object):
             self.set_voltage[i] = qber_list[min_idx]
         return
 
-    def epoch_passed(self,epoch) -> Boolean:
+    def epoch_passed(self, epoch:str) -> Boolean:
         epoch_int = int(epoch, 16)
         if epoch_int <= self.next_epoch:
             logger.debug(f'Ignored epoch: {epoch}. Next epoch is {hex(self.next_epoch)[2:]}')
@@ -200,7 +206,7 @@ class PolComp(object):
 
     def do_walks(self, lcvr_idx: int = 0):
         """Performs walking in the LCVR space.
-        Returns an array (nested list) of LCVR settings 
+        Generates an array (nested list) of LCVR settings 
         and the corresponding epoch.
         [[*voltages1, epoch1],
          [*voltages2, epoch2],
@@ -233,7 +239,7 @@ class PolComp(object):
             voltages = self.set_voltage.copy()
             voltages.append(curr_epoch)
             self.walks_array.append(voltages)
-            time.sleep(EPOCH_DURATION)
+            time.sleep(EPOCH_DURATION*1.9)
 
         logger.debug(f'walks_array is {self.walks_array}')
         if self.next_id < 3:
@@ -249,11 +255,6 @@ class PolComp(object):
         qber = diagnosis.qber
         return qber
 
-    def throw_dart(self, voltage_list):
-        self.set_voltage = voltage_list
-        self._set_voltage()
-        return
-
     def process_qber(self, qber: float, epoch: str):
         """Process the received qber from epoch"""
         if self.walks_array:
@@ -266,23 +267,31 @@ class PolComp(object):
             earliest_val.append(qber)
             self._voltage_list.append(earliest_val)
             logger.info(f'{self._voltage_list}')
+        
+        #elif self.narrow_down_list:
+        #    self.narrow_down(qber, epoch)
+    
         else:
             if self.apply_minimum_qber():
-                self.do_walks(self.next_id)
+                if self.first_pass:
+                    self.do_walks(self.next_id)
+                #else:
+                    #self.narrow_down(qber)
         return
 
     def apply_minimum_qber(self):
-        qber_min = 1
+        qber_min = 1.
         for row in self._voltage_list:
-            qber = row[-1]
+            qber = float(row[-1])
             if qber < qber_min:
                 qber_min = qber
                 voltage_min = row[0:4]
+                self.set_voltage = voltage_min
         self._voltage_list = []
-        self.set_voltage = voltage_min
-
-        logger.debug(f'Minimum QBER {qber_min} at {voltage_min}')
+        
+        logger.debug(f'Minimum QBER {qber_min} at {self.set_voltage}')
         self._set_voltage()
+        self._calculate_retardances()
         self.qber_current = qber_min
         if qber_min < self.qber_threshold:
             self._callback()
@@ -290,6 +299,18 @@ class PolComp(object):
             return False
         return True
 
+    def narrow_down(self, qber: float, epoch: str):
+        """From the current set_voltages and qber,
+        narrow down to below threshold qber."""
+        if not self.narrow_down_list: #first entry
+            self.last_qber = self.qber_current
+            self._set_voltage()
+            self.next_epoch = get_current_epoch()
+            return
+        if not self.epoch_passed(epoch):
+            return
+        if qber > self.qber_current:
+            return
 
     def send_epoch(self, epoch_path: str = None):
         """Receives the epoch from controller and performs
@@ -300,23 +321,23 @@ class PolComp(object):
            receiving the epoch.
         """
         epoch = epoch_path.split('/')[-1]
-        self.process_qber(self.find_qber_from_epoch(epoch_path), epoch)
-
-        
+        if self.walks_array:
+            self.process_qber(self.find_qber_from_epoch(epoch_path), epoch)
+        elif self.first_pass:
+            self.process_qber(self.find_qber_from_epoch(epoch_path), epoch)
+        else:
+            self.update_QBER(self.find_qber_from_epoch(epoch_path), QBER_THRESHOLD, epoch)
         """
-        logger.debug(f'Received {epoch_path}')
-        epoch = epoch_path.split('/')[-1]
         self.diagnosis = service_T3(epoch_path)
         self.get_current_stokes_vector(epoch)
         if self.cur_stokes_vector[3]:
             logger.debug(f'Stokes V {self.cur_stokes_vector} {epoch} {self.next_epoch}') 
-            self.lcvr_instant_find()
-            self.cur_stokes_vector = []
+            self.rotate_stokes_v_to_S1()
+            self.cur_stokes_vector = [None]*4
         logger.debug(f'QBER {self.diagnosis.qber}, epoch {epoch}')
         
         return
         """
-        
         """
         logger.debug(f'Received {epoch_path} QBER {self.diagnosis.qber}, epoch {epoch}')
         if not self.stokes_v: 
@@ -492,7 +513,7 @@ class PolComp(object):
                 stokes_vector = [S0, S1, S2, S3]
                 return stokes_vector, degree_of_polarization
 
-    def get_current_stokes_vector(self, epoch):
+    def get_current_stokes_vector(self, epoch: str):
         """Find S0 S1 and S2 of current setting of LCVR voltage.
         Rotate Last LCVR by pi/4 and find S3.
         """
@@ -525,6 +546,19 @@ class PolComp(object):
             self.next_equator = True
             return
 
+    def rotate_stokes_v_to_S1(self):
+        stokes_vector = self.cur_stokes_vector.copy()
+        curr_ret = self.retardances.copy()
+        new_ret = []
+        phis = self.compute_polarization_compensation(stokes_vector)
+        phis = list(phis)
+        for i in range(0,len(curr_ret)):
+            new_ret.append(curr_ret[i] + phis[i])
+            if phis[i] != 0:
+                new_voltage, act_ret = self.voltage_lookup(new_ret[i],i)
+                self.set_voltage[i] = new_voltage
+        self._set_voltage()
+
     def lcvr_instant_find(self):
         """To replace the current random walk method.
 
@@ -540,7 +574,6 @@ class PolComp(object):
         self._set_voltage()
         #self._set_retardance(self.retardances) # unused for not cause unsure about voltage at zero retardances yet.
         return
-
 
     def compute_polarization_compensation(self,stokes_vector: list):
         """Computes phi rotations from a given Stokes vector.
@@ -592,9 +625,10 @@ class PolComp(object):
             id: Column index of LookUpTab (LUT) to pull data from.
         """
         voltdiffVector = self.LUT[id].volt_V - volt
-        min_idx = len(voltdiffVector[voltdiffVector > 0]) - 1
-        retardance_raw = self.LUT[id].ret_V[min_idx] + (voltdiffVector[min_idx] * self.LUT[id].grad_V[min_idx])
+        min_idx = np.argmin(np.abs(voltdiffVector))
+        retardance_raw = self.LUT[id].ret_V[min_idx] - (voltdiffVector[min_idx] * self.LUT[id].grad_V[min_idx])
         retardance = float(round(retardance_raw,3))
+        logger.debug(f'voltage is {volt}, ret is {retardance}')
         return retardance
 
     def rotate_poles(self):
@@ -620,6 +654,62 @@ class PolComp(object):
             else:
                 return_val.append(ret)
         return return_val
+
+    def update_QBER(self, qber: float, qber_threshold: float = QBER_THRESHOLD, epoch: str = None):
+        self.qber_counter += 1
+        if self.qber_counter < 10: # in case pfind finds a bad match, we don't want to change the lcvr voltage too early
+            return
+
+        # 'next_epoch' will be updated when LCVR values are pushed
+        # In service mode, all epochs between now (time LCVR values are computed) and 'next_epoch'
+        # should be discarded, so that the updated value is properly reflected.
+        if not self.epoch_passed(epoch):
+            return # start averaging from next epoch onwards
+
+        self.qber_list.append(qber)
+        if len(self.qber_list) >= self.averaging_n:
+            qber_mean = np.mean(self.qber_list)
+            self.qber_list.clear()
+            logger.info(
+                f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Phi search range: {qber_cost_func(qber_mean):.2f}')
+            if qber_mean > 0.3:
+                self.averaging_n = 2
+            if qber_mean < 0.3:
+                self.averaging_n = 2
+            if qber_mean < 0.15:
+                self.averaging_n = 3
+            if qber_mean < 0.09:
+                self.averaging_n = 5
+            logger.info(
+                f'Avg(qber): {qber_mean:.2f} averaging over {self.averaging_n} epochs. Phi_range: {qber_cost_func(qber_mean):.2f}')
+            if qber_mean < qber_threshold:
+                np.savetxt(self.LCR_params.volt_file, [self.set_voltage])
+                self._callback()
+                logger.info(f'BBM92 called')
+                return
+            if qber_mean < self.last_qber:
+                self.last_voltage_list= self.set_voltage.copy()
+                self.lcvr_narrow_down(qber_mean)
+                #np.savetxt(self.LCR_params.LCR_volt_file,
+                #           [*self.last_voltage_list])
+            else:
+                self.lcvr_narrow_down(self.last_qber)
+                
+            self.next_epoch = get_current_epoch()
+            logger.debug(f'Next epoch set to "{hex(self.next_epoch)[2:]}".')
+            self.last_qber= qber_mean
+
+    def lcvr_narrow_down(self,  curr_qber: float):
+        
+        ret_range = qber_cost_func(curr_qber)
+        delta_phis = [0]*4
+        phis = []
+        for i in range(0,len(delta_phis)):
+            delta_phis[i] = np.random.uniform(-ret_range, ret_range)
+            phis.append(self.retardances[i] + delta_phis[i])
+        phis = self.bound_retardance(phis)
+        logger.debug(f'Phis are {phis}, delta_phis {delta_phis},voltage {self.set_voltage}')
+        self._set_retardance(phis)
 
     @property
     def voltage(self) -> list:
@@ -671,275 +761,4 @@ class PolarizationDriftCompensation(object):
         self.next_epoch = None
         self.stokes_v = []
 
-    def send_diagnosis(self, diagnosis, epoch: str = None):
-        if not self.stokes_v: 
-            self.stokes_v, self.dop  = self.get_stokes_vector(diagnosis, epoch)
-            logger.debug(f'First stokes setting {epoch} {self.next_epoch}')
-            return
-        if not self.stokes_v[3]:
-            self.stokes_v, self.dop = self.get_stokes_vector(diagnosis, epoch) 
-            logger.debug(f'Second stokes setting {epoch} {self.next_epoch}')
-            return
-        logger.debug(f'QBER {diagnosis.quantum_bit_error}, epoch {epoch}')
-        self.lcvr_instant_find()
-        logger.debug(f'QBER {diagnosis.quantum_bit_error}, epoch {epoch}')
-
-    def update_QBER(self, qber: float, qber_threshold: float = 0.086, epoch: str = None):
-        self.qber_counter += 1
-        if self.qber_counter < 22: # in case pfind finds a bad match, we don't want to change the lcvr voltage too early
-            return
-
-        # 'next_epoch' will be updated when LCVR values are pushed
-        # In service mode, all epochs between now (time LCVR values are computed) and 'next_epoch'
-        # should be discarded, so that the updated value is properly reflected.
-        if not self.next_epoch and not epoch:
-            # Compare epochs to see if reached
-            epoch_int = int(epoch, 16)
-            if epoch_int < self.next_epoch:
-                logger.debug(f'Ignored epoch: {epoch}')
-                return
-
-            # Now at target epoch
-            self.next_epoch = None
-            return # start averaging from next epoch onwards
-
-        self.qber_list.append(qber)
-        if len(self.qber_list) >= self.averaging_n:
-            qber_mean = np.mean(self.qber_list)
-            self.qber_list.clear()
-            logger.info(
-                f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Voltage search range: {qber_cost_func(qber_mean):.2f}')
-            if qber_mean > 0.3:
-                self.averaging_n = 2
-            if qber_mean < 0.3:
-                self.averaging_n = 5
-            if qber_mean < 0.15:
-                self.averaging_n = 10
-            if qber_mean < 0.10:
-                self.averaging_n = 15
-            logger.info(
-                f'Avg(qber): {qber_mean:.2f} averaging over {self.averaging_n} epochs. V_range: {qber_cost_func(qber_mean):.2f}')
-            if qber_mean < qber_threshold:
-                #np.savetxt(self.LCRvoltages_file_name, [self.V1, self.V2, self.V3, self.V4])
-                #controller.stop_key_gen()
-                #logger.info('Attempting to start key generation')
-                #time.sleep(1)
-                #controller.start_key_generation()
-                #controller.service_to_BBM92()
-                return
-            if qber_mean < self.last_qber:
-                self.last_voltage_list= [self.V1, self.V2, self.V3, self.V4]
-                #self.lcvr_narrow_down(*self.last_voltage_list,
-                #                      qber_cost_func(qber_mean))
-                self.lcvr_instant_find()
-                np.savetxt(self.LCRvoltages_file_name,
-                           [*self.last_voltage_list])
-            else:
-                #self.lcvr_narrow_down(*self.last_voltage_list,
-                #                      qber_cost_func(self.last_qber))
-                self.lcvr_instant_find()
-            self.next_epoch = get_current_epoch()
-            logger.debug(f'Next epoch set to "{hex(self.next_epoch)[2:]}".')
-            self.last_qber= qber_mean
-
-    def lcvr_narrow_down(self, c1: float, c2: float, c3: float, c4: float, r_narrow: float) -> Tuple[float, float, float, float]:
-        self.V1= np.random.uniform(max(c1 - r_narrow, VOLT_MIN),
-                                    min(c1 + r_narrow, VOLT_MAX))
-        self.V2= np.random.uniform(max(c2 - r_narrow, VOLT_MIN),
-                                    min(c2 + r_narrow, VOLT_MAX))
-        self.V3= np.random.uniform(max(c3 - r_narrow, VOLT_MIN),
-                                    min(c3 + r_narrow, VOLT_MAX))
-        self.V4= np.random.uniform(max(c4 - r_narrow, VOLT_MIN),
-                                    min(c4 + r_narrow, VOLT_MAX))
-        # logger.info(f'{self.V1}, {self.V2}, {self.V3}, {self.V4}')
-        self.lcr_driver.V1= self.V1
-        self.lcr_driver.V2= self.V2
-        self.lcr_driver.V3= self.V3
-        self.lcr_driver.V4= self.V4
-
-    def lcvr_instant_find(self):
-        """To replace the current random walk method.
-
-        i.e. lcvr_narrow_down()
-        """
-        stokes_vector, dop = self.get_stokes_vector()
-        phi1, phi2 = self.compute_polarization_compensation(stokes_vector)
-
-        # Convert phi1, phi2 to voltages with lookup table
-        v1 = self.voltage_lookup(phi1, LCVR1_CALLIBRATION_FILEPATH)
-        v2 = self.voltage_lookup(phi2, LCVR2_CALLIBRATION_FILEPATH)
-
-        # Update lcvr voltage list
-        self.V1 = v1
-        self.V2 = v2
-        self.V3 = 5.5
-        self.V4 = 5.5
-
-        self.lcr_driver.V1 = self.V1
-        self.lcr_driver.V2 = self.V2
-        self.lcr_driver.V3 = self.V3
-        self.lcr_driver.V4 = self.V4
-
-        # Can return degree of polarization here if needed
-        #return dop
-
-    def get_stokes_vector(self, diagnosis, epoch):
-        """Main measurement loop.
-
-        Measures the individual Stokes vectors and returns them as a list. 
-        Also returns the degree of polarization parameter.
-        """
-        if not self.stokes_v and not self.next_epoch: 
-            # Set LCVR to transparent state
-            lcrVoltages = [5.5,5.5,5.5,5.5]
-            self.lcr_driver.V1 = lcrVoltages[0]
-            self.lcr_driver.V2 = lcrVoltages[1]
-            self.lcr_driver.V3 = lcrVoltages[2]
-            self.lcr_driver.V4 = lcrVoltages[3]
-        
-            self.next_epoch = get_current_epoch()
-        
-
-
-        if self.next_epoch and epoch:
-            # Compare epochs to see if reached
-            epoch_int = int(epoch, 16)
-            if epoch_int <= self.next_epoch:
-                logger.debug(f'Ignored epoch: {epoch}')
-                return self.stokes_v , 0
-
-            # Now at target epoch
-            self.next_epoch = None
-            # Measure S0
-            if not self.stokes_v: 
-                total_coincidences = diagnosis.total_coincidences
-                S0 = total_coincidences
-
-                # Measure S1
-                HH = diagnosis.coincidences_HH
-                VV = diagnosis.coincidences_VV
-                S1 = (HH-VV)/total_coincidences
-
-                # Measure S2
-                ADAD = diagnosis.coincidences_ADAD
-                DD = diagnosis.coincidences_DD
-                S2 = (ADAD - DD)/total_coincidences
-                stokes_vector = [S0, S1, S2, None]
-            
-                # Set horizontal LCVR to phi = pi/4 retardance
-                # 2.8V value estimated from Jyh Harng's thesis as a placeholder
-                self.lcr_driver.V4 = 2.8
-                self.next_epoch = get_current_epoch()
-            
-                return stokes_vector, 0 
-            else:
-                # Measure S3
-                S0 = diagnosis.total_coincidences
-                HH = diagnosis.coincidences_HH
-                VV = diagnosis.coincidences_VV
-
-                RR = diagnosis.coincidences_HH
-                LL = diagnosis.coincidences_VV
-                S3 = (RR - LL)/S0
-
-                self.stokes_v[3] = S3
-                S1 = self.stokes_v[1]
-                S2 = self.stokes_v[2]
-                degree_of_polarization = \
-                    math.sqrt((S1)**2 + (S2)**2 + (S3)**2)/S0
-                stokes_vector = [S0, S1, S2, S3]
-                return stokes_vector, degree_of_polarization
-
-    def compute_polarization_compensation(self,stokes_vector: list):
-        """Computes LCVR retardances from a given Stokes vector.
-        
-        In order to correct the input to purely linear polarization.
-        """
-        s1,s2,s3 = stokes_vector[1], stokes_vector[2], stokes_vector[3]
-        phi1 = -math.atan2(s2,s3)
-        phi2 = math.acos(s1)
-
-        return phi1,phi2
-
-    def voltage_lookup(self, retardance, table):
-        """For a given retardance value, gets the corresponding LCVR voltage.
-
-        Args:
-            Retardance: Desired retardance in radians.
-            Table: File path to callibration table of the target LCVR.
-        """
-
-        data = np.genfromtxt(table, delimiter = ',', skip_header=1)
-        voltageVector = data[:,0]
-        retVector = data[:,1]
-        gradVector = data[:,2]
-
-        retdiffVector = retVector - retardance
-        min_idx = len(retdiffVector[retdiffVector > 0]) - 1
-        voltage_raw = voltageVector[min_idx] + (retdiffVector[min_idx] * gradVector[min_idx])
-        voltage = float(round(voltage_raw,3))
-
-        # The index that is closest to the target retardance is chosen
-        # by looking only at the positive differences between the target
-        # and the lookup values.
-
-        return voltage
-
-    def get_qber_4ep(self, dia_file: str = '/tmp/cryptostuff/diagdata'):
-        wrong_coinc_index = [0,5,10,15]
-        good_coinc_index = [2,7,8,13]
-        try:
-            with open(dia_file, 'r') as fd:
-                last_4_lines = fd.readlines()[-5:-1]
-        except:
-            return 0.5
-        else:
-            l1 =list(map(int,last_4_lines[0].strip('\n').split(' ')))
-            l2 =list(map(int,last_4_lines[1].strip('\n').split(' ')))
-            l3 =list(map(int,last_4_lines[2].strip('\n').split(' ')))
-            l4 =list(map(int,last_4_lines[3].strip('\n').split(' ')))
-            wrong_coin=sum([l1[i]+ l2[i] + l3[i] +l4[i] for i in wrong_coinc_index])
-            good_coin=sum([l1[i]+ l2[i] + l3[i] +l4[i] for i in good_coinc_index])
-            qber = wrong_coin /(wrong_coin + good_coin)
-            return qber
-
-    def update_qber2(self, qber: float, qber_threshold: float = 0.086):
-        r_narrow =  qber_cost_func(qber)
-        v_list = self.gen_10_list([self.V1,self.V2,self.V3,self.V4],r_narrow)
-        qb = []
-        for i in range(0,10):
-            v_test = v_list[i]
-            self.send_v(v_test)
-            time.sleep(0.53*6)
-            q = self.get_qber_4ep()
-            qb.append(q)
-            print(v_test,q)
-            in_min = np.argmin(qb)
-            min_qb = qb[in_min]
-            v_good = v_list[in_min]
-            self.send_v(v_good)
-
-    def gen_10_list(self,l: list, r_narrow: float):
-        v_list = []
-        for i in range(0,10):
-            v1 = np.random.uniform(max(l[0] - r_narrow, VOLT_MIN),
-                                   min(l[0] + r_narrow, VOLT_MAX))
-            v2 = np.random.uniform(max(l[1] - r_narrow, VOLT_MIN),
-                                   min(l[1] + r_narrow, VOLT_MAX))
-            v3 = np.random.uniform(max(l[2] - r_narrow, VOLT_MIN),
-                                   min(l[2] + r_narrow, VOLT_MAX))
-            v4 = np.random.uniform(max(l[3] - r_narrow, VOLT_MIN),
-                                   min(l[3] + r_narrow, VOLT_MAX))
-            v_list.append([v1, v2, v3, v4])
-        return v_list
-    
-    def send_v(self,v: list):
-        self.lcr_driver.V1 = v[0]
-        self.lcr_driver.V2 = v[1]
-        self.lcr_driver.V3 = v[2]
-        self.lcr_driver.V4 = v[3]
-        self.V1 = v[0]
-        self.V2 = v[1]
-        self.V3 = v[2]
-        self.V4 = v[3]
 
