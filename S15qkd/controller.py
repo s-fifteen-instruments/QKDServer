@@ -83,7 +83,7 @@ class Controller:
         self.pfind = Pfind(dir_qcrypto / 'pfind')
         self.errc = ErrorCorr(dir_qcrypto / 'errcd')
         if Process.config.do_polarization_compensation:
-            self.polcom = PolComp(Process.config.LCR_polarization_compensator_path)
+            self.polcom = PolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
         else:
             self.polcom = None
             self.callback_epoch = None
@@ -257,7 +257,13 @@ class Controller:
         else:
             None
 
-    # CONTROL METHODS
+    def pol_com_walk(self):
+        if self._qkd_protocol == QKDProtocol.SERVICE and self.polcom:
+            self.polcom.do_walks(0)
+            logger.debug(f'do walk started')
+        else:
+            None    
+# CONTROL METHODS
 
     @requires_transferd
     def send(self, message: str):
@@ -333,7 +339,8 @@ class Controller:
             self.transferd.send(prepend_if_service("st2"))
             self.chopper2.start(self.restart_protocol)
             self.readevents.start(self.restart_protocol)
-            
+            self.pol_com_walk()
+
         if seq == "st2":
             if not low_count_side:
                 logger.error(f"High count side should not have received: {code}")
@@ -344,6 +351,7 @@ class Controller:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
             self.chopper.start(qkd_protocol, self.restart_protocol)
             self.readevents.start(self.restart_protocol)
+            self.pol_com_walk()
             self.splicer.start(
                 qkd_protocol,
                 lambda msg: self.errc.ec_queue.put(msg),
@@ -399,6 +407,8 @@ class Controller:
         that pfind found should still be correct.
         """
         low_count_side = self.transferd.low_count_side
+        if self.polcom:
+            self.send('serv_to_st')
         if low_count_side:  
             self.splicer.stop()
             self.chopper.stop()
@@ -414,7 +424,7 @@ class Controller:
             )
         else:
             # Assume called from High count side. Only need to restart costream with elapsed time difference and new epoch
-            self.send('serv_to_st')
+            
             # Get current time difference before stopping costream
             td = int(self._time_diff) + int(self.costream.latest_deltat)
             last_service_epoch = self.transferd.last_received_epoch

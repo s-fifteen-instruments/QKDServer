@@ -35,6 +35,7 @@ __maintainer__ = ''
 __email__ = 'info@s-fifteen.com'
 __status__ = 'dev'
 
+from asyncio import QueueEmpty
 from xmlrpc.client import Boolean
 import numpy as np
 import math
@@ -51,6 +52,7 @@ VOLT_MIN = 0.9
 VOLT_MAX = 5.5
 RETARDANCE_MAX = 4.58
 RETARDANCE_MIN = 1.18
+EPOCH_DURATION = 0.537
 
 def qber_cost_func(qber: float, desired_qber: float = 0.04, amplitude: float = 6) -> float:
     return amplitude * (qber - desired_qber)**2
@@ -86,7 +88,7 @@ class PolComp(object):
         V3: float
         V4: float
 
-    def __init__(self, lcr_path: str = '' ):
+    def __init__(self, lcr_path: str = '', callback_service_to_BBM92 = None ):
         # Get device
         self.lcr = LCRDriver(lcr_path)
         self.lcr.all_channels_on()
@@ -102,7 +104,10 @@ class PolComp(object):
         self.last_voltage_list = self.set_voltage
         self._reset()
         self._calculate_retardances()
+        self._callback = callback_service_to_BBM92
+        self.qber_threshold = 0.08
         logger.debug(f'pol com initialized')
+
 
     def _reset(self):
         self.qber_list = []
@@ -115,6 +120,10 @@ class PolComp(object):
         self.retardances = [0]*4
         self.last_retardances = self.retardances.copy()
         self.cur_stokes_vector = []
+        self.walks_array = []
+        self._voltage_list = []
+        self.next_id = 0
+        self.first_pass = True
 
 
     def _load_lut(self):
@@ -157,13 +166,6 @@ class PolComp(object):
         self.lcr.V4 = self.set_voltage[3]
         return
 
-    def _set_prev_voltage(self):
-        self.lcr.V1 = self.previous_voltage[0]
-        self.lcr.V2 = self.previous_voltage[1]
-        self.lcr.V3 = self.previous_voltage[2]
-        self.lcr.V4 = self.previous_voltage[3]
-        return
-
     def _set_one_voltage(self,volt: float, id: int):
         self.lcr.set_voltage(id + 1, volt)
         return
@@ -172,9 +174,9 @@ class PolComp(object):
         logger.debug(f'Received {qber}')
         # i-th LCVR
         for i in range(4):
-            walks_array = self.do_walks(i)
+            #walks_array = self.do_walks(i)
             qber_list = []
-            for row in walks_array:
+            for row in self.walks_array:
                 epoch = row[-1]
                 qber = self.find_qber_from_epoch(epoch)
                 qber_list.append(qber)
@@ -190,7 +192,13 @@ class PolComp(object):
         logger.debug(f'Good epoch: {epoch}. Next epoch is {hex(self.next_epoch)[2:]}')
         return True
 
-    def do_walks(self, lcvr_idx):
+    def epoch_match(self, epochstr:str ,epochint: int) -> Boolean:
+        epoch1_int = int(epochstr,16)
+        if epoch1_int <= epochint:
+            return False
+        return True
+
+    def do_walks(self, lcvr_idx: int = 0):
         """Performs walking in the LCVR space.
         Returns an array (nested list) of LCVR settings 
         and the corresponding epoch.
@@ -199,8 +207,22 @@ class PolComp(object):
          ...
         ] 
         """
-        walks_array = []
-        voltage_list = np.linspace(VOLT_MIN, VOLT_MAX, num=5)
+        self.walks_array = []
+        voltage_list = []
+        if self.first_pass:
+            retardance_list = np.linspace(self.retardance_lookup(VOLT_MIN, lcvr_idx),
+                                          self.retardance_lookup(VOLT_MAX, lcvr_idx),
+                                          num=10)
+        else:
+            del_ret = self.qber_current * 2
+            retardance_list = np.linspace(-del_ret,
+                                          del_ret,
+                                          num=9)
+            retardance_list += self.retardance_lookup(self.set_voltage[lcvr_idx], lcvr_idx)
+            retardance_list = self.bound_retardance(retardance_list)
+        for retardance in retardance_list:
+            voltage, act_ret = self.voltage_lookup(retardance, 0)
+            voltage_list.append(voltage)
             # Try a range of voltages
         for voltage in voltage_list:
             self.set_voltage[lcvr_idx] = voltage
@@ -210,20 +232,64 @@ class PolComp(object):
             curr_epoch = get_current_epoch()
             voltages = self.set_voltage.copy()
             voltages.append(curr_epoch)
-            walks_array.append(voltages)
-        return walks_array
+            self.walks_array.append(voltages)
+            time.sleep(EPOCH_DURATION)
+
+        logger.debug(f'walks_array is {self.walks_array}')
+        if self.next_id < 3:
+            self.next_id += 1
+        else:
+            self.next_id = 0
+            self.first_pass = False
+        #return walks_array
                     
     def find_qber_from_epoch(self, epoch_path):
-        # Update self.diagnosis
-        self.send_epoch(epoch_path)
+        diagnosis = service_T3(epoch_path)
         # Pull relevant qber value
-        qber = self.diagnosis.qber
+        qber = diagnosis.qber
         return qber
 
     def throw_dart(self, voltage_list):
         self.set_voltage = voltage_list
         self._set_voltage()
         return
+
+    def process_qber(self, qber: float, epoch: str):
+        """Process the received qber from epoch"""
+        if self.walks_array:
+            earliest_val = self.walks_array[0].copy()
+            earliest_epoch = earliest_val.pop()
+            if not self.epoch_match(epoch, earliest_epoch):
+                return
+            self.walks_array.remove(self.walks_array[0])
+            earliest_val.append(epoch)
+            earliest_val.append(qber)
+            self._voltage_list.append(earliest_val)
+            logger.info(f'{self._voltage_list}')
+        else:
+            if self.apply_minimum_qber():
+                self.do_walks(self.next_id)
+        return
+
+    def apply_minimum_qber(self):
+        qber_min = 1
+        for row in self._voltage_list:
+            qber = row[-1]
+            if qber < qber_min:
+                qber_min = qber
+                voltage_min = row[0:4]
+        self._voltage_list = []
+        self.set_voltage = voltage_min
+
+        logger.debug(f'Minimum QBER {qber_min} at {voltage_min}')
+        self._set_voltage()
+        self.qber_current = qber_min
+        if qber_min < self.qber_threshold:
+            self._callback()
+            logger.info(f'BBM92 called')
+            return False
+        return True
+
 
     def send_epoch(self, epoch_path: str = None):
         """Receives the epoch from controller and performs
@@ -232,6 +298,11 @@ class PolComp(object):
            The function name makes more sense from the
            controller side. This script is actually
            receiving the epoch.
+        """
+        epoch = epoch_path.split('/')[-1]
+        self.process_qber(self.find_qber_from_epoch(epoch_path), epoch)
+
+        
         """
         logger.debug(f'Received {epoch_path}')
         epoch = epoch_path.split('/')[-1]
@@ -242,9 +313,10 @@ class PolComp(object):
             self.lcvr_instant_find()
             self.cur_stokes_vector = []
         logger.debug(f'QBER {self.diagnosis.qber}, epoch {epoch}')
-
-
+        
         return
+        """
+        
         """
         logger.debug(f'Received {epoch_path} QBER {self.diagnosis.qber}, epoch {epoch}')
         if not self.stokes_v: 
@@ -430,8 +502,6 @@ class PolComp(object):
         if self.next_equator:
             S0, S1, S2 = self.get_S0_S1_S2(diagnosis)
             self.cur_stokes_vector = [1, S1, S2, None]
-            cv = self.set_voltage
-            logger.debug(f'Found S0,S1,S2 at {cv} with {epoch}')
             phi4 = self.rotate_poles()
             self.last_retardances = self.retardances.copy()
             self.previous_voltage = self.set_voltage.copy()
@@ -441,26 +511,18 @@ class PolComp(object):
             self._set_one_voltage(volt, 3)
             self.next_epoch = get_current_epoch()
             self.next_equator = False
-            cv = self.set_voltage
-            pv = self.previous_voltage
-            logger.debug(f'Prev {pv} Set_ {cv}')
             return
         else:
             # Now at target epoch
             self.next_epoch = None
             S0, S4, S3 = self.get_S0_S1_S2(diagnosis)
             self.cur_stokes_vector[3] = S3 * self.S3_swap
-            cv = self.set_voltage
-            logger.debug(f'Found S3 at {cv} with {epoch}')
             self.retardances = self.last_retardances.copy()
             self.set_voltage = self.previous_voltage.copy()
-            self._set_prev_voltage()
+            self._set_voltage()
             self.next_epoch = get_current_epoch()
             self.S3_swap = None
             self.next_equator = True
-            cv = self.set_voltage
-            pv = self.previous_voltage
-            logger.debug(f'Prev {pv} Set_ {cv}')
             return
 
     def lcvr_instant_find(self):
@@ -548,7 +610,17 @@ class PolComp(object):
             self.S3_swap = 1.
             return phi4
 
-        
+    def bound_retardance(self, retardance_list: list):
+        return_val = []
+        for ret in retardance_list:
+            if ret > RETARDANCE_MAX:
+                return_val.append(RETARDANCE_MAX)
+            elif ret < RETARDANCE_MIN:
+                return_val.append(RETARDANCE_MIN)
+            else:
+                return_val.append(ret)
+        return return_val
+
     @property
     def voltage(self) -> list:
         return self._voltage
@@ -569,7 +641,7 @@ class PolComp(object):
 
 import os
 
-LCR_VOlT_FILENAME = 'latest_LCR_voltages.txt'
+LCR_VOLT_FILENAME = 'latest_LCR_voltages.txt'
 
 LCVR1_CALLIBRATION_FILEPATH = 'lcvr_callibration.csv'
 LCVR2_CALLIBRATION_FILEPATH = 'lcvr_callibration.csv'
@@ -582,7 +654,7 @@ class PolarizationDriftCompensation(object):
         self.lcr_driver = LCRDriver(lcr_path)
         self.lcr_driver.all_channels_on()
         self.averaging_n = averaging_n
-        self.LCRvoltages_file_name = LCR_VOlT_FILENAME
+        self.LCRvoltages_file_name = LCR_VOLT_FILENAME
         if not os.path.exists(self.LCRvoltages_file_name):
             #np.savetxt(self.LCRvoltages_file_name, [1.85, 3.01, 2.99, 4.36])
             np.savetxt(self.LCRvoltages_file_name, [4.781, 1.625, 2.104, 3.963])
