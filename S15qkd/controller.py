@@ -218,6 +218,7 @@ class Controller:
         
         # Initiate symmetry negotiation
         self._negotiate_symmetry()
+        time.sleep(0.4)
         
         # Initiate SERVICE mode
         self.send("serv_st1")
