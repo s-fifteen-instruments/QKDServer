@@ -53,9 +53,9 @@ VOLT_MAX = 5.5
 RETARDANCE_MAX = 4.58
 RETARDANCE_MIN = 1.18
 EPOCH_DURATION = 0.537
-QBER_THRESHOLD = 0.08
+QBER_THRESHOLD = 0.06
 
-def qber_cost_func(qber: float, desired_qber: float = 0.04, amplitude: float = 0.7855, exponent: float = 1.4) -> float:
+def qber_cost_func(qber: float, desired_qber: float = 0.04, amplitude: float = 2, exponent: float = 1.4) -> float:
     return amplitude * (qber - desired_qber)**exponent
 
 def get_current_epoch():
@@ -106,15 +106,21 @@ class PolComp(object):
         self._reset()
         self._calculate_retardances()
         self._callback = callback_service_to_BBM92
-        self.qber_threshold = QBER_THRESHOLD
+        self.qber_threshold = QBER_THRESHOLD # threshold to start BBM92
+        self.qber_threshold_2 = QBER_THRESHOLD+0.06 # threshold to go from do_walks(1-D walk) to update QBER (n-D walk)
         logger.debug(f'pol com initialized')
 
 
     def _reset(self):
         self.qber_list = []
+        self.S1_list = []
+        self.S2_list = []
+        self.S3_list = []
+        self.S4_list = []
+        self.counter = 0
         self.last_qber = 1
         self.qber_counter = 0
-        self.averaging_n = 2
+        self.averaging_n = 4
         self.next_epoch = 0
         self.next_equator = True
         self.S3_swap = None
@@ -192,10 +198,10 @@ class PolComp(object):
 
     def epoch_passed(self, epoch:str) -> Boolean:
         epoch_int = int(epoch, 16)
-        if epoch_int <= self.next_epoch:
-            logger.debug(f'Ignored epoch: {epoch}. Next epoch is {hex(self.next_epoch)[2:]}')
+        if self.next_epoch and epoch_int <= self.next_epoch:
+            #logger.debug(f'Ignored epoch: {epoch}. Next epoch is {hex(self.next_epoch)[2:]}')
             return False
-        logger.debug(f'Good epoch: {epoch}. Next epoch is {hex(self.next_epoch)[2:]}')
+        #logger.debug(f'Good epoch: {epoch}. Next epoch is {hex(self.next_epoch)[2:]}')
         return True
 
     def epoch_match(self, epochstr:str ,epochint: int) -> Boolean:
@@ -220,7 +226,7 @@ class PolComp(object):
                                           self.retardance_lookup(VOLT_MAX, lcvr_idx),
                                           num=10)
         else:
-            del_ret = self.qber_current * 2
+            del_ret = self.qber_current * 4 # walking range is dependent on current qber
             retardance_list = np.linspace(-del_ret,
                                           del_ret,
                                           num=9)
@@ -267,16 +273,10 @@ class PolComp(object):
             earliest_val.append(qber)
             self._voltage_list.append(earliest_val)
             logger.info(f'{self._voltage_list}')
-        
-        #elif self.narrow_down_list:
-        #    self.narrow_down(qber, epoch)
-    
-        else:
+
+        if not self.walks_array:
             if self.apply_minimum_qber():
-                if self.first_pass:
-                    self.do_walks(self.next_id)
-                #else:
-                    #self.narrow_down(qber)
+                self.do_walks(self.next_id)
         return
 
     def apply_minimum_qber(self):
@@ -293,9 +293,11 @@ class PolComp(object):
         self._set_voltage()
         self._calculate_retardances()
         self.qber_current = qber_min
-        if qber_min < self.qber_threshold:
-            self._callback()
-            logger.info(f'BBM92 called')
+        if qber_min < self.qber_threshold_2: # minimum qber applied is low enough. Don't do_walk anymore.
+            #self._callback()
+            #logger.info(f'BBM92 called')
+            #self.first_pass = False
+            #logger.debug(f'do_walks ended')
             return False
         return True
 
@@ -320,25 +322,32 @@ class PolComp(object):
            controller side. This script is actually
            receiving the epoch.
         """
+        
         epoch = epoch_path.split('/')[-1]
+        
         if self.walks_array:
-            self.process_qber(self.find_qber_from_epoch(epoch_path), epoch)
-        elif self.first_pass:
             self.process_qber(self.find_qber_from_epoch(epoch_path), epoch)
         else:
             self.update_QBER(self.find_qber_from_epoch(epoch_path), QBER_THRESHOLD, epoch)
-        """
+        
+        ''' #Code to measure current stokes vector
         self.diagnosis = service_T3(epoch_path)
-        self.get_current_stokes_vector(epoch)
+        if self.first_pass:
+            self.get_current_stokes_vector(epoch)
+            return
         if self.cur_stokes_vector[3]:
             logger.debug(f'Stokes V {self.cur_stokes_vector} {epoch} {self.next_epoch}') 
-            self.rotate_stokes_v_to_S1()
-            self.cur_stokes_vector = [None]*4
+            self.counter += 1
+            if self.counter > self.averaging_n:
+                self.rotate_stokes_v_to_S1()
+                self.counter = 0
+                self.cur_stokes_vector = [None]*4
+                self.first_pass = True
         logger.debug(f'QBER {self.diagnosis.qber}, epoch {epoch}')
         
         return
-        """
-        """
+        '''
+        """ # code to measure stokes vector at some voltage
         logger.debug(f'Received {epoch_path} QBER {self.diagnosis.qber}, epoch {epoch}')
         if not self.stokes_v: 
             self.get_stokes_vector(epoch)
@@ -522,28 +531,44 @@ class PolComp(object):
             return
         if self.next_equator:
             S0, S1, S2 = self.get_S0_S1_S2(diagnosis)
-            self.cur_stokes_vector = [1, S1, S2, None]
-            phi4 = self.rotate_poles()
-            self.last_retardances = self.retardances.copy()
-            self.previous_voltage = self.set_voltage.copy()
-            volt, phi4 = self.voltage_lookup(phi4,3)
-            self.set_voltage[3] = volt
-            self.retardances[3] = phi4
-            self._set_one_voltage(volt, 3)
-            self.next_epoch = get_current_epoch()
-            self.next_equator = False
+            self.S1_list.append(S1)
+            self.S2_list.append(S2)
+            if len(self.S1_list) >= self.averaging_n:
+                S1 = np.mean(self.S1_list)
+                S2 = np.mean(self.S2_list)
+                logger.debug(f'S1 {self.S1_list} {S1}, S2 {self.S2_list} {S2}')
+                self.S1_list.clear()
+                self.S2_list.clear()
+                self.cur_stokes_vector = [1, S1, S2, None]
+                phi4 = self.rotate_poles()
+                self.last_retardances = self.retardances.copy()
+                self.previous_voltage = self.set_voltage.copy()
+                volt, phi4 = self.voltage_lookup(phi4,3)
+                self.set_voltage[3] = volt
+                self.retardances[3] = phi4
+                self._set_one_voltage(volt, 3)
+                self.next_epoch = get_current_epoch()
+                self.next_equator = False
             return
         else:
             # Now at target epoch
-            self.next_epoch = None
             S0, S4, S3 = self.get_S0_S1_S2(diagnosis)
-            self.cur_stokes_vector[3] = S3 * self.S3_swap
-            self.retardances = self.last_retardances.copy()
-            self.set_voltage = self.previous_voltage.copy()
-            self._set_voltage()
-            self.next_epoch = get_current_epoch()
-            self.S3_swap = None
-            self.next_equator = True
+            self.S3_list.append(S3)
+            self.S4_list.append(S4)
+            if len(self.S3_list) >= self.averaging_n:
+                S3 = np.mean(self.S3_list)
+                S4 = np.mean(self.S4_list)
+                logger.debug(f'S3 {self.S3_list} {S3},S4 {self.S4_list} {S4}')
+                self.S3_list.clear()
+                self.S4_list.clear()
+                self.cur_stokes_vector[3] = S3 * self.S3_swap
+                self.retardances = self.last_retardances.copy()
+                self.set_voltage = self.previous_voltage.copy()
+                self._set_voltage()
+                self.next_epoch = None
+                self.S3_swap = None
+                self.next_equator = True
+                self.first_pass = False
             return
 
     def rotate_stokes_v_to_S1(self):
@@ -557,6 +582,7 @@ class PolComp(object):
             if phis[i] != 0:
                 new_voltage, act_ret = self.voltage_lookup(new_ret[i],i)
                 self.set_voltage[i] = new_voltage
+                self.retardances[i] = act_ret
         self._set_voltage()
 
     def lcvr_instant_find(self):
@@ -703,10 +729,14 @@ class PolComp(object):
         
         ret_range = qber_cost_func(curr_qber)
         delta_phis = [0]*4
-        phis = []
-        for i in range(0,len(delta_phis)):
+        phis = [0]*4
+        lcvr_to_adjust = [ 2, 3] # only adjust these 2 lcvr in n-D search
+        lcvr_to_fix = [0, 1]
+        for i in lcvr_to_fix:
+            phis[i] = self.retardances[i]
+        for i in lcvr_to_adjust:
             delta_phis[i] = np.random.uniform(-ret_range, ret_range)
-            phis.append(self.retardances[i] + delta_phis[i])
+            phis[i] = self.retardances[i] + delta_phis[i]
         phis = self.bound_retardance(phis)
         logger.debug(f'Phis are {phis}, delta_phis {delta_phis},voltage {self.set_voltage}')
         self._set_retardance(phis)
