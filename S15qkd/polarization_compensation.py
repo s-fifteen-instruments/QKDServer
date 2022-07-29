@@ -53,7 +53,7 @@ VOLT_MAX = 5.5
 RETARDANCE_MAX = 4.58
 RETARDANCE_MIN = 1.18
 EPOCH_DURATION = 0.537
-QBER_THRESHOLD = 0.06
+QBER_THRESHOLD = 0.085
 
 def qber_cost_func(qber: float, desired_qber: float = 0.04, amplitude: float = 2, exponent: float = 1.4) -> float:
     return amplitude * (qber - desired_qber)**exponent
@@ -714,11 +714,14 @@ class PolComp(object):
                 logger.info(f'BBM92 called')
                 return
             if qber_mean < self.last_qber:
-                self.last_voltage_list= self.set_voltage.copy()
+                self.last_voltage_list = self.set_voltage.copy()
+                self.last_retardances = self.retardances.copy()
                 self.lcvr_narrow_down(qber_mean)
                 #np.savetxt(self.LCR_params.LCR_volt_file,
                 #           [*self.last_voltage_list])
             else:
+                self.set_voltage = self.last_voltage_list.copy()
+                self.retardances = self.last_retardances.copy()
                 self.lcvr_narrow_down(self.last_qber)
                 
             self.next_epoch = get_current_epoch()
@@ -730,8 +733,8 @@ class PolComp(object):
         ret_range = qber_cost_func(curr_qber)
         delta_phis = [0]*4
         phis = [0]*4
-        lcvr_to_adjust = [ 2, 3] # only adjust these 2 lcvr in n-D search
-        lcvr_to_fix = [0, 1]
+        lcvr_to_adjust = [1, 2, 3] # only adjust these lcvr in n-D search
+        lcvr_to_fix = [0] # keep these lcvr phase fixed
         for i in lcvr_to_fix:
             phis[i] = self.retardances[i]
         for i in lcvr_to_adjust:
