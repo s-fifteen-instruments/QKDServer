@@ -77,6 +77,7 @@ class ErrorCorr(Process):
 
         self._servoed_QBER = Process.config.default_QBER
         self._servo_blocks = Process.config.servo_blocks
+        self.QBER_limit = Process.config.QBER_limit
 
     def start(
             self,
@@ -89,7 +90,8 @@ class ErrorCorr(Process):
 
         self.read(PipesQKD.ECNOTE, self.ecnotepipe_digest, 'ECNOTE', persist=True)
         self._callback_guardian_note = callback_guardian_note
-        self._pol_compensator = callback_pol_comp_qber
+        self._callback_pol_comp = callback_pol_comp_qber
+        self._callback_restart = callback_restart
 
         args = [
             '-c', PipesQKD.ECCMD,
@@ -145,16 +147,14 @@ class ErrorCorr(Process):
         self._ec_err_key_length_history.append(self.ec_final_bits)
         self._servoed_QBER += (self.ec_err_fraction - self._servoed_QBER) / self._servo_blocks
         ###
-                # servoing QBER
-        # servoed_QBER += (ec_err_fraction - servoed_QBER) / servo_blocks
-        # if servoed_QBER < 0.005:
-            # servoed_QBER = 0.005
-        # if servoed_QBER > 1 or servoed_QBER < 0:
-            # servoed_QBER = default_QBER
-        # elif servoed_QBER > QBER_limit:
-            # logger.error(f'QBER: {servoed_QBER} above {QBER_limit}. Restarting polarization compensation.')
-            # controller.start_service_mode()
-            # servoed_QBER = QBER_limit
+        # servoing QBER
+        if self.servoed_QBER < 0.005:
+            self._servoed_QBER = 0.005
+        #if self.servoed_QBER > 1 or self.servoed_QBER < 0:
+        #    self._servoed_QBER = Process.config.default_QBER
+        elif self.servoed_QBER > self.QBER_limit:
+            logger.error(f'QBER: {self.servoed_QBER} above {self.QBER_limit}. Restarting polarization compensation.')
+            self._callback_restart()
 
         try:
             1+1

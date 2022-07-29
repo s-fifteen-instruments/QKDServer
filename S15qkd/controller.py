@@ -397,7 +397,7 @@ class Controller:
             if not self.errc.is_running():
                 self.errc.start(
                     qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
-                    self.restart_protocol,
+                    self.start_service_mode, # restart protocol overloaded for exceeding qber_limit too  
                 )  # TODO
 
     @requires_transferd
@@ -451,7 +451,7 @@ class Controller:
             if not self.errc.is_running():
                 self.errc.start(
                     qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
-                    self.restart_protocol,
+                    self.start_service_mode, # restart protocol overloaded for exceeding qber_limit too
                 )  # TODO
 
     @requires_transferd
