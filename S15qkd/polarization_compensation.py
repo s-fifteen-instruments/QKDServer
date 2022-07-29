@@ -120,6 +120,7 @@ class PolComp(object):
         self.counter = 0
         self.last_qber = 1
         self.qber_counter = 0
+        self.qber_current = 1
         self.averaging_n = 4
         self.next_epoch = 0
         self.next_equator = True

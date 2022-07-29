@@ -27,6 +27,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import time
+
 from .utils import Process
 from .qkd_globals import logger, PipesQKD, FoldersQKD, config_file
 
@@ -40,14 +42,18 @@ class Chopper2(Process):
         self._det_counts = [0, 0, 0, 0, 0]
         self._t1_epoch_count = 0
         self._first_epoch = None
+        self._latest_message_time = time.time()
     
     def start(
             self,
             callback_restart=None,    # to restart keygen
+            callback_reset_timestamp=None,
         ):
         assert not self.is_running()
         self._reset()
         self._callback_restart = callback_restart
+        self._callback_reset_timestamp = callback_reset_timestamp
+        self._latest_message_time = time.time()
 
         args = [
             '-i', PipesQKD.RAWEVENTS,
@@ -62,6 +68,7 @@ class Chopper2(Process):
         super().start(args, stderr="chopper2error", callback_restart=callback_restart)
         self.read(PipesQKD.T1LOG, self.digest_t1logpipe, wait=0.1, name="T1LOG")
         logger.info('Started chopper2.')
+        super().start_thread_method(self._no_message_monitor)
 
     def digest_t1logpipe(self, pipe):
         """Digest the t1log pipe written by chopper2.
@@ -74,13 +81,14 @@ class Chopper2(Process):
         if len(message) == 0:
             return
         
+        self._latest_message_time = time.time()
         logger.debug(f'[read msg] {message}')
         if self._t1_epoch_count == 0:
             self._first_epoch = message.split()[0]
             logger.info(f'First_epoch: {self._first_epoch}')
         self._t1_epoch_count += 1
         self._det_counts = list(map(int,message.split()[1:6]))
-        self.monitor_counts()
+        self._monitor_counts()
 
     @property
     def t1_epoch_count(self):
@@ -96,7 +104,7 @@ class Chopper2(Process):
         """
         return self._det_counts
 
-    def monitor_counts(self):
+    def _monitor_counts(self):
         """Restarts keygen if detector counts goes to zero.
         """
 
@@ -106,5 +114,16 @@ class Chopper2(Process):
                 self._callback_restart()
                 return
         return
+
+    def _no_message_monitor(self):
+        timeout_seconds = 10
+        while self.is_running():
+            if time.time() - self._latest_message_time > timeout_seconds:
+                logger.debug(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
+                self._callback_reset_timestamp()
+                return
+            time.sleep(10)
+        return
+
 
 

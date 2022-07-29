@@ -24,6 +24,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
+import time
 
 from .utils import Process
 from .qkd_globals import logger, PipesQKD, FoldersQKD, config_file
@@ -41,6 +42,7 @@ class Chopper(Process):
             self,
             qkd_protocol,
             callback_restart=None,    # to restart keygen
+            callback_reset_timestamp=None,
         ):
         """
         
@@ -49,6 +51,8 @@ class Chopper(Process):
         """
         assert not self.is_running()
         self._callback_restart = callback_restart
+        self._callback_reset_timestamp = callback_reset_timestamp
+        self._latest_message_time = time.time()
         
         # T2LOG pipe must be opened before starting chopper!
         # Might be some premature writing to T2LOG in chopper.c
@@ -69,6 +73,7 @@ class Chopper(Process):
         ]
         super().start(args, stderr="choppererror", callback_restart=callback_restart)
         logger.info('Started chopper.')
+        super().start_thread_method(self._no_message_monitor)
 
     def digest_t2logpipe(self, pipe):
         """Digests chopper activities.
@@ -81,6 +86,7 @@ class Chopper(Process):
         if len(message) == 0:
             return
         
+        self._latest_message_time = time.time()
         epoch = message.split()[0]
         self._det_counts = list(map(int,message.split()[1:6]))
         self._monitor_counts()
@@ -104,5 +110,15 @@ class Chopper(Process):
                 logger.debug(f"Counts monitor for '{self.program}' ('{self.process}') reported zero")
                 self._callback_restart()
                 return
+        return
+
+    def _no_message_monitor(self):
+        timeout_seconds = 10
+        while self.is_running():
+            if time.time() - self._latest_message_time > timeout_seconds:
+                logger.debug(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
+                self._callback_reset_timestamp()
+                return
+            time.sleep(10)
         return
 

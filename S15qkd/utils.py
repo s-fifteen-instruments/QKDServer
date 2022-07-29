@@ -8,7 +8,7 @@ import math
 from struct import unpack
 from pathlib import Path
 import subprocess
-from types import SimpleNamespace
+from types import SimpleNamespace, FunctionType
 from typing import Union, Optional, NamedTuple
 
 import psutil
@@ -285,6 +285,12 @@ class Process:
     
         logger.debug(f"Starting process monitor for '{self.program}' ('{self.process}')")
         thread = threading.Thread(target=monitor_daemon)
+        thread.daemon = True
+        thread.start()
+
+    def start_thread_method(self, method_name: FunctionType):
+        logger.debug(f"Started method {method_name} for '{self.program}' ('{self.process}')")
+        thread = threading.Thread(target = method_name)
         thread.daemon = True
         thread.start()
 

@@ -32,9 +32,7 @@ SOFTWARE.
 
 # Built-in/Generic Imports
 import pathlib
-import threading
 import time
-import struct
 from typing import Optional
 
 # Internal processes
@@ -250,6 +248,13 @@ class Controller:
         else:
             self.start_key_generation()
 
+    def reset_timestamp(self):
+        """Stops readevents, resets timestamp and restart"""
+        self.stop_key_gen()
+        self.readevents.powercycle()
+        time.sleep(4) # at least 2 seconds needed for the chip to powerdown
+        self.restart_protocol()
+
     def callback_epoch(self, msg):
         """ Only send epochs to polarization compensation in servicemode
          and if LCVR exist"""
@@ -338,7 +343,7 @@ class Controller:
             if qkd_protocol == QKDProtocol.BBM92:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
             self.transferd.send(prepend_if_service("st2"))
-            self.chopper2.start(self.restart_protocol)
+            self.chopper2.start(self.restart_protocol, self.reset_timestamp)
             self.readevents.start(self.restart_protocol)
             self.pol_com_walk()
 
@@ -350,7 +355,7 @@ class Controller:
             # Old comment: Provision to send signals to timestamps. Not used currently.
             if qkd_protocol == QKDProtocol.BBM92:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
-            self.chopper.start(qkd_protocol, self.restart_protocol)
+            self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.readevents.start(self.restart_protocol)
             self.pol_com_walk()
             self.splicer.start(
@@ -416,7 +421,7 @@ class Controller:
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
             time.sleep(0.6) # to allow chopper and splicer to end gracefully
-            self.chopper.start(qkd_protocol, self.restart_protocol)
+            self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,
                 lambda msg: self.errc.ec_queue.put(msg),
