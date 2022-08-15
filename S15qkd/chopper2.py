@@ -122,7 +122,7 @@ class Chopper2(Process):
                 logger.debug(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
                 self._callback_reset_timestamp()
                 return
-            time.sleep(10)
+            time.sleep(timeout_seconds)
         return
 
 

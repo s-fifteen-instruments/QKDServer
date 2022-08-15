@@ -251,8 +251,9 @@ class Controller:
     def reset_timestamp(self):
         """Stops readevents, resets timestamp and restart"""
         self.stop_key_gen()
+        time.sleep(2) # at least 2 seconds needed for the monitors to end.
         self.readevents.powercycle()
-        time.sleep(4) # at least 2 seconds needed for the chip to powerdown
+        time.sleep(3) # at least 2 seconds needed for the chip to powerdown
         self.restart_protocol()
 
     def callback_epoch(self, msg):
