@@ -83,6 +83,7 @@ class ErrorCorr(Process):
             self,
             callback_guardian_note = None,
             callback_restart = None,
+            callback_qber_exceed = None,
             callback_pol_comp_qber = None, #Note: For passive polarization compensation, not implemented yet.
         ):
         assert not self.is_running()
@@ -92,6 +93,7 @@ class ErrorCorr(Process):
         self._callback_guardian_note = callback_guardian_note
         self._callback_pol_comp = callback_pol_comp_qber
         self._callback_restart = callback_restart
+        self._callback_qber_exceed = callback_qber_exceed
 
         args = [
             '-c', PipesQKD.ECCMD,
@@ -154,7 +156,7 @@ class ErrorCorr(Process):
         #    self._servoed_QBER = Process.config.default_QBER
         elif self.servoed_QBER > self.QBER_limit:
             logger.error(f'QBER: {self.servoed_QBER} above {self.QBER_limit}. Restarting polarization compensation.')
-            self._callback_restart()
+            self._callback_qber_exceed()
 
         try:
             1+1

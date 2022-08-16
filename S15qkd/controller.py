@@ -87,6 +87,7 @@ class Controller:
             self.callback_epoch = None
         # Statuses
         self.qkd_engine_state = QKDEngineState.OFF
+        self._qkd_protocol = QKDProtocol.SERVICE  # TODO(Justin): Deprecate this field.
         self._reset()
 
         # Auto-initialization when server starts up
@@ -102,7 +103,6 @@ class Controller:
         self._time_diff: Optional[int] = None
         self._sig_long: Optional[int] = None
         self._sig_short: Optional[int] = None
-        self._qkd_protocol = QKDProtocol.SERVICE  # TODO(Justin): Deprecate this field.
         self.transferd._first_received_epoch = None # Reset this value if not restarting/resetting transferd
     
     def _establish_connection(self):
@@ -401,10 +401,17 @@ class Controller:
             )
         if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
             if not self.errc.is_running():
-                self.errc.start(
-                    qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
-                    self.start_service_mode, # restart protocol overloaded for exceeding qber_limit too  
-                )  # TODO
+                if low_count_side:
+                    self.errc.start(
+                        qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
+                        self.start_service_mode, # restart protocol   
+                        self.start_service_mode, # protocol for exceeding qber_limit  
+                   )
+                else:
+                    self.errc.start(
+                        qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
+                        self.start_service_mode, # restart protocol 
+                    )
 
     @requires_transferd
     def service_to_BBM92(self):
@@ -455,10 +462,17 @@ class Controller:
             logger.debug(f'costream restarted')
         if Process.config.error_correction:
             if not self.errc.is_running():
-                self.errc.start(
-                    qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
-                    self.start_service_mode, # restart protocol overloaded for exceeding qber_limit too
-                )  # TODO
+                if low_count_side:
+                    self.errc.start(
+                        qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
+                        self.start_service_mode, # restart protocol
+                        self.start_service_mode, # protocol for exceeding qber_limit
+                   )
+                else:
+                    self.errc.start(
+                        qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
+                        self.start_service_mode, # restart protocol
+                    )
 
     @requires_transferd
     def _retrieve_secure_remote_epoch(self, last_service_epoch: str ):
