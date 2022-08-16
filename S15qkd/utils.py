@@ -274,13 +274,13 @@ class Process:
         """
         
         def monitor_daemon():
-            time.sleep(1)
+            time.sleep(2)
             while self._expect_running:
                 if not self.is_running():
                     logger.debug(f"Activated process monitor for '{self.program}' ('{self.process}')")
                     callback_restart()
                     return
-                time.sleep(1)
+                time.sleep(2)
             logger.debug(f"Terminated process monitor for '{self.program}' ('{self.process}')")
     
         logger.debug(f"Starting process monitor for '{self.program}' ('{self.process}')")

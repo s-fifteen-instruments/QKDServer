@@ -15,7 +15,8 @@ class Pfind(Process):
             '-n', use_periods,
             '-V', 1,
             '-q', Process.config.FFT_buffer_order,
-            '-R', 256,
+            '-R', 128,
+            '-r', 2,
         ]
         super().start(args, stdout=subprocess.PIPE, stderr="pfinderror")
         self.wait()

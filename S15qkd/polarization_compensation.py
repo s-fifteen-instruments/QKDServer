@@ -53,9 +53,9 @@ VOLT_MAX = 5.5
 RETARDANCE_MAX = 4.58
 RETARDANCE_MIN = 1.18
 EPOCH_DURATION = 0.537
-QBER_THRESHOLD = 0.085
+QBER_THRESHOLD = 0.082
 
-def qber_cost_func(qber: float, desired_qber: float = 0.04, amplitude: float = 2, exponent: float = 1.4) -> float:
+def qber_cost_func(qber: float, desired_qber: float = 0.05, amplitude: float = 2, exponent: float = 1.34) -> float:
     return amplitude * (qber - desired_qber)**exponent
 
 def get_current_epoch():
@@ -107,7 +107,7 @@ class PolComp(object):
         self._calculate_retardances()
         self._callback = callback_service_to_BBM92
         self.qber_threshold = QBER_THRESHOLD # threshold to start BBM92
-        self.qber_threshold_2 = QBER_THRESHOLD+0.06 # threshold to go from do_walks(1-D walk) to update QBER (n-D walk)
+        self.qber_threshold_2 = QBER_THRESHOLD+0.04 # threshold to go from do_walks(1-D walk) to update QBER (n-D walk)
         logger.debug(f'pol com initialized')
 
 
@@ -222,15 +222,15 @@ class PolComp(object):
         """
         self.walks_array = []
         voltage_list = []
-        if self.first_pass:
+        if self.first_pass and self.next_id == 0:
             retardance_list = np.linspace(self.retardance_lookup(VOLT_MIN, lcvr_idx),
                                           self.retardance_lookup(VOLT_MAX, lcvr_idx),
-                                          num=10)
+                                          num=9)
         else:
             del_ret = self.qber_current * 4 # walking range is dependent on current qber
             retardance_list = np.linspace(-del_ret,
                                           del_ret,
-                                          num=9)
+                                          num=7)
             retardance_list += self.retardance_lookup(self.set_voltage[lcvr_idx], lcvr_idx)
             retardance_list = self.bound_retardance(retardance_list)
         for retardance in retardance_list:
@@ -704,9 +704,9 @@ class PolComp(object):
             if qber_mean < 0.3:
                 self.averaging_n = 2
             if qber_mean < 0.15:
-                self.averaging_n = 3
-            if qber_mean < 0.09:
                 self.averaging_n = 5
+            if qber_mean < 0.12:
+                self.averaging_n = 10
             logger.info(
                 f'Avg(qber): {qber_mean:.2f} averaging over {self.averaging_n} epochs. Phi_range: {qber_cost_func(qber_mean):.2f}')
             if qber_mean < qber_threshold:
@@ -734,8 +734,8 @@ class PolComp(object):
         ret_range = qber_cost_func(curr_qber)
         delta_phis = [0]*4
         phis = [0]*4
-        lcvr_to_adjust = [1, 2, 3] # only adjust these lcvr in n-D search
-        lcvr_to_fix = [0] # keep these lcvr phase fixed
+        lcvr_to_adjust = [ 2, 3] # only adjust these lcvr in n-D search
+        lcvr_to_fix = [0, 1] # keep these lcvr phase fixed
         for i in lcvr_to_fix:
             phis[i] = self.retardances[i]
         for i in lcvr_to_adjust:
