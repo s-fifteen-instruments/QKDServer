@@ -151,7 +151,8 @@ class PolComp(object):
             self.LUT.append(table)
 
     def _set_retardance(self, retardances):
-        actual_ret = self._calculate_voltages(retardances)
+        voltage_ret, actual_ret = self._calculate_voltages(retardances)
+        self.set_voltage = voltage_ret.copy()
         self.retardances = actual_ret.copy()
         self._set_voltage()
         return
@@ -160,10 +161,11 @@ class PolComp(object):
         assert(len(retardances)==4)
         ind = 0
         actual_ret = [0]*4
+        voltage_ret  = [0]*4
         for retardance in retardances:
-            self.set_voltage[ind], actual_ret[ind] = self.voltage_lookup(retardance,ind)
+            voltage_ret[ind], actual_ret[ind] = self.voltage_lookup(retardance,ind)
             ind += 1 
-        return actual_ret
+        return voltage_ret, actual_ret
 
     def _calculate_retardances(self):
         ind = 0
@@ -289,6 +291,7 @@ class PolComp(object):
                 voltage_min = row[0:4]
                 self.set_voltage = voltage_min
         self._voltage_list = []
+        self.last_voltage_list = self.set_voltage.copy() # for update qber later on
         
         logger.debug(f'Minimum QBER {qber_min} at {self.set_voltage}')
         self._set_voltage()
@@ -299,6 +302,10 @@ class PolComp(object):
             #logger.info(f'BBM92 called')
             #self.first_pass = False
             #logger.debug(f'do_walks ended')
+            return False
+        elif qber_min < self.qber_threshold: # minimum qber applied is low enough. Don't do_walk anymore.
+            self._callback()
+            logger.info(f'BBM92 called')
             return False
         return True
 
@@ -698,7 +705,7 @@ class PolComp(object):
             qber_mean = np.mean(self.qber_list)
             self.qber_list.clear()
             logger.info(
-                f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs. Phi search range: {qber_cost_func(qber_mean):.2f}')
+                f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs at voltages {self.set_voltage}. Phi search range: {qber_cost_func(qber_mean):.2f}')
             if qber_mean > 0.3:
                 self.averaging_n = 2
             if qber_mean < 0.3:
@@ -707,8 +714,6 @@ class PolComp(object):
                 self.averaging_n = 5
             if qber_mean < 0.12:
                 self.averaging_n = 10
-            logger.info(
-                f'Avg(qber): {qber_mean:.2f} averaging over {self.averaging_n} epochs. Phi_range: {qber_cost_func(qber_mean):.2f}')
             if qber_mean < qber_threshold:
                 np.savetxt(self.LCR_params.volt_file, [self.set_voltage])
                 self._callback()
@@ -743,7 +748,12 @@ class PolComp(object):
             phis[i] = self.retardances[i] + delta_phis[i]
         phis = self.bound_retardance(phis)
         logger.debug(f'Phis are {phis}, delta_phis {delta_phis},voltage {self.set_voltage}')
-        self._set_retardance(phis)
+        volt_ret,phi_ret = self._calculate_voltages(phis)
+        for i in lcvr_to_adjust:
+            self.set_voltage[i] = volt_ret[i]
+            self.retardances[i] = phi_ret[i]
+        self._set_voltage()
+        #self._set_retardance(phis)
 
     @property
     def voltage(self) -> list:
