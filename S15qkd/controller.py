@@ -440,7 +440,7 @@ class Controller:
             # Assume called from High count side. Only need to restart costream with elapsed time difference and new epoch
             
             # Get current time difference before stopping costream
-            td = int(self._time_diff) + int(self.costream.latest_deltat)
+            td = int(self._time_diff) - int(self.costream.latest_deltat)
             last_service_epoch = self.transferd.last_received_epoch
             #
             self.costream.stop()
