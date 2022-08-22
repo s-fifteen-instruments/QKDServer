@@ -6,17 +6,17 @@
     "port_authd": 55555,
     "port_transd": 4855,
     "local_authd_ip": "localhost",
-    "data_root": "tmp/cryptostuff",
+    "data_root": "/tmp/cryptostuff",
     "program_root": "bin/remotecrypto",
     "identity": "QKD-A",
     "remote_coincidence_window": 6,
     "tracking_window": 30,
     "track_filter_time_constant": 2000000,
-    "FFT_buffer_order": 22,
+    "FFT_buffer_order": 25,
     "local_detector_skew_correction": {
-        "det1corr": -28,
-        "det2corr": 6,
-        "det3corr": 30,
+        "det1corr": -8,
+        "det2corr": 33,
+        "det3corr": 36,
         "det4corr": 0
     },
     "max_event_time_pause": 20000,
@@ -31,13 +31,20 @@
     "costream_histo_number": 10,
     "error_correction_program_path": "bin/errorcorrection",
     "error_correction": true,
-    "privacy_amplification": true,
-    "errcd_killfile_option": false,
-    "QBER_limit": 0.11,
+    "privacy_amplification": "",
+    "errcd_killfile_option": "-k",
+    "QBER_limit": 0.10,
     "default_QBER": 0.06,
-    "minimal_block_size": 5000,
+    "minimal_block_size": 20000,
     "target_bit_error": 1e-09,
     "servo_blocks": 5,
     "do_polarization_compensation": false,
-    "LCR_polarization_compensator_path": ""
+    "LCR_polarization_compensator_path": "",
+    "LCR_volt_info": {
+        "LCR_volt_file": "latest_LCR_voltages.txt",
+        "V1": 2.0,
+        "V2": 2.0,
+        "V3": 2.0,
+        "V4": 2.0
+    }
 }

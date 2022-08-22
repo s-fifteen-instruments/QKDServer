@@ -27,136 +27,58 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__author__ = 'Mathias Alexander Seidler'
-__copyright__ = 'Copyright 2020, S-Fifteen Instruments Pte. Ltd.'
-__credits__ = ['Lim Chin Chean']
-__license__ = 'MIT'
-__version__ = '0.0.1'
-__maintainer__ = 'Mathias Seidler'
-__email__ = 'mathias.seidler@s-fifteen.com'
-__status__ = 'dev'
+import pathlib
 
-import json
-import threading
-import os
-import subprocess
-import time
-from types import SimpleNamespace
+from .utils import Process
+from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD, QKDEngineState
 
-from . import qkd_globals
-from . import error_correction
-from . import rawkey_diagnosis
-from . import controller
-from .qkd_globals import logger, PipesQKD, FoldersQKD, QKDProtocol, QKDEngineState
-from .polarization_compensation import PolarizationDriftCompensation
+class Splicer(Process):
+        
+    def start(
+            self,
+            qkd_protocol,
+            callback_ecqueue = None,  # message passing of epoch to error correction
+            callback_pol_comp_epoch = None,  # callback to pass to polarization controller
+            callback_restart = None,    # to restart keygen
+        ):
+        """
 
-proc_splicer = None
+        Starts the splicer process and attaches a thread digesting 
+        the splice pipe and the genlog.
+        """
+        assert not self.is_running()
 
+        self.read(PipesQKD.GENLOG, self.digest_splicepipe, 'GENLOG', persist=True)
 
-def _load_splicer_config(config_file_name: str):
-    global data_root, program_root, protocol, kill_option
-    global prog_splicer
+        self._qkd_protocol = qkd_protocol
+        self._pol_compensator = callback_pol_comp_epoch
+        self._callback_ecqueue = callback_ecqueue
 
-    with open(config_file_name, 'r') as f:
-        config = json.load(f)
+        args = [
+            '-d', FoldersQKD.T3FILES,
+            '-D', FoldersQKD.RECEIVEFILES,
+            '-f', FoldersQKD.RAWKEYS,
+            '-E', PipesQKD.SPLICER,
+            Process.config.kill_option,
+            '-p', qkd_protocol.value,
+            '-m', PipesQKD.GENLOG,
+        ]
+        super().start(args, stdout='splicer_stdout', stderr='splicer_stderr', callback_restart=callback_restart)
 
-    data_root = config['data_root']
-    protocol = config['protocol']
-    program_root = config['program_root']
-    kill_option = config['kill_option']
-    prog_splicer = program_root + '/splicer'
+    def digest_splicepipe(self, pipe):
+        # message = pipe.readline().decode().rstrip('\n').lstrip('\x00')
+        message = pipe.readline().rstrip('\n').lstrip('\x00')
+        if len(message) == 0:
+            return
+        
+        qkd_protocol = self._qkd_protocol
+        logger.debug(f'[genlog] {message}')
+        if qkd_protocol == QKDProtocol.BBM92:
+            logger.debug(f'Add {message} to error correction queue')
+            self._callback_ecqueue(message)
 
+        if self._pol_compensator:
+            epoch = message
+            epoch_path = FoldersQKD.RAWKEYS + '/' + epoch
+            self._pol_compensator(epoch_path)
 
-def initialize(config_file_name: str = qkd_globals.config_file):
-    global proc_splicer
-    _load_splicer_config(config_file_name)
-    proc_splicer = None
-
-
-def start_splicer(qkd_protocol: int = QKDProtocol.BBM92):
-    '''
-    Starts the splicer process and attaches a thread digesting 
-    the splice pipe and the genlog.
-    '''
-    global data_root, proc_splicer
-    if is_running() is not None:
-        stop_splicer()
-    initialize()
-    args = f'-d {FoldersQKD.T3FILES} \
-             -D {FoldersQKD.RECEIVEFILES} \
-             -f {FoldersQKD.RAWKEYS} \
-             -E {PipesQKD.SPLICER} \
-             {kill_option} \
-             -p {qkd_protocol} \
-             -m {PipesQKD.GENLOG}'
-    with open(f'{FoldersQKD.DATAROOT}/splicer_stderr', 'a+') as f_err:
-        with open(f'{FoldersQKD.DATAROOT}/splicer_stdout', 'a+') as f_stdout:
-            proc_splicer = subprocess.Popen([prog_splicer, *args.split()],
-                                            stdout=f_stdout,
-                                            stderr=f_err)
-    time.sleep(0.1)
-    logger.info(f'Started splicer process.')
-    thread_splicepipe_digest = threading.Thread(target=_splice_pipe_digest,
-                                                args=([qkd_protocol]))
-    thread_splicepipe_digest.start()
-
-
-def _splice_pipe_digest(qkd_protocol, config_file_name: str = qkd_globals.config_file):
-    '''
-    Digests the text written into splicepipe and genlog.
-    Runs until the splicer process closes.
-    '''
-    logger.info(f'Starting _splice_pipe_digest thread.')
-    fd_genlog = os.open(PipesQKD.GENLOG, os.O_RDONLY |
-                        os.O_NONBLOCK)  # non-blocking
-    f_genlog = os.fdopen(fd_genlog, 'rb', 0)  # non-blocking
-
-    logger.info(f'Thread started.')
-    sleep_time = 0.1  # sleep time before next read file attempt
-    with open(config_file_name, 'r') as f:
-        config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
-    if config.do_polarization_compensation is True:
-        polarization_compensator = PolarizationDriftCompensation(
-            config.LCR_polarization_compensator_path)
-    while is_running():
-        time.sleep(sleep_time)
-        try:
-            message = (f_genlog.readline().decode().rstrip(
-                '\n')).lstrip('\x00')
-            if len(message) != 0:
-                logger.debug(f'[genlog] {message}')
-                if qkd_protocol == QKDProtocol.BBM92:
-                    logger.debug(f'Add {message} to error correction queue')
-                    error_correction.ec_queue.put(message)
-                elif qkd_protocol == QKDProtocol.SERVICE:
-                    controller.qkd_engine_state = QKDEngineState.SERVICE_MODE
-                    diagnosis = rawkey_diagnosis.RawKeyDiagnosis(
-                        FoldersQKD.RAWKEYS + '/' + message)
-                    logger.debug(
-                        f'Service mode, QBER: {diagnosis.quantum_bit_error}, Epoch: {message}')
-                    if config.do_polarization_compensation is True:
-                        polarization_compensator.update_QBER(
-                            diagnosis.quantum_bit_error, epoch=message)
-        except OSError:
-            pass
-        except Exception as a:
-            logger.error(a)
-    logger.info(f'Thread finished.')
-
-
-def stop_splicer():
-    global proc_splicer
-    qkd_globals.kill_process(proc_splicer)
-    proc_splicer = None
-
-
-def is_running():
-    return not (proc_splicer is None or proc_splicer.poll() is not None)
-
-
-def main():
-    pass
-
-
-if __name__ == '__main__':
-    main()

@@ -4,8 +4,7 @@
 """
 This module wraps the chopper process and attaches readers to the process pipes.
 
-
-Copyright (c) 2020 Mathias A. Seidler, S-Fifteen Instruments Pte. Ltd.
+Copyright (c) 2020 S-Fifteen Instruments Pte. Ltd.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,95 +24,101 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
-
-__author__ = 'Mathias Alexander Seidler'
-__copyright__ = 'Copyright 2020, S-Fifteen Instruments Pte. Ltd.'
-__credits__ = ['']
-__license__ = 'MIT'
-__version__ = '0.0.1'
-__maintainer__ = 'Mathias Seidler'
-__email__ = 'mathias.seidler@s-fifteen.com'
-__status__ = 'dev'
-
-# Built-in/Generic Imports
-import json
-import subprocess
-import os
-import threading
 import time
-from types import SimpleNamespace
 
-from . import qkd_globals
-from .qkd_globals import logger, PipesQKD, FoldersQKD
+from .utils import Process
+from .qkd_globals import logger, PipesQKD, FoldersQKD, config_file
 
+class Chopper(Process):
 
-proc_chopper = None
+    def __init__(self, program):
+        super().__init__(program)
+        self._reset()
 
-def start_chopper(qkd_protocol, config_file_name: str = qkd_globals.config_file):
-    '''Starts the chopper process.
+    def _reset(self):
+        self._det_counts = [0, 0, 0, 0, 0]
 
-    Keyword Arguments:
-        rawevents_pipe {str} -- The pipe it reads to acquire timestamps. (default: {'rawevents'})
-    '''
-    global proc_chopper
-    with open(config_file_name, 'r') as f:
-        config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
-    prog_chopper = config.program_root + '/chopper'
-    proc_chopper = None
-    t2logpipe_thread = threading.Thread(target=_t2logpipe_digest, args=())
-    args = f'-i {PipesQKD.RAWEVENTS} \
-             -D {FoldersQKD.SENDFILES} \
-             -d {FoldersQKD.T3FILES} \
-             -l {PipesQKD.T2LOG} \
-             -V 4 -U -p {qkd_protocol} -Q 5 -F \
-             -y 20 -m {config.max_event_diff}'
+    def start(
+            self,
+            qkd_protocol,
+            callback_restart=None,    # to restart keygen
+            callback_reset_timestamp=None,
+        ):
+        """
+        
+        Needs to know current protocol (SERVICE or KEYGEN) to change up verbosity
+        of transmission from low count to high count side.
+        """
+        assert not self.is_running()
+        self._callback_restart = callback_restart
+        self._callback_reset_timestamp = callback_reset_timestamp
+        self._latest_message_time = time.time()
+        
+        # T2LOG pipe must be opened before starting chopper!
+        # Might be some premature writing to T2LOG in chopper.c
+        self.read(PipesQKD.T2LOG, self.digest_t2logpipe, 'T2LOG', persist=True)
 
-    t2logpipe_thread.start()
-    with open(f'/{config.data_root}/choppererror', 'a+') as f:
-        proc_chopper = subprocess.Popen((prog_chopper, *args.split()),
-                                        stdout=subprocess.PIPE,
-                                        stderr=f)
-    logger.info(f'Started chopper.')
+        args = [
+            '-i', PipesQKD.RAWEVENTS,
+            '-D', FoldersQKD.SENDFILES,
+            '-d', FoldersQKD.T3FILES,
+            '-l', PipesQKD.T2LOG,
+            '-V', 4,
+            '-U',
+            '-p', qkd_protocol.value,
+            '-Q', 5,
+            '-F',
+            '-y', 20,
+            '-m', Process.config.max_event_diff,
+        ]
+        super().start(args, stderr="choppererror", callback_restart=callback_restart)
+        logger.info('Started chopper.')
+        super().start_thread_method(self._no_message_monitor)
 
+    def digest_t2logpipe(self, pipe):
+        """Digests chopper activities.
 
-def _t2logpipe_digest():
-    '''Digests chopper activities.
-
-    Watches t2logpipe for new epoch files and writes the epoch name into the transferd cmdpipe.
-    Transferd copies the corresponding epoch file to the partnering computer.
-    '''
-    global t2logpipe_digest_thread_flag
-    t2logpipe_digest_thread_flag = True
-    fd = os.open(PipesQKD.T2LOG, os.O_RDONLY | os.O_NONBLOCK)
-    f = os.fdopen(fd, 'rb', 0)  # non-blocking
-
-    while t2logpipe_digest_thread_flag is True:
-        time.sleep(0.1)
-        try:
-            message = (f.readline().decode().rstrip('\n')).lstrip('\x00')
-            if len(message) == 0:
-                continue
-            epoch = message.split()[0]
-            qkd_globals.writer(PipesQKD.CMD, epoch)
-            logger.debug(f'Msg: {message}')
-        except OSError:
-            pass
-    logger.info(f'Thread finished')
-
-
-def stop_chopper():
-    global proc_chopper, t2logpipe_digest_thread_flag
-    qkd_globals.kill_process(proc_chopper)
-    proc_chopper = None
-    t2logpipe_digest_thread_flag = False
-
-
-def is_running():
-    return not (proc_chopper is None or proc_chopper.poll() is not None)
+        Watches t2logpipe for new epoch files and writes the epoch name into the transferd cmdpipe.
+        Transferd copies the corresponding epoch file to the partnering computer.
+        """
+        # message = pipe.readline().decode().rstrip('\n').lstrip('\x00')
+        message = pipe.readline().rstrip('\n').lstrip('\x00')
+        if len(message) == 0:
+            return
+        
+        self._latest_message_time = time.time()
+        epoch = message.split()[0]
+        self._det_counts = list(map(int,message.split()[1:6]))
+        self._monitor_counts()
+        Process.write(PipesQKD.CMD, epoch)
+        logger.debug(f'Msg: {message}')
 
 
-if __name__ == '__main__':
-    import time
-    start_chopper(0)
-    time.sleep(1)
-    stop_chopper()
+    @property
+    def det_counts(self):
+        """ Returns (total_counts, d1, d2, d3, d4)
+        """
+        return self._det_counts
+
+    def _monitor_counts(self):
+        """Restarts keygen if detector counts goes to zero.
+        Polls performed every 1 second.
+        """
+
+        for counts in self.det_counts:
+            if counts == 0:
+                logger.debug(f"Counts monitor for '{self.program}' ('{self.process}') reported zero")
+                self._callback_restart()
+                return
+        return
+
+    def _no_message_monitor(self):
+        timeout_seconds = 10
+        while self.is_running():
+            if time.time() - self._latest_message_time > timeout_seconds:
+                logger.debug(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
+                self._callback_reset_timestamp()
+                return
+            time.sleep(timeout_seconds)
+        return
+
