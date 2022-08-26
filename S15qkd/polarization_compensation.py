@@ -54,6 +54,7 @@ RETARDANCE_MAX = 4.58
 RETARDANCE_MIN = 1.18
 EPOCH_DURATION = 0.537
 QBER_THRESHOLD = 0.082
+MAX_UPDATE_NUM = 1300
 
 def qber_cost_func(qber: float, desired_qber: float = 0.05, amplitude: float = 2, exponent: float = 1.34) -> float:
     return amplitude * (qber - desired_qber)**exponent
@@ -734,6 +735,24 @@ class PolComp(object):
             logger.debug(f'Next epoch set to "{hex(self.next_epoch)[2:]}".')
             self.last_qber= qber_mean
 
+        # Update QBER is stuck in some range that has not converged for MAX_UPDATE_NUM.
+        # Kick it out by doing something different instead of calling lcvr_narrow_down
+        if self.qber_counter > MAX_UPDATE_NUM:
+            self.kickout()
+            self.next_epoch = get_current_epoch()
+            self.qber_counter = 10
+            self.averaging_n = 2
+            self.qber_list.clear()
+            self.last_qber = 1 # Set to one to not go back to last voltage values
+            logger.debug(f'Kicked to new V1 voltage.')
+
+    def kickout(self):
+        lcvr_to_kick = [0, 1]
+        for i in lcvr_to_kick:
+            self.set_voltage[i] = np.random.uniform(VOLT_MIN + 0.2,VOLT_MAX - 0.2)
+        self._set_voltage()
+        self._calculate_retardances()
+	
     def lcvr_narrow_down(self,  curr_qber: float):
         
         ret_range = qber_cost_func(curr_qber)
