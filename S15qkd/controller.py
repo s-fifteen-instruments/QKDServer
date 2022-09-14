@@ -205,6 +205,13 @@ class Controller:
         else:
             logger.warning("Could not communicate to remote server to request stop.")
             self.qkd_engine_state = QKDEngineState.OFF
+
+    def BBM92_to_service_mode(self):
+        """Go from BBM92 to service mode
+            
+        Called from errc if qber > qber_limit
+        """
+        self.send("st_to_serv")
         
     def start_service_mode(self):
         """Restarts service mode.
@@ -307,6 +314,10 @@ class Controller:
         code = message_components[0]
 
         # Bypass stopping and restarting readevents
+        if code == "st_to_serv":
+            self.BBM92_to_service()
+            return
+
         if code == "serv_to_st":
             self.service_to_BBM92()
             return
@@ -356,6 +367,7 @@ class Controller:
             # Old comment: Provision to send signals to timestamps. Not used currently.
             if qkd_protocol == QKDProtocol.BBM92:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
+            self.transferd.send(prepend_if_service("st3"))
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.readevents.start(self.restart_protocol)
             self.pol_com_walk()
@@ -370,7 +382,6 @@ class Controller:
             # Important: 'st3' message is delayed so that both chopper and chopper2 can
             # generate sufficient initial epochs first.
             # TODO(Justin): Check if this assumption is really necessary.
-            self.transferd.send(prepend_if_service("st3"))
                 
         if seq == "st3":
             if low_count_side:
@@ -412,6 +423,76 @@ class Controller:
                         qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
                         self.start_service_mode, # restart protocol 
                     )
+
+    @requires_transferd
+    def BBM92_to_service(self):
+        """Stops the programs which needs protocol, namely
+        chopper, splicer and costream and restart them in service mode.
+        Doing this, because readevents was not stopped, the time difference
+        that pfind found should still be correct.
+        """
+        low_count_side = self.transferd.low_count_side
+        if not self.polcom:
+            self.send('st_to_serv')
+        if low_count_side:  
+            self.splicer.stop()
+            self.chopper.stop()
+            qkd_protocol = QKDProtocol.service
+            self._qkd_protocol = qkd_protocol
+            time.sleep(0.6) # to allow chopper and splicer to end gracefully
+            self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
+            self.splicer.start(
+                qkd_protocol,
+                lambda msg: self.errc.ec_queue.put(msg),
+                None,
+                self.restart_protocol,
+            )
+        else:
+            # Assume called from High count side. Only need to restart costream with elapsed time difference and new epoch
+            
+            # Get current time difference before stopping costream
+            td = int(self._time_diff) - int(self.costream.latest_deltat)
+            last_secure_epoch = self.transferd.last_received_epoch
+            #
+            self.costream.stop()
+            qkd_globals.PipesQKD.drain_all_pipes()
+            qkd_globals.FoldersQKD.remove_stale_comm_files()
+            qkd_protocol = QKDProtocol.service
+            self._qkd_protocol = qkd_protocol
+            logger.debug(f'BBM92 protocol set')
+            start_epoch = self._retrieve_service_remote_epoch(last_secure_epoch)
+            logger.debug(f'Retrieve_secure is {start_epoch}')
+            time.sleep(0.6) # to allow costream thread to end gracefully
+            self.costream.start(
+                td,
+                start_epoch,
+                qkd_protocol,
+                None,
+                self.restart_protocol,
+            )
+            logger.debug(f'costream restarted')
+
+    @requires_transferd
+    def _retrieve_service_remote_epoch(self, last_secure_epoch: str ):
+        """Retrieve new epochs with correct protocol from remote(chopper) epoch
+        and match with local (chopper2) epoch
+
+        Performed by high count side.
+        """
+        epoch = last_secure_epoch
+        file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
+        logger.debug(f'Filename {file_path}')
+        headt2 = HeadT2(0,0,0,0,0xf,0)
+        headt2 = read_T2_header(file_path)
+        logger.debug(f'BITS per entry {headt2.base_bits}')
+        while headt2.base_bits != 4:
+            logger.debug(f'{hex(headt2.epoch)} {headt2.base_bits}')
+            epoch = hex(headt2.epoch+1)[2:]
+            time.sleep(qkd_globals.EPOCH_DURATION)
+            file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
+            headt2 = read_T2_header(file_path)
+
+        return epoch
 
     @requires_transferd
     def service_to_BBM92(self):
@@ -466,7 +547,7 @@ class Controller:
                     self.errc.start(
                         qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
                         self.start_service_mode, # restart protocol
-                        self.start_service_mode, # protocol for exceeding qber_limit
+                        self.BBM92_to_service_mode, # protocol for exceeding qber_limit
                    )
                 else:
                     self.errc.start(
