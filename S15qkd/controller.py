@@ -425,9 +425,8 @@ class Controller:
         that pfind found should still be correct.
         """
         low_count_side = self.transferd.low_count_side
-        if not self.polcom:
-            self.send('st_to_serv')
         if low_count_side:  
+            self.send('st_to_serv')
             self.splicer.stop()
             self.chopper.stop()
             qkd_protocol = QKDProtocol.SERVICE
@@ -441,11 +440,11 @@ class Controller:
                 None, #self.restart_protocol,
             )
         else:
-            # Assume called from High count side. Only need to restart costream with elapsed time difference and new epoch
+            # Assume called from (errc) low count side. Only need to restart costream with elapsed time difference and new epoch
             
             # Get current time difference before stopping costream
             td = int(self._time_diff) - int(self.costream.latest_deltat)
-            #last_secure_epoch = self.transferd.last_received_epoch
+            last_secure_epoch = self.transferd.last_received_epoch
             #
             self.costream.stop()
             qkd_globals.PipesQKD.drain_all_pipes()
@@ -530,16 +529,16 @@ class Controller:
             self.chopper.stop()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
-            time.sleep(0.6) # to allow chopper and splicer to end gracefully
+            time.sleep(0.8) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,
                 lambda msg: self.errc.ec_queue.put(msg),
                 self.callback_epoch,
-                None, #self.restart_protocol,
+                self.restart_protocol,
             )
         else:
-            # Assume called from High count side. Only need to restart costream with elapsed time difference and new epoch
+            # Assume called from polcom (High) side. Only need to restart costream with elapsed time difference and new epoch
             
             # Get current time difference before stopping costream
             td = int(self._time_diff) - int(self.costream.latest_deltat)

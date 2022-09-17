@@ -154,8 +154,13 @@ class ErrorCorr(Process):
             self._servoed_QBER = 0.005
         #if self.servoed_QBER > 1 or self.servoed_QBER < 0:
         #    self._servoed_QBER = Process.config.default_QBER
+        elif self._callback_qber_exceed and self.ec_err_fraction > 0.15: #if more than 15% restart immediately and don't need to average over self._servo_blocks.
+            logger.error(f'QBER: {self.ec_err_fraction} above {0.15}. Restarting polarization compensation.')
+            self._servoed_QBER = Process.config.default_QBER
+            self._callback_qber_exceed()
         elif self._callback_qber_exceed and self.servoed_QBER > self.QBER_limit:
             logger.error(f'QBER: {self.servoed_QBER} above {self.QBER_limit}. Restarting polarization compensation.')
+            self._servoed_QBER = Process.config.default_QBER
             self._callback_qber_exceed()
 
         try:
