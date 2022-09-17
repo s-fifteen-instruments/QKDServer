@@ -49,7 +49,7 @@ from .polarization_compensation import PolComp
 
 # Own modules
 from . import qkd_globals
-from .qkd_globals import logger, QKDProtocol, QKDEngineState
+from .qkd_globals import logger, QKDProtocol, QKDEngineState, FoldersQKD
 
 # TODO(Justin): Rename 'program_root' in config.
 
@@ -206,13 +206,6 @@ class Controller:
             logger.warning("Could not communicate to remote server to request stop.")
             self.qkd_engine_state = QKDEngineState.OFF
 
-    def BBM92_to_service_mode(self):
-        """Go from BBM92 to service mode
-            
-        Called from errc if qber > qber_limit
-        """
-        self.send("st_to_serv")
-        
     def start_service_mode(self):
         """Restarts service mode.
         
@@ -375,7 +368,7 @@ class Controller:
                 qkd_protocol,
                 lambda msg: self.errc.ec_queue.put(msg),
                 self.callback_epoch,
-                self.restart_protocol,
+                None, #self.restart_protocol,
             )
 
 
@@ -416,7 +409,7 @@ class Controller:
                     self.errc.start(
                         qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
                         self.start_service_mode, # restart protocol   
-                        self.start_service_mode, # protocol for exceeding qber_limit  
+                        self.BBM92_to_service, # protocol for exceeding qber_limit
                    )
                 else:
                     self.errc.start(
@@ -437,40 +430,68 @@ class Controller:
         if low_count_side:  
             self.splicer.stop()
             self.chopper.stop()
-            qkd_protocol = QKDProtocol.service
+            qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
             time.sleep(0.6) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,
                 lambda msg: self.errc.ec_queue.put(msg),
-                None,
-                self.restart_protocol,
+                self.callback_epoch,
+                None, #self.restart_protocol,
             )
         else:
             # Assume called from High count side. Only need to restart costream with elapsed time difference and new epoch
             
             # Get current time difference before stopping costream
             td = int(self._time_diff) - int(self.costream.latest_deltat)
-            last_secure_epoch = self.transferd.last_received_epoch
+            #last_secure_epoch = self.transferd.last_received_epoch
             #
             self.costream.stop()
             qkd_globals.PipesQKD.drain_all_pipes()
             qkd_globals.FoldersQKD.remove_stale_comm_files()
-            qkd_protocol = QKDProtocol.service
+            qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
-            logger.debug(f'BBM92 protocol set')
-            start_epoch = self._retrieve_service_remote_epoch(last_secure_epoch)
-            logger.debug(f'Retrieve_secure is {start_epoch}')
-            time.sleep(0.6) # to allow costream thread to end gracefully
+            logger.debug(f'SERVICE protocol set')
+            last_secure_epoch = self.transferd.last_received_epoch
+            start_epoch = self._retrieve_service_remote_epoch(f"{int(last_secure_epoch,16)+1:x}")
+            logger.debug(f'Retrieve_service is {start_epoch}')
+            start_epoch = self._epochs_exist(start_epoch)
             self.costream.start(
                 td,
                 start_epoch,
                 qkd_protocol,
-                None,
+                self.callback_epoch,
                 self.restart_protocol,
             )
+            self._first_epoch = start_epoch # Refresh first epoch and time_diff
+            self._time_diff = int(td)
             logger.debug(f'costream restarted')
+
+    def _epochs_exist(self, epoch: str):
+        """Check that epoch exists in both receivedfiles and t1 folders
+        If not wait till it appear
+        """
+
+        if (pathlib.Path(FoldersQKD.RECEIVEFILES + '/' + epoch).is_file() and
+                 pathlib.Path(FoldersQKD.T1FILES + '/' + epoch).is_file()):
+            logger.debug("Found {epoch} in first try")
+            return epoch
+        else:
+            time.sleep(0.5)
+            if (pathlib.Path(FoldersQKD.RECEIVEFILES + '/' + epoch).is_file() and
+                    pathlib.Path(FoldersQKD.T1FILES + '/' + epoch).is_file()):
+                logger.debug("Found {epoch} in second try")
+                return epoch
+            else:
+                epoch = f"{int(epoch,16)+1:x}"
+                if (pathlib.Path(FoldersQKD.RECEIVEFILES + '/' + epoch).is_file() and
+                        pathlib.Path(FoldersQKD.T1FILES + '/' + epoch).is_file()):
+                    logger.debug("Found {epoch} in last try")
+                    return epoch
+
+        return epoch
+
 
     @requires_transferd
     def _retrieve_service_remote_epoch(self, last_secure_epoch: str ):
@@ -514,8 +535,8 @@ class Controller:
             self.splicer.start(
                 qkd_protocol,
                 lambda msg: self.errc.ec_queue.put(msg),
-                None,
-                self.restart_protocol,
+                self.callback_epoch,
+                None, #self.restart_protocol,
             )
         else:
             # Assume called from High count side. Only need to restart costream with elapsed time difference and new epoch
@@ -533,6 +554,7 @@ class Controller:
             start_epoch = self._retrieve_secure_remote_epoch(last_service_epoch)
             logger.debug(f'Retrieve_secure is {start_epoch}')
             time.sleep(0.6) # to allow costream thread to end gracefully
+            start_epoch = self._epochs_exist(start_epoch)
             self.costream.start(
                 td,
                 start_epoch,
@@ -540,6 +562,8 @@ class Controller:
                 None,
                 self.restart_protocol,
             )
+            self._first_epoch = start_epoch # Refresh first epoch and time_diff
+            self._time_diff = int(td)
             logger.debug(f'costream restarted')
         if Process.config.error_correction:
             if not self.errc.is_running():
@@ -547,7 +571,7 @@ class Controller:
                     self.errc.start(
                         qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
                         self.start_service_mode, # restart protocol
-                        self.BBM92_to_service_mode, # protocol for exceeding qber_limit
+                        self.BBM92_to_service, # protocol for exceeding qber_limit
                    )
                 else:
                     self.errc.start(

@@ -77,7 +77,7 @@ class Costream(Process):
             '-t', time_difference,
             '-p', qkd_protocol.value,
             '-T', 2,
-            '-m', f'/{Process.config.data_root}/rawpacketindex',
+            '-m', f'{Process.config.data_root}/rawpacketindex',
             '-M', PipesQKD.CMD,
             '-n', PipesQKD.GENLOG,
             '-V', 5,
