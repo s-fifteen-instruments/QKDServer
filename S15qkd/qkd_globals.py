@@ -52,7 +52,7 @@ from enum import unique, Enum, auto
 
 EPOCH_DURATION = 2**32 / 8 * 1e-9
 
-config_file = '/root/code/QKDserver/S15qkd/qkd_engine_config.json'
+config_file = '/root/code/QKDServer/S15qkd/qkd_engine_config.json'
 
 with open(config_file, 'r') as f:
     config = json.load(f)

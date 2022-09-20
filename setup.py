@@ -9,7 +9,7 @@ setuptools.setup(
     author_email='',
     license='MIT',
     packages=setuptools.find_packages(),
-    install_requires=['pyserial', 'numpy', 'psutil'],
+    install_requires=['pyserial', 'numpy', 'psutil', 'dataclasses'],
 )
 
 

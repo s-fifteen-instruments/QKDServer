@@ -14,7 +14,7 @@ restart: stop default log
 log:
 	docker logs -f qkd
 exec:
-	docker exec -w /root/code/QKDserver/Settings_WebClient -it qkd /bin/sh
+	docker exec -w /root/code/QKDServer/Settings_WebClient -it qkd /bin/sh
 
 stop:
 	-docker stop qkd
@@ -23,24 +23,25 @@ stop:
 default:
 	test -f "S15qkd/qkd_engine_config.json" || { echo "No configuration file found - run 'make qkda' or 'make qkdb' first."; exit 1; }
 	docker run \
-		--volume /home/s-fifteen/code/QKDServer/S15qkd:/root/code/QKDserver/S15qkd \
-		--volume /home/s-fifteen/code/QKDServer/S15qkd/qkd_engine_config.json:/root/code/QKDserver/Settings_WebClient/qkd_engine_config.json \
-		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/apps/QKD_status.py:/root/code/QKDserver/Settings_WebClient/apps/QKD_status.py \
-		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/apps/QKD_settings.py:/root/code/QKDserver/Settings_WebClient/apps/QKD_settings.py \
-		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/app.py:/root/code/QKDserver/Settings_WebClient/app.py \
-		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/index.py:/root/code/QKDserver/Settings_WebClient/index.py \
-		--volume /home/s-fifteen/code/QKDServer/entrypoint.sh:/root/entrypoint.sh \
+		--volume /root/code/QKDServer/S15qkd:/root/code/QKDServer/S15qkd \
+		--volume /root/code/QKDServer/S15qkd/qkd_engine_config.json:/root/code/QKDServer/Settings_WebClient/qkd_engine_config.json \
+		--volume /root/code/QKDServer/Settings_WebClient/apps/QKD_status.py:/root/code/QKDServer/Settings_WebClient/apps/QKD_status.py \
+		--volume /root/code/QKDServer/Settings_WebClient/apps/QKD_settings.py:/root/code/QKDServer/Settings_WebClient/apps/QKD_settings.py \
+		--volume /root/code/QKDServer/Settings_WebClient/app.py:/root/code/QKDServer/Settings_WebClient/app.py \
+		--volume /root/code/QKDServer/Settings_WebClient/index.py:/root/code/QKDServer/Settings_WebClient/index.py \
+		--volume /root/code/QKDServer/entrypoint.sh:/root/entrypoint.sh \
 		--name qkd --rm -dit \
+		--network host \
 		--entrypoint="/root/entrypoint.sh" \
 		--device=/dev/ioboards/usbtmst0 $(serial_devs) \
-		--device-cgroup-rule='a *:* rwm' -p 8000:8000 -p 55555:55555 s-fifteen/qkdserver:qkd
+		--device-cgroup-rule='a *:* rwm' -p 4855:4855 -p 8000:8000 -p 55555:55555 s-fifteen/qkdserver:qkd
 
 # For local testing and deployment, the appropriate changes can be propagated into
 # the Docker container by mapping the corresponding volumes, e.g.
 #
 #   docker run ... \
-#       --volume /home/s-fifteen/code/QKDServer/S15qkd:/root/code/QKDserver/S15qkd \
-#	    --volume /home/s-fifteen/code/QKDServer/entrypoint.sh:/root/entrypoint.sh \
+#       --volume /root/code/QKDServer/S15qkd:/root/code/QKDServer/S15qkd \
+#	    --volume /root/code/QKDServer/entrypoint.sh:/root/entrypoint.sh \
 #       ...
 #
 # These lines are uncommented by default, assuming a testing environment and user 's-fifteen'.
@@ -51,11 +52,11 @@ default:
 
 no-device:
 	docker run \
-		--volume /home/s-fifteen/code/QKDServer/S15qkd:/root/code/QKDserver/S15qkd \
-		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/certs:/root/code/QKDserver/Settings_WebClient/certs \
-		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/apps/QKD_settings.py:/root/code/QKDserver/Settings_WebClient/apps/QKD_settings.py \
-		--volume /home/s-fifteen/code/QKDServer/Settings_WebClient/apps/QKD_status.py:/root/code/QKDserver/Settings_WebClient/apps/QKD_status.py \
-		--volume /home/s-fifteen/code/QKDServer/entrypoint.sh:/root/entrypoint.sh \
+		--volume /root/code/QKDServer/S15qkd:/root/code/QKDServer/S15qkd \
+		--volume /root/code/QKDServer/Settings_WebClient/certs:/root/code/QKDServer/Settings_WebClient/certs \
+		--volume /root/code/QKDServer/Settings_WebClient/apps/QKD_settings.py:/root/code/QKDServer/Settings_WebClient/apps/QKD_settings.py \
+		--volume /root/code/QKDServer/Settings_WebClient/apps/QKD_status.py:/root/code/QKDServer/Settings_WebClient/apps/QKD_status.py \
+		--volume /root/code/QKDServer/entrypoint.sh:/root/entrypoint.sh \
 		--name qkd_nodev --rm -dit \
 		--entrypoint="/root/entrypoint.sh" \
 		-p 8080:8000 -p 55566:55555 s-fifteen/qkdserver:qkd

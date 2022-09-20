@@ -67,10 +67,10 @@ RUN \
 RUN \
     # --mount=type=ssh \
     cd ${HOME}/code \
-    && git clone --branch master https://github.com/s-fifteen-instruments/QKDServer.git QKDserver \
-    && cd ${HOME}/code/QKDserver \
+    && git clone --branch master https://github.com/s-fifteen-instruments/QKDServer.git QKDServer \
+    && cd ${HOME}/code/QKDServer \
     && pip install -e .\
-    && cd ${HOME}/code/QKDserver/Settings_WebClient \
+    && cd ${HOME}/code/QKDServer/Settings_WebClient \
     && pip install -r requirements.txt \
     && ln -s ${HOME}/code/qcrypto bin
 
@@ -84,5 +84,5 @@ RUN \
     # apk del --no-cache qkdserver-base
 
 # Set an entry point into the image
-#WORKDIR ${HOME}/code/QKDserver/Settings_WebClient
+#WORKDIR ${HOME}/code/QKDServer/Settings_WebClient
 #CMD [ "gunicorn", "--threads=1", "-b 0.0.0.0:8000", "index:server"]

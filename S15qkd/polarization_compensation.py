@@ -53,10 +53,10 @@ VOLT_MAX = 5.5
 RETARDANCE_MAX = 4.58
 RETARDANCE_MIN = 1.18
 EPOCH_DURATION = 0.537
-QBER_THRESHOLD = 0.072
+QBER_THRESHOLD = 0.078
 MAX_UPDATE_NUM = 1100 # ~ 10 minutes
 
-def qber_cost_func(qber: float, desired_qber: float = 0.075, amplitude: float = 2, exponent: float = 1.20) -> float:
+def qber_cost_func(qber: float, desired_qber: float = 0.05, amplitude: float = 2, exponent: float = 1.34) -> float:
     return amplitude * (qber - desired_qber)**exponent
 
 def get_current_epoch():
@@ -108,7 +108,7 @@ class PolComp(object):
         self._calculate_retardances()
         self._callback = callback_service_to_BBM92
         self.qber_threshold = QBER_THRESHOLD # threshold to start BBM92
-        self.qber_threshold_2 = QBER_THRESHOLD+0.04 # threshold to go from do_walks(1-D walk) to update QBER (n-D walk)
+        self.qber_threshold_2 = QBER_THRESHOLD+0.045 # threshold to go from do_walks(1-D walk) to update QBER (n-D walk)
         logger.debug(f'pol com initialized')
 
 
@@ -744,7 +744,7 @@ class PolComp(object):
             self.averaging_n = 2
             self.qber_list.clear()
             self.last_qber = 1 # Set to one to not go back to last voltage values
-            self.do_walks(1)
+            self.do_walks(0)
 
     def kickout(self):
         lcvr_to_kick = [0, 1]
