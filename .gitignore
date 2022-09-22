@@ -153,3 +153,6 @@ Settings_WebClient/logs
 Settings_WebClient/prototyping.ipynb
 S15qkd/config/Untitled.ipynb
 Settings_WebClient/qkd_engine_config.json
+
+# Log files
+S15qkd/logs

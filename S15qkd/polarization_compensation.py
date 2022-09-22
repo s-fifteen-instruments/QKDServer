@@ -119,7 +119,7 @@ class PolComp(object):
         self.S3_list = []
         self.S4_list = []
         self.counter = 0
-        self.last_qber = 1
+        self._last_qber = 1
         self.qber_counter = 0
         self.qber_current = 1
         self.averaging_n = 4
@@ -314,7 +314,7 @@ class PolComp(object):
         """From the current set_voltages and qber,
         narrow down to below threshold qber."""
         if not self.narrow_down_list: #first entry
-            self.last_qber = self.qber_current
+            self._last_qber = self.qber_current
             self._set_voltage()
             self.next_epoch = get_current_epoch()
             return
@@ -720,7 +720,7 @@ class PolComp(object):
                 self._callback()
                 logger.info(f'BBM92 called')
                 return
-            if qber_mean < self.last_qber:
+            if qber_mean < self._last_qber:
                 self.last_voltage_list = self.set_voltage.copy()
                 self.last_retardances = self.retardances.copy()
                 self.lcvr_narrow_down(qber_mean)
@@ -729,11 +729,11 @@ class PolComp(object):
             else:
                 self.set_voltage = self.last_voltage_list.copy()
                 self.retardances = self.last_retardances.copy()
-                self.lcvr_narrow_down(self.last_qber)
+                self.lcvr_narrow_down(self._last_qber)
                 
             self.next_epoch = get_current_epoch()
             logger.debug(f'Next epoch set to "{hex(self.next_epoch)[2:]}".')
-            self.last_qber= qber_mean
+            self._last_qber= qber_mean
 
         # Update QBER is stuck in some range that has not converged for MAX_UPDATE_NUM.
         # Kick it out by doing something different instead of calling lcvr_narrow_down
@@ -743,7 +743,7 @@ class PolComp(object):
             self.qber_counter = 10
             self.averaging_n = 2
             self.qber_list.clear()
-            self.last_qber = 1 # Set to one to not go back to last voltage values
+            self._last_qber = 1 # Set to one to not go back to last voltage values
             self.do_walks(0)
 
     def kickout(self):
@@ -790,6 +790,10 @@ class PolComp(object):
                 value[i] = VOLT_MIN
                 raise ValueError("Set value subceded Min volt of " + {VOLT_MIN})
         self._voltage = value  
+    
+    @property
+    def last_qber(self) -> float:
+        return self._last_qber
 
 
 
@@ -820,7 +824,7 @@ class PolarizationDriftCompensation(object):
         self.lcr_driver.V4 = self.V4
         self.last_voltage_list = [self.V1, self.V2, self.V3, self.V4]
         self.qber_list = []
-        self.last_qber = 1
+        self._last_qber = 1
         self.qber_counter = 0
         self.next_epoch = None
         self.stokes_v = []
