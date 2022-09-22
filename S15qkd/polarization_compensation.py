@@ -57,7 +57,7 @@ QBER_THRESHOLD = 0.078
 MAX_UPDATE_NUM = 1100 # ~ 10 minutes
 
 def qber_cost_func(qber: float, desired_qber: float = 0.05, amplitude: float = 2, exponent: float = 1.34) -> float:
-    return amplitude * (qber - desired_qber)**exponent
+    return amplitude * abs(qber - desired_qber)**exponent
 
 def get_current_epoch():
     """Returns the current epoch in integer.
