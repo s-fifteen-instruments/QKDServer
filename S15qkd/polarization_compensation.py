@@ -53,7 +53,7 @@ VOLT_MAX = 5.5
 RETARDANCE_MAX = 4.58
 RETARDANCE_MIN = 1.18
 EPOCH_DURATION = 0.537
-QBER_THRESHOLD = 0.078
+QBER_THRESHOLD = 0.082
 MAX_UPDATE_NUM = 1100 # ~ 10 minutes
 
 def qber_cost_func(qber: float, desired_qber: float = 0.05, amplitude: float = 2, exponent: float = 1.34) -> float:
@@ -718,6 +718,7 @@ class PolComp(object):
             if qber_mean < qber_threshold:
                 np.savetxt(self.LCR_params.volt_file, [self.set_voltage])
                 self._callback()
+                self._last_qber= qber_mean
                 logger.info(f'BBM92 called')
                 return
             if qber_mean < self._last_qber:

@@ -140,13 +140,13 @@ class ErrorCorr(Process):
 
         self.write(self._callback_guardian_note, message =self._ec_epoch)
         logger.info(f'Sent {self._ec_epoch} to notify.pipe.')
-        self._ec_key_gen_rate = self._ec_final_bits / \
+        self._ec_key_gen_rate = float(self._ec_final_bits) / \
                     (self.ec_nr_of_epochs * EPOCH_DURATION)
         if not self._total_ec_key_bits:
             self._total_ec_key_bits = 0
-        self._total_ec_key_bits += self._ec_final_bits
+        self._total_ec_key_bits += self.ec_final_bits
         self._ec_err_fraction_history.append(self.ec_err_fraction)
-        self._ec_err_key_length_history.append(self._ec_final_bits)
+        self._ec_err_key_length_history.append(self.ec_final_bits)
         self._servoed_QBER += (self.ec_err_fraction - self._servoed_QBER) / self._servo_blocks
         ###
         # servoing QBER
@@ -229,12 +229,16 @@ class ErrorCorr(Process):
         logger.info(f'Thread finished.')
 
     @property
+    def ec_final_bits(self):
+        return int(self._ec_final_bits)
+
+    @property
     def ec_raw_bits(self):
         return int(self._ec_raw_bits)
     
     @property
     def ec_key_gen_rate(self):
-        return round(_ec_key_gen_rate, 2)
+        return round(self._ec_key_gen_rate, 2)
 
     @property
     def ec_nr_of_epochs(self):

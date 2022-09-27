@@ -662,7 +662,7 @@ class Controller:
             'coincidences': self.costream.latest_coincidences,
             'accidentals': self.costream.latest_accidentals,
             'protocol': self._qkd_protocol,
-            'last_qber': self.polcom.last_qber if self.polcom else '',
+            'last_qber': self.polcom.last_qber if self.polcom and self._qkd_protocol is QKDProtocol.SERVICE  else '',
         }
 
     def get_error_corr_info(self):
@@ -670,7 +670,7 @@ class Controller:
             'first_epoch': self.errc._first_epoch_info,
             'undigested_epochs': self.errc._undigested_epochs_info,
             'ec_raw_bits': self.errc._ec_raw_bits,
-            'ec_key_gen_rate': self.errc._ec_key_gen_rate,
+            'ec_key_gen_rate': round(self.errc._ec_key_gen_rate,1) if self.errc._ec_key_gen_rate else '',
             'ec_err_fraction': self.errc._ec_err_fraction,
             'key_file_name': self.errc._ec_epoch,
             'total_ec_key_bits': self.errc._total_ec_key_bits,
