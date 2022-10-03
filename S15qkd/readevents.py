@@ -37,6 +37,45 @@ class Readevents(Process):
         #               and pipe O_APPEND.
         super().start(args, stdout=PipesQKD.RAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
 
+    def start_sb(
+            self,
+            callback_restart=None,
+        ):
+        assert not self.is_running()
+
+        det1corr = Process.config.local_detector_skew_correction.det1corr
+        det2corr = Process.config.local_detector_skew_correction.det2corr
+        det3corr = Process.config.local_detector_skew_correction.det3corr
+        det4corr = Process.config.local_detector_skew_correction.det4corr
+        blindmode = 113
+        level1 = 880
+        level2 = 0
+        args = [
+            '-a', 1,  # outmode 1
+            '-X',
+            '-A',     # absolute time
+            '-s',     # short mode, 49 bits timing info in 1/8 nsec
+            # Detector skew in units of 1/256 nsec
+            '-D', f'{det1corr},{det2corr},{det3corr},{det4corr}',
+            '-b', f'{blindmode},{level1},{level2}',
+        ]
+
+        # Flush readevents
+        super().start(args + ['-q1'])  # With proper termination with sigterm, this should not be necessary anymore.
+        self.wait()
+
+        # Persist readevents
+        # TODO(Justin): Check default default directory
+        #               and pipe O_APPEND.
+        super().start(args, stdout=subprocess.PIPE, stderr="readeventserror", callback_restart=callback_restart)
+        RAWE_out = os.open(PipesQKD.RAWEVENTS, os.O_WRONLY | os.O_APPEND | os.O_CREAT)
+        proc_tee = subprocess.Popen(
+            ['tee', PipesQKD.SB] ,
+            stdin=self.process.stdout,
+            stdout=RAWE_out,
+        )
+
+
     def measure_local_count_rate_system(self):
         """Measure local photon count rate through shell. Done to solve process not terminated nicely for >160000 count rate per epoch.
            Don't need to handle pipes, but harder to recover if things don't work.""" 
