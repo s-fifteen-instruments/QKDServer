@@ -670,7 +670,7 @@ class Controller:
             'first_epoch': self.errc._first_epoch_info,
             'undigested_epochs': self.errc._undigested_epochs_info,
             'ec_raw_bits': self.errc._ec_raw_bits,
-            'ec_final_bits': self.ercc._ec_final_bits,
+            'ec_final_bits': self.errc._ec_final_bits,
             'ec_key_gen_rate': round(self.errc._ec_key_gen_rate,1) if self.errc._ec_key_gen_rate else '',
             'ec_err_fraction': self.errc._ec_err_fraction,
             'key_file_name': self.errc._ec_epoch,

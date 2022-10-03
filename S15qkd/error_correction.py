@@ -141,14 +141,14 @@ class ErrorCorr(Process):
         self.write(self._callback_guardian_note, message =self._ec_epoch)
         logger.info(f'Sent {self._ec_epoch} to notify.pipe.')
         self._ec_key_gen_rate = self.ec_final_bits / (self.ec_nr_of_epochs * EPOCH_DURATION)
-	logger.debug(f'Rate is {self.ec_key_gen_rate} bps.')
+        logger.debug(f'Rate is {self.ec_key_gen_rate} bps.')
         if not self._total_ec_key_bits:
             self._total_ec_key_bits = 0
         self._total_ec_key_bits += self.ec_final_bits
         self._ec_err_fraction_history.append(self.ec_err_fraction)
         self._ec_err_key_length_history.append(self.ec_final_bits)
         self._servoed_QBER += (self.ec_err_fraction - self.servoed_QBER) / self._servo_blocks
-	logger.debug(f'Servoed QBER is {self.servoed_QBER}.')
+        logger.debug(f'Servoed QBER is {self.servoed_QBER}.')
         ###
         # servoing QBER
         if self.servoed_QBER < 0.005:
