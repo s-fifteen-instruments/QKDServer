@@ -5,6 +5,7 @@ import subprocess
 import os
 
 from .utils import Process
+from . import qkd_globals
 from .qkd_globals import logger, PipesQKD
 
 class Readevents(Process):
@@ -60,21 +61,24 @@ class Readevents(Process):
             '-b', f'{blindmode},{level1},{level2}',
         ]
 
-        # Flush readevents
-        super().start(args + ['-q1'])  # With proper termination with sigterm, this should not be necessary anymore.
-        self.wait()
+        args_tee = [
+                f'{PipesQKD.RAWEVENTS}',
+        ]
+        t = Process('tee')
+        t.start(args_tee,stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+
+        args_getrate2 = [
+                '-n0',
+                '-s',
+                '-b',
+        ]
+        gr = Process( pathlib.Path(Process.config.program_root) / 'getrate2')
+        gr.start(args_getrate2, stdin = t.process.stdout, stdout=PipesQKD.SB )
 
         # Persist readevents
         # TODO(Justin): Check default default directory
         #               and pipe O_APPEND.
-        super().start(args, stdout=subprocess.PIPE, stderr="readeventserror", callback_restart=callback_restart)
-        RAWE_out = os.open(PipesQKD.RAWEVENTS, os.O_WRONLY | os.O_APPEND | os.O_CREAT)
-        proc_tee = subprocess.Popen(
-            ['tee', PipesQKD.SB] ,
-            stdin=self.process.stdout,
-            stdout=RAWE_out,
-        )
-
+        super().start(args, stdout=t.process.stdin, stderr="readeventserror", callback_restart=callback_restart)
 
     def measure_local_count_rate_system(self):
         """Measure local photon count rate through shell. Done to solve process not terminated nicely for >160000 count rate per epoch.

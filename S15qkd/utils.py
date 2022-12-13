@@ -50,6 +50,7 @@ class Process:
             stdout: Union[int, str, PipesQKD] = subprocess.DEVNULL,
             stderr: Union[int, str, PipesQKD] = subprocess.DEVNULL,
             callback_restart=None,
+            stdin : Union[int, str, PipesQKD] = subprocess.DEVNULL,
         ):
         """Starts the process with specified args and standard streams.
 
@@ -62,6 +63,7 @@ class Process:
             stdout: Standard output stream.
             stderr: Standard error stream.
             callback_restart: Callback to controller to perform restart.
+            stdin: Standard in stream
 
         Note:
             An alternative implementation to write to file is previously performed as:
@@ -91,7 +93,7 @@ class Process:
             [1]: https://docs.python.org/3/library/subprocess.html#:~:text=inheritable%20flag
         """
         # Parse stdout/stderr strings into file descriptors
-        is_stdout_fd = is_stderr_fd = False
+        is_stdout_fd = is_stderr_fd = is_stdin_fd =  False
 
         if isinstance(stdout, PipesQKD):
             stdout = os.open(stdout, os.O_WRONLY)
@@ -113,11 +115,22 @@ class Process:
             stderr = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT)
             is_stderr_fd = True
 
+        if isinstance(stdin, PipesQKD):
+            stdin = os.open(stdin, os.O_RDONLY)
+            # stdinr = os.open(stdin, os.O_RDONLY | os.O_NONBLOCK) TODO
+            is_stdin_fd = True
+
+        elif isinstance(stdin, str):
+            path = Path(Process.config.data_root) / stdin
+            stdin = os.open(path, os.O_RDONLY | os.O_CREAT)
+            is_stdin_fd = True
+
         # Run program in child process
         # psutil.Popen used for continuous tracking of PID
         command = [self.program, *list(map(str, args))]
         self.process = psutil.Popen(
             command,
+            stdin=stdin,
             stdout=stdout, stderr=stderr,  # file descriptors are inherited
         )
         logger.debug(f"Started: {' '.join(map(str, command))}")
