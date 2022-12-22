@@ -607,6 +607,13 @@ class Controller:
         Performed by high count side.
         transferd (remote) and chopper2 (local) may have conflicting range of epochs,
         so resolving potential conflicts by calculating the epoch overlap.
+
+        The usable periods is the number of overlapping epoch files.
+        Different implementations are possible, with the following notes:
+        
+            - The first and last epoch files are potentially underfilled.
+            - To account for latency and mismatch in epoch collection start times,
+              an additional 2 epoch duration buffer is provided.
         """
         target_num_epochs = Process.config.pfind_epochs
         timeout_seconds = (target_num_epochs + 2) * qkd_globals.EPOCH_DURATION
@@ -634,7 +641,7 @@ class Controller:
             start_epoch = self.chopper2.first_epoch
             usable_periods = target_num_epochs
         
-        # TODO(Justin): This was in the old code. Not sure why usable_periods are reduced.
+        # Ignore the last potentially underfilled epoch, as per legacy code
         usable_periods -= 1
         return start_epoch, usable_periods
 
