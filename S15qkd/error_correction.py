@@ -71,6 +71,7 @@ class ErrorCorr(Process):
         self._ec_epoch = None
         self._ec_key_gen_rate = None
         self._ec_nr_of_epochs = None
+        self._ec_thread_on = None
         self.ec_queue = queue.Queue()
         self._ec_err_fraction_history = collections.deque(maxlen=100)
         self._ec_err_key_length_history = collections.deque(maxlen=100)
@@ -78,6 +79,15 @@ class ErrorCorr(Process):
         self._servoed_QBER = Process.config.default_QBER
         self._servo_blocks = Process.config.servo_blocks
         self.QBER_limit = Process.config.QBER_limit
+
+    def empty(self):
+        if self.do_ec_thread.is_alive():
+            self._ec_thread_on = False
+            time.sleep(EPOCH_DURATION)
+            self._servoed_QBER = Process.config.default_QBER
+        self.do_ec_thread = threading.Thread(target=self.do_error_correction, args=(), daemon=True)
+        self._ec_thread_on = True
+        self.do_ec_thread.start()
 
     def start(
             self,
@@ -111,6 +121,7 @@ class ErrorCorr(Process):
         ]
         super().start(args, stdout='errcd_stdout', stderr='errcd_stderr', callback_restart=callback_restart)
         self.do_ec_thread = threading.Thread(target=self.do_error_correction, args=(), daemon=True)
+        self._ec_thread_on = True
         self.do_ec_thread.start()
         # To move to class
         # self.do_errc.start_py_thread()

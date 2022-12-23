@@ -184,12 +184,12 @@ class Controller:
         self.chopper2.stop()
         self.costream.stop()
         self.splicer.stop()
+        self.errc.stop()
 
         # Reset variables
         self._reset()
         
         # TODO(Justin): Refactor error correction and pipe creation
-        #self.errc.stop()
         qkd_globals.PipesQKD.drain_all_pipes()
         qkd_globals.FoldersQKD.remove_stale_comm_files()
 
@@ -423,12 +423,15 @@ class Controller:
         chopper, splicer and costream and restart them in service mode.
         Doing this, because readevents was not stopped, the time difference
         that pfind found should still be correct.
+        Also reset error correction since it only works on continuous epochs
+        for now.
         """
         low_count_side = self.transferd.low_count_side
         if low_count_side:  
             self.send('st_to_serv')
             self.splicer.stop()
             self.chopper.stop()
+            self.errc.empty()
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
             time.sleep(0.6) # to allow chopper and splicer to end gracefully
