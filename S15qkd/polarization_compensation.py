@@ -691,7 +691,7 @@ class PolComp(object):
                 return_val.append(ret)
         return return_val
 
-    def update_QBER(self, qber: float, qber_threshold: float = self.qber_threshold, epoch: str = None):
+    def update_QBER(self, qber: float, qber_threshold: float = 0.085, epoch: str = None):
         self.qber_counter += 1
         if self.qber_counter < 10: # in case pfind finds a bad match, we don't want to change the lcvr voltage too early
             return
