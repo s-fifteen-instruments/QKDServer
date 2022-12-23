@@ -53,10 +53,10 @@ VOLT_MAX = 5.5
 RETARDANCE_MAX = 4.58
 RETARDANCE_MIN = 1.18
 EPOCH_DURATION = 0.537
-QBER_THRESHOLD = 0.082
+#QBER_THRESHOLD = 0.085
 MAX_UPDATE_NUM = 1100 # ~ 10 minutes
 
-def qber_cost_func(qber: float, desired_qber: float = 0.05, amplitude: float = 2, exponent: float = 1.34) -> float:
+def qber_cost_func(qber: float, desired_qber: float = 0.06, amplitude: float = 2, exponent: float = 1.34) -> float:
     return amplitude * abs(qber - desired_qber)**exponent
 
 def get_current_epoch():
@@ -107,8 +107,8 @@ class PolComp(object):
         self._reset()
         self._calculate_retardances()
         self._callback = callback_service_to_BBM92
-        self.qber_threshold = QBER_THRESHOLD # threshold to start BBM92
-        self.qber_threshold_2 = QBER_THRESHOLD+0.045 # threshold to go from do_walks(1-D walk) to update QBER (n-D walk)
+        self.qber_threshold = qkd_globals.config['QBER_threshold'] # threshold to start BBM92
+        self.qber_threshold_2 = self.qber_threshold + 0.045 # threshold to go from do_walks(1-D walk) to update QBER (n-D walk)
         logger.debug(f'pol com initialized')
 
 
@@ -338,7 +338,7 @@ class PolComp(object):
         if self.walks_array:
             self.process_qber(self.find_qber_from_epoch(epoch_path), epoch)
         else:
-            self.update_QBER(self.find_qber_from_epoch(epoch_path), QBER_THRESHOLD, epoch)
+            self.update_QBER(self.find_qber_from_epoch(epoch_path), self.qber_threshold, epoch)
         
         ''' #Code to measure current stokes vector
         self.diagnosis = service_T3(epoch_path)
@@ -691,7 +691,7 @@ class PolComp(object):
                 return_val.append(ret)
         return return_val
 
-    def update_QBER(self, qber: float, qber_threshold: float = QBER_THRESHOLD, epoch: str = None):
+    def update_QBER(self, qber: float, qber_threshold: float = self.qber_threshold, epoch: str = None):
         self.qber_counter += 1
         if self.qber_counter < 10: # in case pfind finds a bad match, we don't want to change the lcvr voltage too early
             return
@@ -761,8 +761,8 @@ class PolComp(object):
         ret_range = qber_cost_func(curr_qber)
         delta_phis = [0]*4
         phis = [0]*4
-        lcvr_to_adjust = [0, 1, 2, 3] # only adjust these lcvr in n-D search
-        lcvr_to_fix = [] # keep these lcvr phase fixed
+        lcvr_to_adjust = [ 1, 2, 3] # only adjust these lcvr in n-D search
+        lcvr_to_fix = [0] # keep these lcvr phase fixed
         for i in lcvr_to_fix:
             phis[i] = self.retardances[i]
         for i in lcvr_to_adjust:
