@@ -291,6 +291,7 @@ class PolComp(object):
                 qber_min = qber
                 voltage_min = row[0:4]
                 self.set_voltage = voltage_min
+                self._last_qber = qber_min
         self._voltage_list = []
         self.last_voltage_list = self.set_voltage.copy() # for update qber later on
         
