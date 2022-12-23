@@ -138,6 +138,7 @@ class Process:
         # Close file descriptors
         if is_stdout_fd: os.close(stdout)
         if is_stderr_fd: os.close(stderr)
+        if is_stdin_fd: os.close(stdin)
 
         # Issue monitoring thread
         # TODO(Justin): Consider scenario where services stops and starts immediately,
