@@ -196,7 +196,7 @@ class ErrorCorr(Process):
         undigested_epochs = 0
         
 
-        while self.is_running() :
+        while self.is_running() and self._ec_thread_on :
             # Attempt get from queue (FIFO). If no item is available, sleep a while
             # and try again.
             try:
