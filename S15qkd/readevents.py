@@ -41,6 +41,9 @@ class Readevents(Process):
     def start_sb(
             self,
             callback_restart=None,
+            blindmode=241,
+            level1=880,
+            level2=0,
         ):
         assert not self.is_running()
 
@@ -48,14 +51,11 @@ class Readevents(Process):
         det2corr = Process.config.local_detector_skew_correction.det2corr
         det3corr = Process.config.local_detector_skew_correction.det3corr
         det4corr = Process.config.local_detector_skew_correction.det4corr
-        blindmode = 113
-        level1 = 880
-        level2 = 0
         args = [
             '-a', 1,  # outmode 1
             '-X',
             '-A',     # absolute time
-            '-s',     # short mode, 49 bits timing info in 1/8 nsec
+            #'-s',     # short mode, blind bit lost in short mode
             # Detector skew in units of 1/256 nsec
             '-D', f'{det1corr},{det2corr},{det3corr},{det4corr}',
             '-b', f'{blindmode},{level1},{level2}',
@@ -64,21 +64,21 @@ class Readevents(Process):
         args_tee = [
                 f'{PipesQKD.RAWEVENTS}',
         ]
-        t = Process('tee')
-        t.start(args_tee,stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        self.t = Process('tee')
+        self.t.start(args_tee,stdin=PipesQKD.TEEIN, stdout=PipesQKD.SBIN)
 
         args_getrate2 = [
                 '-n0',
                 '-s',
                 '-b',
         ]
-        gr = Process( pathlib.Path(Process.config.program_root) / 'getrate2')
-        gr.start(args_getrate2, stdin = t.process.stdout, stdout=PipesQKD.SB )
+        self.gr = Process( pathlib.Path(Process.config.program_root) / 'getrate2')
+        self.gr.start(args_getrate2, stdin = PipesQKD.SBIN, stdout=PipesQKD.SB )
 
         # Persist readevents
         # TODO(Justin): Check default default directory
         #               and pipe O_APPEND.
-        super().start(args, stdout=t.process.stdin, stderr="readeventserror", callback_restart=callback_restart)
+        super().start(args, stdout=PipesQKD.TEEIN, stderr="readeventserror", callback_restart=callback_restart)
 
     def measure_local_count_rate_system(self):
         """Measure local photon count rate through shell. Done to solve process not terminated nicely for >160000 count rate per epoch.
@@ -134,6 +134,17 @@ class Readevents(Process):
         return int(proc_getrate.stdout.read().decode())
 
     def powercycle(self):
+        super().stop()
         assert not self.is_running()
         super().start(['-q1 -Z'])
+        return
+
+    def stop(self):
+        if self.process is None:
+            return
+        if self.t:
+            self.t.stop()
+        if self.gr:
+            self.gr.stop()
+        super().stop()
         return

@@ -349,7 +349,8 @@ class Controller:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
             self.transferd.send(prepend_if_service("st2"))
             self.chopper2.start(self.restart_protocol, self.reset_timestamp)
-            self.readevents.start(self.restart_protocol)
+            #self.readevents.start(self.restart_protocol)
+            self.readevents.start_sb(self.restart_protocol)
             self.pol_com_walk()
 
         if seq == "st2":
@@ -362,7 +363,8 @@ class Controller:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
             self.transferd.send(prepend_if_service("st3"))
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
-            self.readevents.start(self.restart_protocol)
+            #self.readevents.start(self.restart_protocol)
+            self.readevents.start_sb(self.restart_protocol)
             self.pol_com_walk()
             self.splicer.start(
                 qkd_protocol,

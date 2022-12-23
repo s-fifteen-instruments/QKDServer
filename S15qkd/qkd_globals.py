@@ -164,6 +164,8 @@ class PipesQKD(str, Enum):
     ECQUERY = f'/tmp/cryptostuff' + '/ecquery'
     ECRESP = f'/tmp/cryptostuff' + '/ecresp'
     SB = f'/tmp/cryptostuff' + '/SB'
+    TEEIN = f'/tmp/cryptostuff' + '/TEEIN'
+    SBIN = f'/tmp/cryptostuff' + '/SBIN'
 
     # NB: FoldersQKD.prepare_folders *must* be called prior to
     #     pipe initialization, which is done so in controller.start_communication
