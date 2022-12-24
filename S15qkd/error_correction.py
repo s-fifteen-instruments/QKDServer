@@ -55,13 +55,24 @@ proc_error_correction = None
 
 class ErrorCorr(Process):
 
+    _total_ec_key_bits = None
+    _ec_err_fraction_history = collections.deque(maxlen=100)
+    _ec_err_key_length_history = collections.deque(maxlen=100)
+
+    @property
+    def total_ec_key_bits(self):
+        return type(self)._total_ec_key_bits
+
+    @total_ec_key_bits.setter
+    def total_ec_key_bits(self,val):
+        type(self)._total_ec_key_bits = val
+
     def __init__(self, process):
         super().__init__(process)
         self._reset()
         #self.do_errc = Process(self.do_error_correction)
 
     def _reset(self):
-        self._total_ec_key_bits = None
         self._first_epoch_info = None
         self._undigested_epochs_info = None
         self._init_QBER_info = None
@@ -73,8 +84,6 @@ class ErrorCorr(Process):
         self._ec_nr_of_epochs = None
         self._ec_thread_on = None
         self.ec_queue = queue.Queue()
-        self._ec_err_fraction_history = collections.deque(maxlen=100)
-        self._ec_err_key_length_history = collections.deque(maxlen=100)
 
         self._servoed_QBER = Process.config.default_QBER
         self._servo_blocks = Process.config.servo_blocks
@@ -131,9 +140,6 @@ class ErrorCorr(Process):
         Digests error correction activities indicated by the 'ecnotepipe' pipe.
         This is getting input from the ec_note_pipe which is updated after an error correction run.
         '''
-        #global proc_error_correction, total_ec_key_bits, servoed_QBER
-        #global ec_epoch, ec_raw_bits, ec_final_bits, ec_err_fraction
-        #global ec_err_fraction_history, ec_err_key_length_history, ec_key_gen_rate
         message = pipe.readline().rstrip('\n').lstrip('\x00')
         if len(message) == 0:
             return
@@ -153,11 +159,11 @@ class ErrorCorr(Process):
         logger.info(f'Sent {self._ec_epoch} to notify.pipe.')
         self._ec_key_gen_rate = self.ec_final_bits / (self.ec_nr_of_epochs * EPOCH_DURATION)
         logger.debug(f'Rate is {self.ec_key_gen_rate} bps.')
-        if not self._total_ec_key_bits:
-            self._total_ec_key_bits = 0
-        self._total_ec_key_bits += self.ec_final_bits
-        self._ec_err_fraction_history.append(self.ec_err_fraction)
-        self._ec_err_key_length_history.append(self.ec_final_bits)
+        if not self.total_ec_key_bits:
+            self.total_ec_key_bits = 0
+        self.total_ec_key_bits += self.ec_final_bits
+        type(self)._ec_err_fraction_history.append(self.ec_err_fraction)
+        type(self)._ec_err_key_length_history.append(self.ec_final_bits)
         self._servoed_QBER += (self.ec_err_fraction - self.servoed_QBER) / self._servo_blocks
         logger.debug(f'Servoed QBER is {self.servoed_QBER}.')
         ###
