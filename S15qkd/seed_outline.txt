@@ -20,6 +20,8 @@ Seeding Code outline
    if diff < 3 sigma
         seeding not seen
 
+Steps (1) and (2) can be alternated ad infinitum. Or step (1) could be done more sparsely depending on count rate stability.
+
 QKD Server qn
 ---
 1. Where is best place to store the expected value without seeding?
