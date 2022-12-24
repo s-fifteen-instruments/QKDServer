@@ -1,0 +1,27 @@
+Readevents to be called in blindmode 145, for mid-range density+timebase. This affects the overall countrate by 1-2%. The goal is to make the overall counts appear unchanged, while using the seeded counts to identify seeding operation.
+
+Seeding Code outline
+---
+
+1. Obtain expected ratio (controller.py)
+	Call readevents with -b 145,0,0 (readevents.py)
+ 	Take reading from PipesQKD.SB
+ 	Get number of seeded counts (col 5) a few times (TBD).
+	Store average + std dev (not globals, maybe local to readevents.py.
+		                       Should be re-taken often enough for current count rates.)
+
+2. Check if seeding is seen (controller.py)
+	Call readevents with -b 145,880,0 (readevents.py)
+	Take reading from PipesQKD.SB
+	Compare col 5 value with step (1)
+		diff = (value - expected)/expected
+   if diff > 3 sigma: (controller.py)
+	seeding seen
+   if diff < 3 sigma
+        seeding not seen
+
+QKD Server qn
+---
+1. Where is best place to store the expected value without seeding?
+2. How to manage pipes? Separate pipes with separate readevent processes?
+Current pipe setup seems to be streamlined for process calls with one set of params.
