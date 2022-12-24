@@ -686,7 +686,7 @@ class Controller:
             'ec_key_gen_rate': round(self.errc._ec_key_gen_rate,1) if self.errc._ec_key_gen_rate else '',
             'ec_err_fraction': self.errc._ec_err_fraction,
             'key_file_name': self.errc._ec_epoch,
-            'total_ec_key_bits': self.errc._total_ec_key_bits,
+            'total_ec_key_bits': self.errc.total_ec_key_bits,
             'init_QBER': self.errc.init_QBER_info,
         }
 
