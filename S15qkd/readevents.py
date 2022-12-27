@@ -145,7 +145,7 @@ class Readevents(Process):
         try:
             self.t
             self.gr
-        except NameError:
+        except AttributeError:
             pass
         else:
             self.t.stop()
