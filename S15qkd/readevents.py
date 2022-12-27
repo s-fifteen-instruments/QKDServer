@@ -142,9 +142,13 @@ class Readevents(Process):
     def stop(self):
         if self.process is None:
             return
-        if self.t:
+        try:
+            self.t
+            self.gr
+        except NameError:
+            pass
+        else:
             self.t.stop()
-        if self.gr:
             self.gr.stop()
         super().stop()
         return
