@@ -30,6 +30,7 @@ default:
 		--volume /root/code/QKDServer/Settings_WebClient/app.py:/root/code/QKDServer/Settings_WebClient/app.py \
 		--volume /root/code/QKDServer/Settings_WebClient/index.py:/root/code/QKDServer/Settings_WebClient/index.py \
 		--volume /root/code/QKDServer/entrypoint.sh:/root/entrypoint.sh \
+		--volume /root/keys/authd:/root/keys/authd \
 		--name qkd --rm -dit \
 		--network host \
 		--entrypoint="/root/entrypoint.sh" \

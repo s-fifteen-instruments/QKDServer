@@ -14,8 +14,8 @@
   "track_filter_time_constant": 200000,
   "FFT_buffer_order": 25,
   "local_detector_skew_correction": {
-    "det1corr": -8,
-    "det2corr": 33,
+    "det1corr": -3,
+    "det2corr": 26,
     "det3corr": 36,
     "det4corr": 0
   },
