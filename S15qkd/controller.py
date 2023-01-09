@@ -179,12 +179,12 @@ class Controller:
         #self.qkd_engine_state = QKDEngineState.OFF
         
         # Stop own processes (except transferd)
-        self.readevents.stop()
-        self.chopper.stop()
-        self.chopper2.stop()
-        self.costream.stop()
-        self.splicer.stop()
         self.errc.stop()
+        self.splicer.stop()
+        self.costream.stop()
+        self.chopper2.stop()
+        self.chopper.stop()
+        self.readevents.stop()
 
         # Reset variables
         self._reset()
@@ -250,10 +250,10 @@ class Controller:
 
     def reset_timestamp(self):
         """Stops readevents, resets timestamp and restart"""
-        self.stop_key_gen()
-        time.sleep(2) # at least 2 seconds needed for the monitors to end.
         self.readevents.powercycle()
         time.sleep(3) # at least 2 seconds needed for the chip to powerdown
+        self.stop_key_gen()
+        time.sleep(7) # at least 2 seconds needed for the monitors to end.
         self.restart_protocol()
 
     def callback_epoch(self, msg):
@@ -436,7 +436,7 @@ class Controller:
             self.errc.empty()
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
-            time.sleep(0.6) # to allow chopper and splicer to end gracefully
+            time.sleep(3.6) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,
@@ -534,7 +534,7 @@ class Controller:
             self.chopper.stop()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
-            time.sleep(0.8) # to allow chopper and splicer to end gracefully
+            time.sleep(3.8) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,
@@ -557,7 +557,7 @@ class Controller:
             logger.debug(f'BBM92 protocol set')
             start_epoch = self._retrieve_secure_remote_epoch(last_service_epoch)
             logger.debug(f'Retrieve_secure is {start_epoch}')
-            time.sleep(0.6) # to allow costream thread to end gracefully
+            time.sleep(3.6) # to allow costream thread to end gracefully
             start_epoch = self._epochs_exist(start_epoch)
             self.costream.start(
                 td,

@@ -113,7 +113,7 @@ class Chopper(Process):
         return
 
     def _no_message_monitor(self):
-        timeout_seconds = 10
+        timeout_seconds = 5
         while self.is_running():
             if time.time() - self._latest_message_time > timeout_seconds:
                 logger.debug(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
