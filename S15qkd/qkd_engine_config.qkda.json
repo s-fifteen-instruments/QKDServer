@@ -16,7 +16,7 @@
   "local_detector_skew_correction": {
     "det1corr": -3,
     "det2corr": 26,
-    "det3corr": 36,
+    "det3corr": 30,
     "det4corr": 0
   },
   "max_event_time_pause": 20000,
