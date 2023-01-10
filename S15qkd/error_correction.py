@@ -44,6 +44,7 @@ import struct
 import time
 import queue
 import collections
+from statistics import mean
 
 # from . import qkd_globals, controller
 from .utils import Process, read_T3_header, HeadT3
@@ -88,6 +89,7 @@ class ErrorCorr(Process):
         self._servoed_QBER = Process.config.default_QBER
         self._servo_blocks = Process.config.servo_blocks
         self.QBER_limit = Process.config.QBER_limit
+        self.QBER_servo_history = collections.deque(maxlen=self._servo_blocks)
 
     def empty(self):
         if self.do_ec_thread.is_alive():
@@ -164,7 +166,8 @@ class ErrorCorr(Process):
         self.total_ec_key_bits += self.ec_final_bits
         type(self)._ec_err_fraction_history.append(self.ec_err_fraction)
         type(self)._ec_err_key_length_history.append(self.ec_final_bits)
-        self._servoed_QBER += (self.ec_err_fraction - self.servoed_QBER) / self._servo_blocks
+        self.QBER_servo_history.append(self.ec_err_fraction)
+        self._servoed_QBER = mean(self.QBER_servo_history)
         logger.debug(f'Servoed QBER is {self.servoed_QBER}.')
         ###
         # servoing QBER
