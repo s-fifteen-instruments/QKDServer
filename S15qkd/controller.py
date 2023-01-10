@@ -162,6 +162,16 @@ class Controller:
 
 
     # MAIN CONTROL METHODS
+    def restart_transferd(self):
+        """ Stops and restarts tranferd"""
+        self.stop_key_gen()
+        self.transferd.stop()
+        self.qkd_engine_state = QKDEngineState.OFF
+        qkd_globals.PipesQKD.drain_all_pipes()
+        qkd_globals.FoldersQKD.remove_stale_comm_files()
+
+        # Restart transferd
+        self._establish_connection()
 
     # TODO(Justin): Rename to 'stop' and update callback in QKD_status.py
     def stop_key_gen(self, inform_remote: bool = True):
@@ -173,11 +183,6 @@ class Controller:
         if inform_remote:
             self._stop_key_gen_remote()
 
-        # Stop own transferd to terminate all incoming instructions from remote,
-        # since some commands may initiate certain processes to restart themselves
-        #self.transferd.stop()
-        #self.qkd_engine_state = QKDEngineState.OFF
-        
         # Stop own processes (except transferd)
         self.errc.stop()
         self.splicer.stop()
@@ -192,9 +197,6 @@ class Controller:
         # TODO(Justin): Refactor error correction and pipe creation
         qkd_globals.PipesQKD.drain_all_pipes()
         qkd_globals.FoldersQKD.remove_stale_comm_files()
-
-        # Restart transferd
-        self._establish_connection()
 
     @requires_transferd
     def _stop_key_gen_remote(self):
@@ -690,6 +692,9 @@ class Controller:
             'init_QBER': self.errc.init_QBER_info,
         }
 
+    def get_bl_info(self):
+        return self.readevents.blinded
+
     @property
     def sig_long(self) -> Optional[int]:
         return self._sig_long
@@ -726,3 +731,7 @@ def get_process_states():
 
 def get_error_corr_info():
     return controller.get_error_corr_info()
+
+def restart_transferd():
+    return controller.restart_transferd()
+

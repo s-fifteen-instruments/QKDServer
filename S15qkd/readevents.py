@@ -10,6 +10,10 @@ from .qkd_globals import logger, PipesQKD
 
 class Readevents(Process):
 
+    def __init__(self, process):
+        super().__init__(process)
+        self.blinded = False
+
     def start(
             self, 
             callback_restart=None,    # to restart keygen
@@ -100,14 +104,6 @@ class Readevents(Process):
         (
             total_counts,
             total_sb,
-            d1,
-            d2,
-            d3,
-            d4,
-            sb1,
-            sb2,
-            sb3,
-            sb4,
             *_,
         ) = counts.split()
 
@@ -122,8 +118,11 @@ class Readevents(Process):
             self.tt_counts.pop()
 
         if count_mean > higher_th and sb_mean < lower_th:
+            self.blinded = True
             logger.warning(f'SB_mean is {sb_mean}. Counts_mean is {count_mean}')
             logger.warning(f'Uh oh, seems like the detector might be blinded')
+        else:
+            self.blinded = False
         return
 
     def measure_local_count_rate_system(self):
