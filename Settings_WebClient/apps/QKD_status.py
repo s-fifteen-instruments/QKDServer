@@ -138,6 +138,7 @@ def serve_layout():
     # Start and stop key generation buttons
     start_key_gen_button = dbc.Button('Start key generation', color="success", id='start_raw_key_gen')
     kill_all_processes_button = dbc.Button('Stop all processes', color="danger", id='kill_all_processes')
+    restart_transferd_button = dbc.Button('Restart transferd', color="danger", id='restart_transferd')
 
     # Time interval between queries for presence of qcrypto processes
     proc_status_interval = dcc.Interval(
@@ -151,12 +152,16 @@ def serve_layout():
     layout = dbc.Container([
         html.Div(id='hidden-div-1', style={'display': 'none'}),
         html.Div(id='hidden-div-2', style={'display': 'none'}),
+        html.Div(id='hidden-div-3', style={'display': 'none'}),
         html.Br(),
+        html.Div('Detector blinded!',id='blinded-div', style={'display': 'none','font-size': 'xx-large'}),
         dbc.Row([
             dbc.Col([
                 dbc.Row(start_key_gen_button),
                 html.P(),
-                dbc.Row(kill_all_processes_button),
+                dbc.Row([restart_transferd_button,
+                        kill_all_processes_button,
+                        ]),
             ], width=2),
             dbc.Col(processes_labels),
         ]),
@@ -252,6 +257,15 @@ def load_error_correction_info(n):
     ec_info_dct = qkd_ctrl.get_error_corr_info()
     return [ec_info_dct[info] for info in ec_info_list]
 
+@app.callback(
+    [Output('blinded-div','style')],
+    [Input('proc_status_interval', 'n_intervals')],
+)
+def load_bl_info(n):
+    if qkd_ctrl.get_bl_info():
+        return [{'display': 'block', 'font-size': 'xx-large'}]
+    else:
+        return [{'display': 'none', 'font-size': 'xx-large'}]
 
 # Format for both axes in graph
 graph_tickfont_format = {
@@ -329,7 +343,6 @@ def on_button_click(n):
     qkd_ctrl.start_service_mode()
     return ''
 
-
 @app.callback(
     Output('hidden-div-2', 'children'),
     [Input('kill_all_processes', 'n_clicks')],
@@ -338,4 +351,14 @@ def on_kill_button_click(n):
     if n is None:
         raise PreventUpdate
     qkd_ctrl.stop_key_gen()
+    return ''
+
+@app.callback(
+    Output('hidden-div-3', 'children'),
+    [Input('restart_transferd', 'n_clicks')],
+)
+def on_kill_button_click(n):
+    if n is None:
+        raise PreventUpdate
+    qkd_ctrl.restart_transferd()
     return ''

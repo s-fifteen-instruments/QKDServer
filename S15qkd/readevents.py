@@ -5,9 +5,14 @@ import subprocess
 import os
 
 from .utils import Process
+from . import qkd_globals
 from .qkd_globals import logger, PipesQKD
 
 class Readevents(Process):
+
+    def __init__(self, process):
+        super().__init__(process)
+        self.blinded = False
 
     def start(
             self, 
@@ -36,6 +41,89 @@ class Readevents(Process):
         # TODO(Justin): Check default default directory
         #               and pipe O_APPEND.
         super().start(args, stdout=PipesQKD.RAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
+
+    def start_sb(
+            self,
+            callback_restart=None,
+            blindmode=241,
+            level1=880,
+            level2=0,
+        ):
+        assert not self.is_running()
+
+        det1corr = Process.config.local_detector_skew_correction.det1corr
+        det2corr = Process.config.local_detector_skew_correction.det2corr
+        det3corr = Process.config.local_detector_skew_correction.det3corr
+        det4corr = Process.config.local_detector_skew_correction.det4corr
+        args = [
+            '-a', 1,  # outmode 1
+            '-X',
+            '-A',     # absolute time
+            #'-s',     # short mode, blind bit lost in short mode
+            # Detector skew in units of 1/256 nsec
+            '-D', f'{det1corr},{det2corr},{det3corr},{det4corr}',
+            '-b', f'{blindmode},{level1},{level2}',
+        ]
+
+        args_tee = [
+                f'{PipesQKD.RAWEVENTS}',
+        ]
+        self.t = Process('tee')
+        self.t.start(args_tee,stdin=PipesQKD.TEEIN, stdout=PipesQKD.SBIN)
+
+        args_getrate2 = [
+                '-n0',
+                '-s',
+                '-b',
+        ]
+        self.gr = Process( pathlib.Path(Process.config.program_root) / 'getrate2')
+        self.gr.start(args_getrate2, stdin = PipesQKD.SBIN, stdout=PipesQKD.SB )
+
+        # Persist readevents
+        # TODO(Justin): Check default default directory
+        #               and pipe O_APPEND.
+        super().start(args, stdout=PipesQKD.TEEIN, stderr="readeventserror", callback_restart=callback_restart)
+
+        self.i = 0
+        self.sb = []
+        self.tt_counts = []
+        self.read(PipesQKD.SB,self.self_seed_monitor, 'SB', persist=True)
+
+    def self_seed_monitor(self, pipe):
+        """
+        Monitors the Self-seeding count rate pipe. Averages over n readings and flags when count rates crosses threshold, indicating a blinded detector.
+        """
+        n_ave = 5
+
+        lower_th = 500
+        higher_th = 60000
+
+        counts = pipe.readline().rstrip('\n').lstrip('\x00')
+        if len(counts) == 0:
+            return
+        (
+            total_counts,
+            total_sb,
+            *_,
+        ) = counts.split()
+
+        self.sb.insert(0, int(total_sb))
+        self.tt_counts.insert(0, int(total_counts))
+        if len(self.sb) < 4:
+            return
+        else:
+            sb_mean = sum(self.sb)/n_ave
+            count_mean = sum(self.tt_counts)/n_ave
+            self.sb.pop()
+            self.tt_counts.pop()
+
+        if count_mean > higher_th and sb_mean < lower_th:
+            self.blinded = True
+            logger.warning(f'SB_mean is {sb_mean}. Counts_mean is {count_mean}')
+            logger.warning(f'Uh oh, seems like the detector might be blinded')
+        else:
+            self.blinded = False
+        return
 
     def measure_local_count_rate_system(self):
         """Measure local photon count rate through shell. Done to solve process not terminated nicely for >160000 count rate per epoch.
@@ -91,6 +179,21 @@ class Readevents(Process):
         return int(proc_getrate.stdout.read().decode())
 
     def powercycle(self):
+        super().stop()
         assert not self.is_running()
         super().start(['-q1 -Z'])
+        return
+
+    def stop(self):
+        if self.process is None:
+            return
+        try:
+            self.t
+            self.gr
+        except AttributeError:
+            pass
+        else:
+            self.t.stop()
+            self.gr.stop()
+        super().stop()
         return

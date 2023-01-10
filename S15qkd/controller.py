@@ -162,6 +162,16 @@ class Controller:
 
 
     # MAIN CONTROL METHODS
+    def restart_transferd(self):
+        """ Stops and restarts tranferd"""
+        self.stop_key_gen()
+        self.transferd.stop()
+        self.qkd_engine_state = QKDEngineState.OFF
+        qkd_globals.PipesQKD.drain_all_pipes()
+        qkd_globals.FoldersQKD.remove_stale_comm_files()
+
+        # Restart transferd
+        self._establish_connection()
 
     # TODO(Justin): Rename to 'stop' and update callback in QKD_status.py
     def stop_key_gen(self, inform_remote: bool = True):
@@ -173,18 +183,13 @@ class Controller:
         if inform_remote:
             self._stop_key_gen_remote()
 
-        # Stop own transferd to terminate all incoming instructions from remote,
-        # since some commands may initiate certain processes to restart themselves
-        #self.transferd.stop()
-        #self.qkd_engine_state = QKDEngineState.OFF
-        
         # Stop own processes (except transferd)
-        self.readevents.stop()
-        self.chopper.stop()
-        self.chopper2.stop()
-        self.costream.stop()
-        self.splicer.stop()
         self.errc.stop()
+        self.splicer.stop()
+        self.costream.stop()
+        self.chopper2.stop()
+        self.chopper.stop()
+        self.readevents.stop()
 
         # Reset variables
         self._reset()
@@ -192,9 +197,6 @@ class Controller:
         # TODO(Justin): Refactor error correction and pipe creation
         qkd_globals.PipesQKD.drain_all_pipes()
         qkd_globals.FoldersQKD.remove_stale_comm_files()
-
-        # Restart transferd
-        self._establish_connection()
 
     @requires_transferd
     def _stop_key_gen_remote(self):
@@ -250,10 +252,10 @@ class Controller:
 
     def reset_timestamp(self):
         """Stops readevents, resets timestamp and restart"""
-        self.stop_key_gen()
-        time.sleep(2) # at least 2 seconds needed for the monitors to end.
         self.readevents.powercycle()
         time.sleep(3) # at least 2 seconds needed for the chip to powerdown
+        self.stop_key_gen()
+        time.sleep(7) # at least 2 seconds needed for the monitors to end.
         self.restart_protocol()
 
     def callback_epoch(self, msg):
@@ -349,7 +351,8 @@ class Controller:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
             self.transferd.send(prepend_if_service("st2"))
             self.chopper2.start(self.restart_protocol, self.reset_timestamp)
-            self.readevents.start(self.restart_protocol)
+            #self.readevents.start(self.restart_protocol)
+            self.readevents.start_sb(self.restart_protocol)
             self.pol_com_walk()
 
         if seq == "st2":
@@ -362,7 +365,8 @@ class Controller:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
             self.transferd.send(prepend_if_service("st3"))
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
-            self.readevents.start(self.restart_protocol)
+            #self.readevents.start(self.restart_protocol)
+            self.readevents.start_sb(self.restart_protocol)
             self.pol_com_walk()
             self.splicer.start(
                 qkd_protocol,
@@ -434,7 +438,7 @@ class Controller:
             self.errc.empty()
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
-            time.sleep(0.6) # to allow chopper and splicer to end gracefully
+            time.sleep(3.6) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,
@@ -532,7 +536,7 @@ class Controller:
             self.chopper.stop()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
-            time.sleep(0.8) # to allow chopper and splicer to end gracefully
+            time.sleep(3.8) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,
@@ -555,7 +559,7 @@ class Controller:
             logger.debug(f'BBM92 protocol set')
             start_epoch = self._retrieve_secure_remote_epoch(last_service_epoch)
             logger.debug(f'Retrieve_secure is {start_epoch}')
-            time.sleep(0.6) # to allow costream thread to end gracefully
+            time.sleep(3.6) # to allow costream thread to end gracefully
             start_epoch = self._epochs_exist(start_epoch)
             self.costream.start(
                 td,
@@ -688,6 +692,9 @@ class Controller:
             'init_QBER': self.errc.init_QBER_info,
         }
 
+    def get_bl_info(self):
+        return self.readevents.blinded
+
     @property
     def sig_long(self) -> Optional[int]:
         return self._sig_long
@@ -724,3 +731,7 @@ def get_process_states():
 
 def get_error_corr_info():
     return controller.get_error_corr_info()
+
+def restart_transferd():
+    return controller.restart_transferd()
+
