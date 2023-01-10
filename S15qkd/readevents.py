@@ -45,12 +45,13 @@ class Readevents(Process):
     def start_sb(
             self,
             callback_restart=None,
+            callback_stop=None,
             blindmode=241,
             level1=880,
             level2=0,
         ):
         assert not self.is_running()
-
+        self._callback_stop = callback_stop
         det1corr = Process.config.local_detector_skew_correction.det1corr
         det2corr = Process.config.local_detector_skew_correction.det2corr
         det3corr = Process.config.local_detector_skew_correction.det3corr
@@ -119,6 +120,7 @@ class Readevents(Process):
 
         if count_mean > higher_th and sb_mean < lower_th:
             self.blinded = True
+            self._callback_stop()
             logger.warning(f'SB_mean is {sb_mean}. Counts_mean is {count_mean}')
             logger.warning(f'Uh oh, seems like the detector might be blinded')
         else:
