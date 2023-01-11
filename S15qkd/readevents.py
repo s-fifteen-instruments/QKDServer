@@ -97,7 +97,7 @@ class Readevents(Process):
         n_ave = 5
 
         lower_th = 500
-        higher_th = 60000
+        higher_th = 90000
 
         counts = pipe.readline().rstrip('\n').lstrip('\x00')
         if len(counts) == 0:
