@@ -182,6 +182,7 @@ try:
                         del to_remote[:2048]  # hardcoded
                         logger.debug(f"[  authd   <- ] {repr(bytes(msg))}")
                         c.send(msg)
+                time.sleep(0.001)
 
         except KeyboardInterrupt:
             break  # Ignore user-termination
