@@ -438,7 +438,7 @@ class Controller:
             self.errc.empty()
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
-            time.sleep(3.6) # to allow chopper and splicer to end gracefully
+            time.sleep(1.2) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,
@@ -459,7 +459,7 @@ class Controller:
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
             logger.debug(f'SERVICE protocol set')
-            last_secure_epoch = self.transferd.last_received_epoch
+            time.sleep(2)
             start_epoch = self._retrieve_service_remote_epoch(f"{int(last_secure_epoch,16)+1:x}")
             logger.debug(f'Retrieve_service is {start_epoch}')
             start_epoch = self._epochs_exist(start_epoch)
@@ -512,13 +512,13 @@ class Controller:
         headt2 = HeadT2(0,0,0,0,0xf,0)
         headt2 = read_T2_header(file_path)
         logger.debug(f'BITS per entry {headt2.base_bits}')
+        i = 0
         while headt2.base_bits != 4:
-            logger.debug(f'{hex(headt2.epoch)} {headt2.base_bits}')
+            logger.debug(f'{hex(headt2.epoch)} {headt2.base_bits} i = {i}')
             epoch = hex(headt2.epoch+1)[2:]
-            time.sleep(qkd_globals.EPOCH_DURATION)
-            file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
-            headt2 = read_T2_header(file_path)
-
+            while self.transferd.last_received_epoch is not epoch:
+                file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
+                headt2 = read_T2_header(file_path)
         return epoch
 
     @requires_transferd
@@ -536,7 +536,7 @@ class Controller:
             self.chopper.stop()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
-            time.sleep(3.8) # to allow chopper and splicer to end gracefully
+            time.sleep(1.2) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,
@@ -557,9 +557,9 @@ class Controller:
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
             logger.debug(f'BBM92 protocol set')
+            time.sleep(2) # to allow costream thread to end gracefully
             start_epoch = self._retrieve_secure_remote_epoch(last_service_epoch)
             logger.debug(f'Retrieve_secure is {start_epoch}')
-            time.sleep(3.6) # to allow costream thread to end gracefully
             start_epoch = self._epochs_exist(start_epoch)
             self.costream.start(
                 td,
@@ -601,10 +601,9 @@ class Controller:
         while headt2.base_bits != 1:
             logger.debug(f'{hex(headt2.epoch)} {headt2.base_bits}')
             epoch = hex(headt2.epoch+1)[2:]
-            time.sleep(qkd_globals.EPOCH_DURATION)
-            file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
-            headt2 = read_T2_header(file_path)
-
+            while self.transferd.last_received_epoch is not epoch:
+                file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
+                headt2 = read_T2_header(file_path)
         return epoch
 
     @requires_transferd
