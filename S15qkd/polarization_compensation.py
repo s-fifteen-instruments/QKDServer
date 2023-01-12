@@ -56,7 +56,7 @@ EPOCH_DURATION = 0.537
 #QBER_THRESHOLD = 0.085
 MAX_UPDATE_NUM = 1100 # ~ 10 minutes
 
-def qber_cost_func(qber: float, desired_qber: float = 0.06, amplitude: float = 2, exponent: float = 1.34) -> float:
+def qber_cost_func(qber: float, desired_qber: float = 0.04, amplitude: float = 7.5, exponent: float = 2) -> float:
     return amplitude * abs(qber - desired_qber)**exponent
 
 def get_current_epoch():
@@ -225,6 +225,7 @@ class PolComp(object):
         """
         self.walks_array = []
         voltage_list = []
+        voltage_list.append(self.last_voltage_list[lcvr_idx])
         if self.first_pass and self.next_id == 0:
             retardance_list = np.linspace(self.retardance_lookup(VOLT_MIN, lcvr_idx),
                                           self.retardance_lookup(VOLT_MAX, lcvr_idx),
@@ -761,8 +762,8 @@ class PolComp(object):
         ret_range = qber_cost_func(curr_qber)
         delta_phis = [0]*4
         phis = [0]*4
-        lcvr_to_adjust = [ 1, 2, 3] # only adjust these lcvr in n-D search
-        lcvr_to_fix = [0] # keep these lcvr phase fixed
+        lcvr_to_adjust = [0, 1, 2, 3] # only adjust these lcvr in n-D search
+        lcvr_to_fix = [] # keep these lcvr phase fixed
         for i in lcvr_to_fix:
             phis[i] = self.retardances[i]
         for i in lcvr_to_adjust:
