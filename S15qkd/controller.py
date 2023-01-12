@@ -372,7 +372,7 @@ class Controller:
                 qkd_protocol,
                 lambda msg: self.errc.ec_queue.put(msg),
                 self.callback_epoch,
-                None, #self.restart_protocol,
+                self.restart_protocol,
             )
 
 
@@ -444,7 +444,7 @@ class Controller:
                 qkd_protocol,
                 lambda msg: self.errc.ec_queue.put(msg),
                 self.callback_epoch,
-                None, #self.restart_protocol,
+                self.restart_protocol,
             )
         else:
             # Assume called from (errc) low count side. Only need to restart costream with elapsed time difference and new epoch

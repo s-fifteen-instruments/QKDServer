@@ -156,6 +156,7 @@ class PipesQKD(str, Enum):
     GENLOG = f'/tmp/cryptostuff' + '/genlog'
     TRANSFERLOG = f'/tmp/cryptostuff' + '/transferlog'
     SPLICER = f'/tmp/cryptostuff' + '/splicepipe'
+    PRESPLICER = f'/tmp/cryptostuff' + '/presplicepipe'
     CNTLOG = f'/tmp/cryptostuff' + '/cntlogpipe'
     ECCMD = f'/tmp/cryptostuff' + '/eccmdpipe'
     ECS =f'/tmp/cryptostuff' + '/ecspipe'

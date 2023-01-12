@@ -29,7 +29,7 @@ SOFTWARE.
 
 import pathlib
 
-from .utils import Process
+from .utils import Process, read_T3_header, HeadT3, read_T4_header, HeadT4
 from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD, QKDEngineState
 
 class Splicer(Process):
@@ -48,7 +48,8 @@ class Splicer(Process):
         """
         assert not self.is_running()
 
-        self.read(PipesQKD.GENLOG, self.digest_splicepipe, 'GENLOG', persist=True)
+        self.read(PipesQKD.GENLOG, self.digest_splice_outpipe, 'GENLOG', persist=True)
+        self.read(PipesQKD.PRESPLICER, self.send_splice_inpipe, 'PRESPLICER', persist=True)
 
         self._qkd_protocol = qkd_protocol
         self._pol_compensator = callback_pol_comp_epoch
@@ -65,7 +66,7 @@ class Splicer(Process):
         ]
         super().start(args, stdout='splicer_stdout', stderr='splicer_stderr', callback_restart=callback_restart)
 
-    def digest_splicepipe(self, pipe):
+    def digest_splice_outpipe(self, pipe):
         # message = pipe.readline().decode().rstrip('\n').lstrip('\x00')
         message = pipe.readline().rstrip('\n').lstrip('\x00')
         if len(message) == 0:
@@ -82,3 +83,28 @@ class Splicer(Process):
             epoch_path = FoldersQKD.RAWKEYS + '/' + epoch
             self._pol_compensator(epoch_path)
 
+    def send_splice_inpipe(self, pipe):
+        headt3 = HeadT3(0,0,0,0) # tag,epoch(int),length_entry,bits_per_entry
+        headt4 = HeadT4(0,0,0,0,0) #
+        message = pipe.readline().rstrip('\n').lstrip('\x00')
+        if len(message) == 0:
+            return
+        if self.is_running():
+            qkd_protocol = self._qkd_protocol
+            logger.debug(f'Epoch = {message}')
+            epoch = message
+            t4_epoch_path = FoldersQKD.RECEIVEFILES + '/' + epoch
+            t3_epoch_path = FoldersQKD.T3FILES + '/' + epoch
+            headt3 = read_T3_header(t3_epoch_path)
+            headt4 = read_T4_header(t4_epoch_path)
+            if qkd_protocol == QKDProtocol.BBM92:
+                basebit3 = 1
+                basebit4 = 0
+            elif qkd_protocol == QKDProtocol.SERVICE:
+                basebit3 = 4
+                basebit4 = 4
+            if headt3.bits_per_entry == basebit3 and headt4.base_bits == basebit4:
+                Process.write(PipesQKD.SPLICER, epoch)
+                logger.debug(f'Sent epoch name {epoch} to splicer.')
+            else:
+                logger.debug(f'Base bits not proper yet. Protocol: {qkd_protocol}, T3 basebits: {headt3.bits_per_entry} T4 basebits: {headt4.base_bits}')

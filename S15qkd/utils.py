@@ -329,6 +329,13 @@ class HeadT3(NamedTuple):
     length_entry: int
     bits_per_entry: int
 
+class HeadT4(NamedTuple):
+    tag: int
+    epoch: int
+    length_bits: int
+    timeorder: int
+    base_bits: int
+
 from dataclasses import dataclass
 
 @dataclass
@@ -365,6 +372,20 @@ def read_T3_header(file_name: str) -> Optional[HeadT3]:
     if hex(headt3.epoch) != ('0x' + file_name.split('/')[-1]):
         logger.error(f'Epoch in header {headt3.epoch} does not match epoc filename {file_name}')
     return headt3
+
+def read_T4_header(file_name: str):
+    if Path(file_name).is_file():
+        with open(file_name, 'rb') as f:
+            head_info = f.read(4*5)
+    else:
+        headt4 = HeadT4(4,0,0,0,-1)
+        return headt4
+    headt4 = HeadT4._make(unpack('iIIii', head_info))
+    if (headt4.tag != 0x104 and headt4.tag != 4) :
+        logger.error(f'{file_name} is not a Type4 header file')
+    if hex(headt4.epoch) != ('0x' + file_name.split('/')[-1]):
+        logger.error(f'Epoch in header {headt4.epoch} does not match epoc filename {file_name}')
+    return headt4
 
 def service_T3(file_name: str) -> Optional[ServiceT3]:
     decode = [-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1] # translate valid bit values to 4 array index

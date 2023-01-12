@@ -131,7 +131,7 @@ class Transferd(Process):
         Digests the transferlog which is written by the transferd process.
 
         This function usually runs as a thread and watches the transferlog file. 
-        If this is the low count side this function notifies the splicer about file arrival.
+        If this is the low count side this function notifies the presplicer about file arrival.
         '''
         # message = pipe.readline().decode().rstrip()
         message = pipe.readline().rstrip()
@@ -144,8 +144,8 @@ class Transferd(Process):
             self._first_received_epoch = message
             logger.info(f'[first_rx_epoch] {self._first_received_epoch}')
         if self._low_count_side is True:
-            Process.write(PipesQKD.SPLICER, message)
-            logger.debug(f'Sent epoch name {message} to splicer.')
+            Process.write(PipesQKD.PRESPLICER, message)
+            logger.debug(f'Sent epoch name {message} to presplicer.')
 
     def digest_msgout(self, pipe):
         # message = pipe.readline().decode().lstrip('\x00').rstrip('\n')
