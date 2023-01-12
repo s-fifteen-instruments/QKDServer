@@ -29,6 +29,7 @@ SOFTWARE.
 """
 
 from enum import Enum, auto, unique
+import os
 import subprocess
 import time
 
@@ -61,7 +62,11 @@ class Transferd(Process):
 
     def __init__(self, program):
         super().__init__(program)
+        self._pkill_transferd()
         self._reset()
+
+    def _pkill_transferd(self):
+        os.system('pkill transferd')
     
     def _reset(self):
         self._communication_status = CommunicationStatus.DISCONNECTED
