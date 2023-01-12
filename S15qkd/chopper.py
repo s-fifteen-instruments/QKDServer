@@ -49,7 +49,11 @@ class Chopper(Process):
         Needs to know current protocol (SERVICE or KEYGEN) to change up verbosity
         of transmission from low count to high count side.
         """
-        assert not self.is_running()
+        try:
+            assert not self.is_running()
+        except AssertionError:
+            callback_restart()
+            return
         self._callback_restart = callback_restart
         self._callback_reset_timestamp = callback_reset_timestamp
         self._latest_message_time = time.time()

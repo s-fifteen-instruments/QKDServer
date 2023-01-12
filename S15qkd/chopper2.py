@@ -49,7 +49,11 @@ class Chopper2(Process):
             callback_restart=None,    # to restart keygen
             callback_reset_timestamp=None,
         ):
-        assert not self.is_running()
+        try:
+            assert not self.is_running()
+        except AssertionError:
+            callback_restart()
+            return
         self._reset()
         self._callback_restart = callback_restart
         self._callback_reset_timestamp = callback_reset_timestamp
