@@ -25,6 +25,6 @@ fi
 
 # Run and persist server
 cd /root/code/QKDServer/Settings_WebClient \
-        && gunicorn --threads=1 $CERT_FLAGS -b 0.0.0.0:8000 index:server
+        && gunicorn --timeout 600 --threads=1 $CERT_FLAGS -b 0.0.0.0:8000 index:server
 
 #&& apk add gcc build-base clang \
