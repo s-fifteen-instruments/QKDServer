@@ -459,8 +459,12 @@ class Controller:
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
             logger.debug(f'SERVICE protocol set')
-            time.sleep(2)
-            start_epoch = self._retrieve_service_remote_epoch(f"{int(last_secure_epoch,16)+1:x}")
+            last_secure_epoch = self.transferd.last_received_epoch
+            try:
+                start_epoch = self._retrieve_service_remote_epoch(f"{int(last_secure_epoch,16)+1:x}")
+            except RuntimeError:
+                self.restart_protocol()
+                return
             logger.debug(f'Retrieve_service is {start_epoch}')
             start_epoch = self._epochs_exist(start_epoch)
             self.costream.start(
@@ -514,11 +518,16 @@ class Controller:
         logger.debug(f'BITS per entry {headt2.base_bits}')
         i = 0
         while headt2.base_bits != 4:
-            logger.debug(f'{hex(headt2.epoch)} {headt2.base_bits} i = {i}')
+            if i > 10:
+                logger.error('No service epoch received after 10 tries')
+                raise RuntimeError
+            logger.debug(f'{hex(headt2.epoch)} {headt2.base_bits}')
             epoch = hex(headt2.epoch+1)[2:]
-            while self.transferd.last_received_epoch is not epoch:
-                file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
-                headt2 = read_T2_header(file_path)
+            time.sleep(qkd_globals.EPOCH_DURATION)
+            file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
+            headt2 = read_T2_header(file_path)
+            i += 1
+
         return epoch
 
     @requires_transferd
@@ -557,8 +566,11 @@ class Controller:
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
             logger.debug(f'BBM92 protocol set')
-            time.sleep(2) # to allow costream thread to end gracefully
-            start_epoch = self._retrieve_secure_remote_epoch(last_service_epoch)
+            try:
+                start_epoch = self._retrieve_secure_remote_epoch(last_service_epoch)
+            except RuntimeError:
+                self.restart_protocol()
+                return
             logger.debug(f'Retrieve_secure is {start_epoch}')
             start_epoch = self._epochs_exist(start_epoch)
             self.costream.start(
@@ -598,12 +610,18 @@ class Controller:
         headt2 = HeadT2(0,0,0,0,0xf,0)
         headt2 = read_T2_header(file_path)
         logger.debug(f'BITS per entry {headt2.base_bits}')
+        i = 0
         while headt2.base_bits != 1:
+            if i > 10:
+                logger.error('No secure epochs received after 10 tries')
+                raise RuntimeError
             logger.debug(f'{hex(headt2.epoch)} {headt2.base_bits}')
             epoch = hex(headt2.epoch+1)[2:]
-            while self.transferd.last_received_epoch is not epoch:
-                file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
-                headt2 = read_T2_header(file_path)
+            time.sleep(qkd_globals.EPOCH_DURATION)
+            file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
+            headt2 = read_T2_header(file_path)
+            i += 1
+
         return epoch
 
     @requires_transferd
