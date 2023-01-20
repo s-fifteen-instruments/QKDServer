@@ -217,9 +217,12 @@ class Controller:
         self.stop_key_gen()
         
         # Initiate symmetry negotiation
-        self._negotiate_symmetry()
-        time.sleep(0.4)
+        # self._negotiate_symmetry()
+        # time.sleep(0.4)
         
+        # Set symmetry
+        self._set_symmetry()
+
         # Initiate SERVICE mode
         self.send("serv_st1")
 
@@ -278,6 +281,15 @@ class Controller:
     def send(self, message: str):
         """Convenience method to forward messages to transferd."""
         return self.transferd.send(message)
+
+    @requires_transferd
+    def _set_symmetry(self):
+        """Sets Symmetry through pol_com status"""
+        if self.polcom:
+            self.transferd._low_count_side = False
+        else:
+            self.transferd._low_count_side = True
+        self.transferd._negotiating = SymmetryNegotiationState.FINISHED
 
     @requires_transferd
     def _negotiate_symmetry(self):
