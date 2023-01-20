@@ -339,10 +339,12 @@ class Controller:
         # to automate the symmetry negotiation process).
         low_count_side = self.transferd.low_count_side
         if low_count_side is None:
-            logger.info(
-                f"Code = {code}; "
-                "Symmetry negotiation not complete - key generation not started."
-            )
+            self._set_symmetry()
+        #if low_count_side is None:
+        #    logger.info(
+        #        f"Code = {code}; "
+        #        "Symmetry negotiation not complete - key generation not started."
+        #    )
 
         # Possible messages are 'serv_st*' and 'st*'
         seq = code.split("_")[-1]  # sequence; retrieve 'st*' codes
