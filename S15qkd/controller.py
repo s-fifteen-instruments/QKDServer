@@ -93,6 +93,7 @@ class Controller:
         # Auto-initialization when server starts up
         self._establish_connection()
 
+        self._set_symmetry()
 
 
     # INITIALIZATION
@@ -338,8 +339,6 @@ class Controller:
         # Single source of truth on transferd side (since we delegated transferd
         # to automate the symmetry negotiation process).
         low_count_side = self.transferd.low_count_side
-        if low_count_side is None:
-            self._set_symmetry()
         #if low_count_side is None:
         #    logger.info(
         #        f"Code = {code}; "
