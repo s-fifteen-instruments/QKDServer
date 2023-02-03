@@ -56,7 +56,7 @@ EPOCH_DURATION = 0.537
 #QBER_THRESHOLD = 0.085
 MAX_UPDATE_NUM = 1100 # ~ 10 minutes
 
-def qber_cost_func(qber: float, desired_qber: float = 0.05, amplitude: float = 8.5, exponent: float = 1.6) -> float:
+def qber_cost_func(qber: float, desired_qber: float = 0.05, amplitude: float = 8.5, exponent: float = 1.5) -> float:
     return amplitude * abs(qber - desired_qber)**exponent
 
 def get_current_epoch():
@@ -108,7 +108,7 @@ class PolComp(object):
         self._calculate_retardances()
         self._callback = callback_service_to_BBM92
         self.qber_threshold = qkd_globals.config['QBER_threshold'] # threshold to start BBM92
-        self.qber_threshold_2 = self.qber_threshold + 0.045 # threshold to go from do_walks(1-D walk) to update QBER (n-D walk)
+        self.qber_threshold_2 = self.qber_threshold + 0.10 # threshold to go from do_walks(1-D walk) to update QBER (n-D walk)
         logger.debug(f'pol com initialized')
 
 
@@ -204,9 +204,9 @@ class PolComp(object):
     def epoch_passed(self, epoch:str) -> Boolean:
         epoch_int = int(epoch, 16)
         if self.next_epoch and epoch_int <= self.next_epoch:
-            #logger.debug(f'Ignored epoch: {epoch}. Next epoch is {hex(self.next_epoch)[2:]}')
+            logger.debug(f'Ignored epoch: {epoch}. Next epoch is {hex(self.next_epoch)[2:]}')
             return False
-        #logger.debug(f'Good epoch: {epoch}. Next epoch is {hex(self.next_epoch)[2:]}')
+        logger.debug(f'Good epoch: {epoch}. Next epoch is {hex(self.next_epoch)[2:]}')
         return True
 
     def epoch_match(self, epochstr:str ,epochint: int) -> Boolean:
@@ -235,7 +235,7 @@ class PolComp(object):
             del_ret = self.qber_current * 5 # walking range is dependent on current qber
             retardance_list = np.linspace(-del_ret,
                                           del_ret,
-                                          num=17)
+                                          num=7)
             retardance_list += self.retardance_lookup(self.set_voltage[lcvr_idx], lcvr_idx)
             retardance_list = self.bound_retardance(retardance_list)
         for retardance in retardance_list:

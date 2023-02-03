@@ -74,7 +74,7 @@ def serve_layout():
     short_match_status = html.Div(['pfind short match (in sig): ', html.Nobr(id='sig_short')])
     coincidences = html.Div(['Coincidences per epoch: ', html.Nobr(id='coincidences')])
     accidentals = html.Div(['Accidentals per epoch: ', html.Nobr(id='accidentals')])
-    last_qber = html.Div(['Current QBER: ', html.Nobr(id='last_qber')])
+    last_qber = html.Div(['Service QBER: ', html.Nobr(id='last_qber')])
 
     status_labels = dbc.Card([
         dbc.CardHeader(html.H4("Raw key generation")),
@@ -112,7 +112,7 @@ def serve_layout():
     initial_qber_status = html.Div(['Initial quantum bit error: ', html.Nobr(id='init_QBER')])
     num_rawbits_status = html.Div(['Number of raw bits: ', html.Nobr(id='ec_raw_bits')])
     key_filename_status = html.Div(['Key file name: ', html.Nobr(id='key_file_name')])
-    error_frac_status = html.Div(['Error fraction: ', html.Nobr(id='ec_err_fraction')])
+    error_frac_status = html.Div(['Error fraction(QBER): ', html.Nobr(id='ec_err_fraction')])
     num_final_bits_status = html.Div(['Final number of error corrected bits: ', html.Nobr(id='ec_final_bits')])
     key_gen_rate_status = html.Div(['Key generation rate (bps): ', html.Nobr(id='ec_key_gen_rate')])
 

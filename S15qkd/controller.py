@@ -286,7 +286,7 @@ class Controller:
     @requires_transferd
     def _set_symmetry(self):
         """Sets Symmetry through pol_com status"""
-        if self.polcom:
+        if not self.polcom:
             self.transferd._low_count_side = False
         else:
             self.transferd._low_count_side = True
