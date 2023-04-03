@@ -183,7 +183,7 @@ class Readevents(Process):
     def powercycle(self):
         super().stop()
         assert not self.is_running()
-        super().start(['-q1 -Z'])
+        super().start(['-q1', '-Z'])
         return
 
     def stop(self):
