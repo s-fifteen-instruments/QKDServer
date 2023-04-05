@@ -31,8 +31,8 @@ SOFTWARE.
 # using Werkzeug hot reloader.
 
 # Built-in/Generic Imports
-import asyncio
 import pathlib
+import threading
 import time
 from typing import Optional
 
@@ -228,7 +228,7 @@ class Controller:
 
         # Initiate SERVICE mode
         self.send("serv_st1")
-        asyncio.run(self._expect_reply(timeout=2))
+        self._expect_reply(timeout=2)
 
     def start_key_generation(self):
         """Restarts key generation mode.
@@ -246,7 +246,7 @@ class Controller:
         
         # Initiate BBM92 mode
         self.send("st1")
-        asyncio.run(self._expect_reply(timeout=2))
+        self._expect_reply(timeout=2)
 
     def restart_protocol(self):
         """Restarts respective SERVICE/KEYGEN mode.
@@ -301,12 +301,20 @@ class Controller:
         """Convenience method to forward messages to transferd."""
         return self.transferd.send(message)
 
-    async def _expect_reply(self, timeout: int):
+    def _expect_reply(self, timeout: int):
         self._got_st1_reply = False
-        await asyncio.sleep(timeout)
-        if not self._got_st1_reply:
-            logger.debug(f'No reply within {timeout} s for st1')
-            self.restart_protocol()
+        now = time.time()
+        def reply_daemon():
+            time.sleep(0.1)
+            while not self._got_st1_reply:
+                if time.time() - now > timeout:
+                    logger.debug(f'No reply within {timeout} s for st1')
+                    self.restart_protocol()
+                    return
+            return
+        thread = threading.Thread(target=reply_daemon)
+        thread.daemon = True
+        thread.start()
         return
 
     @requires_transferd
