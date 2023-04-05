@@ -57,7 +57,7 @@ EPOCH_DURATION = 0.537
 MAX_UPDATE_NUM = 1100 # ~ 10 minutes
 
 def qber_cost_func(qber: float, desired_qber: float = 0.05, amplitude: float = 8.5, exponent: float = 1.5) -> float:
-    return amplitude * abs(qber - desired_qber)**exponent
+    return amplitude * (max(qber,desired_qber)-desired_qber)**exponent
 
 def get_current_epoch():
     """Returns the current epoch in integer.
@@ -437,6 +437,8 @@ class PolComp(object):
                 self.averaging_n = 10
             if qber_mean < qber_threshold:
                 np.savetxt(self.LCR_params.volt_file, [self.set_voltage])
+                self.last_voltage_list = self.set_voltage.copy()
+                self.last_retardances = self.retardances.copy()
                 self._callback()
                 self._last_qber= qber_mean
                 logger.info(f'BBM92 called')
@@ -517,39 +519,4 @@ class PolComp(object):
     @property
     def last_qber(self) -> float:
         return self._last_qber
-
-
-
-import os
-
-LCR_VOLT_FILENAME = 'latest_LCR_voltages.txt'
-
-LCVR1_CALLIBRATION_FILEPATH = 'lcvr_callibration.csv'
-LCVR2_CALLIBRATION_FILEPATH = 'lcvr_callibration.csv'
-
-# Lookup table to convert retardances to LCVR voltages
-
-class PolarizationDriftCompensation(object):
-    def __init__(self, lcr_path: str = '/dev/serial/by-id/usb-S-Fifteen_Instruments_Quad_LCD_driver_LCDD-001-if00',
-                 averaging_n: int = 5):
-        self.lcr_driver = LCRDriver(lcr_path)
-        self.lcr_driver.all_channels_on()
-        self.averaging_n = averaging_n
-        self.LCRvoltages_file_name = LCR_VOLT_FILENAME
-        if not os.path.exists(self.LCRvoltages_file_name):
-            #np.savetxt(self.LCRvoltages_file_name, [1.85, 3.01, 2.99, 4.36])
-            np.savetxt(self.LCRvoltages_file_name, [4.781, 1.625, 2.104, 3.963])
-        self.V1, self.V2, self.V3, self.V4 = np.genfromtxt(
-            self.LCRvoltages_file_name).T
-        self.lcr_driver.V1 = self.V1
-        self.lcr_driver.V2 = self.V2
-        self.lcr_driver.V3 = self.V3
-        self.lcr_driver.V4 = self.V4
-        self.last_voltage_list = [self.V1, self.V2, self.V3, self.V4]
-        self.qber_list = []
-        self._last_qber = 1
-        self.qber_counter = 0
-        self.next_epoch = None
-        self.stokes_v = []
-
 
