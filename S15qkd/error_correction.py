@@ -47,7 +47,7 @@ import collections
 from statistics import mean
 
 # from . import qkd_globals, controller
-from .utils import Process, read_T3_header, HeadT3
+from .utils import Process, read_T3_header, HeadT3, epoch_after
 from .qkd_globals import logger, PipesQKD, FoldersQKD, QKDEngineState
 
 EPOCH_DURATION = 0.536  # seconds
@@ -182,6 +182,8 @@ class ErrorCorr(Process):
         elif self._callback_qber_exceed and self.servoed_QBER > self.QBER_limit:
             logger.error(f'QBER: {self.servoed_QBER} above {self.QBER_limit}. Restarting polarization compensation.')
             self._callback_qber_exceed()
+        else:
+            self._callback_pol_comp(qber=self.ec_err_fraction,epoch=epoch_after(self._ec_epoch,self._ec_nr_of_epochs))
 
         try:
             1+1
