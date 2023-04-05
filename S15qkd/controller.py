@@ -271,6 +271,20 @@ class Controller:
         else:
             None
 
+    def recompensate_service(self):
+        """Convenience function"""
+        if self.transferd.low_count_side:
+            self.BBM92_to_service()
+        else:
+            None
+
+    def drift_secure_comp(self,qber,epoch):
+        """Convenience function"""
+        if self.polcom:
+            self.polcom.update_QBER_secure(qber,epoch)
+        else:
+            None
+
     def pol_com_walk(self):
         if self._qkd_protocol == QKDProtocol.SERVICE and self.polcom:
             self.polcom.do_walks(0)
@@ -423,18 +437,12 @@ class Controller:
             )
         if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
             if not self.errc.is_running():
-                if low_count_side:
-                    self.errc.start(
-                        qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
-                        self.start_service_mode, # restart protocol   
-                        self.BBM92_to_service, # protocol for exceeding qber_limit
-                   )
-                else:
-                    self.errc.start(
-                        qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
-                        self.start_service_mode, # restart protocol 
+                self.errc.start(
+                    qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
+                    self.start_service_mode, # restart protocol
+                    self.recompensate_service, # protocol for exceeding qber_limit
+                    self.drift_secure_comp,
                     )
-
     @requires_transferd
     def BBM92_to_service(self):
         """Stops the programs which needs protocol, namely
@@ -605,17 +613,12 @@ class Controller:
             logger.debug(f'costream restarted')
         if Process.config.error_correction:
             if not self.errc.is_running():
-                if low_count_side:
-                    self.errc.start(
-                        qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
-                        self.start_service_mode, # restart protocol
-                        self.BBM92_to_service, # protocol for exceeding qber_limit
+                self.errc.start(
+                    qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
+                    self.start_service_mode, # restart protocol
+                    self.recompensate_service, # protocol for exceeding qber_limit
+                    self.drift_secure_comp,
                    )
-                else:
-                    self.errc.start(
-                        qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
-                        self.start_service_mode, # restart protocol
-                    )
 
     @requires_transferd
     def _retrieve_secure_remote_epoch(self, last_service_epoch: str ):
