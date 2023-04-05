@@ -33,7 +33,7 @@ class Readevents(Process):
             '-D', f'{det1corr},{det2corr},{det3corr},{det4corr}',
         ]
 
-        # Flush readevents 
+        # Flush readevents
         super().start(args + ['-q1'])  # With proper termination with sigterm, this should not be necessary anymore.
         self.wait()
 
@@ -65,6 +65,10 @@ class Readevents(Process):
             '-D', f'{det1corr},{det2corr},{det3corr},{det4corr}',
             '-b', f'{blindmode},{level1},{level2}',
         ]
+
+        # Flush readevents
+        super().start(args + ['-q1'])  # With proper termination with sigterm, this should not be necessary anymore.
+        self.wait()
 
         args_tee = [
                 f'{PipesQKD.RAWEVENTS}',
@@ -183,7 +187,7 @@ class Readevents(Process):
     def powercycle(self):
         super().stop()
         assert not self.is_running()
-        super().start(['-q1 -Z'])
+        super().start(['-q1', '-Z'])
         return
 
     def stop(self):
