@@ -228,6 +228,7 @@ class Controller:
 
         # Initiate SERVICE mode
         self.send("serv_st1")
+        asyncio.run(self._expect_reply(timeout=2))
 
     def start_key_generation(self):
         """Restarts key generation mode.
@@ -304,7 +305,7 @@ class Controller:
         self._got_st1_reply = False
         await asyncio.sleep(timeout)
         if not self._got_st1_reply:
-            logger.debug(f'No reply within {timeout} s for {message}')
+            logger.debug(f'No reply within {timeout} s for st1')
             self.restart_protocol()
         return
 
@@ -384,7 +385,6 @@ class Controller:
             if low_count_side:
                 # Reflect message back to high_count_side
                 self.transferd.send(prepend_if_service("st1"))
-                asyncio.run(self._expect_reply(timeout=2))
                 return
             
             if qkd_protocol == QKDProtocol.BBM92:
