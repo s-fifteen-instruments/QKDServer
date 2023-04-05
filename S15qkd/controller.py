@@ -173,6 +173,7 @@ class Controller:
 
         # Restart transferd
         self._establish_connection()
+        self._set_symmetry()
 
     # TODO(Justin): Rename to 'stop' and update callback in QKD_status.py
     def stop_key_gen(self, inform_remote: bool = True):
@@ -239,7 +240,7 @@ class Controller:
         
         # Initiate symmetry negotiation
         #self._negotiate_symmetry()
-        time.sleep(0.8)
+        #time.sleep(0.8)
         
         # Initiate BBM92 mode
         self.send("st1")
@@ -257,9 +258,9 @@ class Controller:
     def reset_timestamp(self):
         """Stops readevents, resets timestamp and restart"""
         self.readevents.powercycle()
-        time.sleep(3) # at least 2 seconds needed for the chip to powerdown
+        time.sleep(2) # at least 2 seconds needed for the chip to powerdown
         self.stop_key_gen()
-        time.sleep(7) # at least 2 seconds needed for the monitors to end.
+        time.sleep(2) # at least 2 seconds needed for the monitors to end.
         self.restart_protocol()
 
     def callback_epoch(self, msg):
@@ -463,7 +464,10 @@ class Controller:
             # Assume called from (errc) low count side. Only need to restart costream with elapsed time difference and new epoch
             
             # Get current time difference before stopping costream
-            td = int(self._time_diff) - int(self.costream.latest_deltat)
+            try:
+                td = int(self._time_diff) - int(self.costream.latest_deltat)
+            except TypeError:
+                self.restart_protocol()
             last_secure_epoch = self.transferd.last_received_epoch
             #
             self.costream.stop()
@@ -570,7 +574,10 @@ class Controller:
             # Assume called from polcom (High) side. Only need to restart costream with elapsed time difference and new epoch
             
             # Get current time difference before stopping costream
-            td = int(self._time_diff) - int(self.costream.latest_deltat)
+            try:
+                td = int(self._time_diff) - int(self.costream.latest_deltat)
+            except TypeError:
+                self.restart_protocol()
             last_service_epoch = self.transferd.last_received_epoch
             #
             self.costream.stop()
