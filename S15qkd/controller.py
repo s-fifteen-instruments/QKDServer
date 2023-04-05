@@ -31,6 +31,7 @@ SOFTWARE.
 # using Werkzeug hot reloader.
 
 # Built-in/Generic Imports
+import asyncio
 import pathlib
 import time
 from typing import Optional
@@ -244,6 +245,7 @@ class Controller:
         
         # Initiate BBM92 mode
         self.send("st1")
+        asyncio.run(self._expect_reply(timeout=2))
 
     def restart_protocol(self):
         """Restarts respective SERVICE/KEYGEN mode.
@@ -297,6 +299,13 @@ class Controller:
     def send(self, message: str):
         """Convenience method to forward messages to transferd."""
         return self.transferd.send(message)
+
+    async def _expect_reply(self, timeout: int):
+        self._got_st1_reply = False
+        await asyncio.sleep(timeout)
+        if not self._got_st1_reply:
+            logger.debug(f'No reply within {timeout} s for {message}')
+        return
 
     @requires_transferd
     def _set_symmetry(self):
@@ -370,9 +379,11 @@ class Controller:
         # Whole process flow should kick off with low count side sending '*st1' message
         # 'serv_st1' is equivalent to a 'START' command
         if seq == "st1":
+            self._got_st1_reply = True
             if low_count_side:
                 # Reflect message back to high_count_side
                 self.transferd.send(prepend_if_service("st1"))
+                asyncio.run(self._expect_reply(timeout=2))
                 return
             
             if qkd_protocol == QKDProtocol.BBM92:
@@ -384,6 +395,7 @@ class Controller:
             self.pol_com_walk()
 
         if seq == "st2":
+            self._got_st1_reply = True
             if not low_count_side:
                 logger.error(f"High count side should not have received: {code}")
                 return
