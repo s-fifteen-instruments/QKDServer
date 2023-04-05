@@ -410,6 +410,21 @@ class PolComp(object):
                 return_val.append(ret)
         return return_val
 
+    def update_QBER_secure(self, qber: float, epoch:str = None):
+        if not self.epoch_passed(epoch):
+            return # start a
+        if qber < self._last_qber:
+            self.last_voltage_list = self.set_voltage.copy()
+            self.last_retardances = self.retardances.copy()
+            self.lcvr_narrow_down2(qber)
+            self._last_qber= qber
+        else:
+            self.set_voltage = self.last_voltage_list.copy()
+            self.retardances = self.last_retardances.copy()
+            self.lcvr_narrow_down2(self._last_qber)
+        self.next_epoch = get_current_epoch()
+        logger.debug(f'Next epoch set to "{hex(self.next_epoch)[2:]}".')
+
     def update_QBER(self, qber: float, qber_threshold: float = 0.085, epoch: str = None):
         self.qber_counter += 1
         if self.qber_counter < 10: # in case pfind finds a bad match, we don't want to change the lcvr voltage too early
@@ -476,14 +491,12 @@ class PolComp(object):
         logger.debug(f'Kicked to new voltage.')
 	
     def lcvr_narrow_down(self,  curr_qber: float):
-        
         ret_range = qber_cost_func(curr_qber)
         delta_phis = [0]*4
         phis = [0]*4
         lcvr_to_adjust = [0, 1, 2, 3] # only adjust these lcvr in n-D search
         lcvr_to_fix = [] # keep these lcvr phase fixed
         logger.debug(f'Phis began with {phis},self.retardances {self.retardances}, delta_phis {delta_phis},voltage {self.set_voltage}')
-
         for i in lcvr_to_fix:
             phis[i] = self.retardances[i]
         for i in lcvr_to_adjust:
@@ -496,7 +509,26 @@ class PolComp(object):
             self.retardances[i] = phi_ret[i]
         self._set_voltage()
         logger.debug(f'Phis are {phis},self.retardances {self.retardances}, delta_phis {delta_phis},voltage {self.set_voltage}')
-        #self._set_retardance(phis)
+
+    def lcvr_narrow_down2(self,  curr_qber: float):
+        ret_range = qber_cost_func(curr_qber)
+        delta_phis = [0]*4
+        phis = [0]*4
+        lcvr_to_adjust = [2, 3] # only adjust these lcvr in n-D search
+        lcvr_to_fix = [0, 1] # keep these lcvr phase fixed
+        logger.debug(f'Phis began with {phis},self.retardances {self.retardances}, delta_phis {delta_phis},voltage {self.set_voltage}')
+        for i in lcvr_to_fix:
+            phis[i] = self.retardances[i]
+        for i in lcvr_to_adjust:
+            delta_phis[i] = np.random.uniform(-ret_range, ret_range)
+            phis[i] = self.retardances[i] + delta_phis[i]
+        phis = self.bound_retardance(phis)
+        volt_ret,phi_ret = self._calculate_voltages(phis)
+        for i in lcvr_to_adjust:
+            self.set_voltage[i] = volt_ret[i]
+            self.retardances[i] = phi_ret[i]
+        self._set_voltage()
+        logger.debug(f'Phis are {phis},self.retardances {self.retardances}, delta_phis {delta_phis},voltage {self.set_voltage}')
 
     @property
     def voltage(self) -> list:
