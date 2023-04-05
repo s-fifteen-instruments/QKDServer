@@ -305,6 +305,7 @@ class Controller:
         await asyncio.sleep(timeout)
         if not self._got_st1_reply:
             logger.debug(f'No reply within {timeout} s for {message}')
+            self.restart_protocol()
         return
 
     @requires_transferd
