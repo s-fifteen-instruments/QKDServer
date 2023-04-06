@@ -178,9 +178,11 @@ class ErrorCorr(Process):
         elif self._callback_qber_exceed and self.ec_err_fraction > 0.15: #if more than 15% restart immediately and don't need to average over self._servo_blocks.
             logger.error(f'QBER: {self.ec_err_fraction} above {0.15}. Restarting polarization compensation.')
             self._servoed_QBER = self.ec_err_fraction
+            self.QBER_servo_history.clear()
             self._callback_qber_exceed()
         elif self._callback_qber_exceed and self.servoed_QBER > self.QBER_limit:
             logger.error(f'QBER: {self.servoed_QBER} above {self.QBER_limit}. Restarting polarization compensation.')
+            self.QBER_servo_history.clear()
             self._callback_qber_exceed()
         else:
             self._callback_pol_comp(qber=self.ec_err_fraction,epoch=epoch_after(self._ec_epoch,self._ec_nr_of_epochs))
