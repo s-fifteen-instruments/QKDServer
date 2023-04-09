@@ -70,7 +70,7 @@ class Chopper2(Process):
             '-4', # Force four detector option
         ]
         super().start(args, stderr="chopper2error", callback_restart=callback_restart)
-        self.read(PipesQKD.T1LOG, self.digest_t1logpipe, wait=0.1, name="T1LOG")
+        self.read(PipesQKD.T1LOG, self.digest_t1logpipe, wait=0.1, name="T1LOG", persist=True)
         logger.info('Started chopper2.')
         super().start_thread_method(self._no_message_monitor)
 

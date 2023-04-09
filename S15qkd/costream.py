@@ -92,7 +92,7 @@ class Costream(Process):
         logger.info(f'costream starts with the following arguments: {args}')
         super().start(args, stderr="costreamerror", callback_restart=callback_restart)
         
-        self.read(PipesQKD.GENLOG, self.digest_genlog, 'GENLOG')
+        self.read(PipesQKD.GENLOG, self.digest_genlog, 'GENLOG', persist=True)
 
 
     def digest_genlog(self, pipe):

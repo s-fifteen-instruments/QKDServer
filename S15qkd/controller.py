@@ -228,7 +228,7 @@ class Controller:
 
         # Initiate SERVICE mode
         self.send("serv_st1")
-        self._expect_reply(timeout=2)
+        self._expect_reply(timeout=10)
 
     def start_key_generation(self):
         """Restarts key generation mode.
@@ -246,7 +246,7 @@ class Controller:
         
         # Initiate BBM92 mode
         self.send("st1")
-        self._expect_reply(timeout=2)
+        self._expect_reply(timeout=10)
 
     def restart_protocol(self):
         """Restarts respective SERVICE/KEYGEN mode.
