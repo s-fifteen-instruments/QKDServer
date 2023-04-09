@@ -230,7 +230,10 @@ class FoldersQKD(str, Enum):
     def remove_stale_comm_files(cls):
         for folder in [cls.RECEIVEFILES + '/*', cls.SENDFILES + '/*', cls.T1FILES + '/*', cls.T3FILES + '/*']:
             for f in glob.glob(folder):
-                os.remove(f)
+                try:
+                    os.remove(f)
+                except FileNotFoundError:
+                    logger.debug(f"File {f} removed by another process")
 
     def __str__(self):
         """See FoldersQKD.__str__ for documentation."""
