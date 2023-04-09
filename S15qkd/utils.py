@@ -191,7 +191,7 @@ class Process:
             logger.debug(f"Process '{self.process}' already prematurely terminated ('{self.program}')")
 
         except AttributeError:
-            logger.debug(f"Process went missing. ({sefl.program})")
+            logger.debug(f"Process went missing. ({self.program})")
 
         self.process = None
         self.stop_event.clear()
