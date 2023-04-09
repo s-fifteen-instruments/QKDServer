@@ -36,7 +36,8 @@ class Process:
         self.process = None
         self._persist_read = None  # See read() below.
         self._expect_running = False  # See monitor() below.
-    
+        self.stop_event = threading.Event()
+
     @classmethod
     def load_config(cls, path=None):
         if not path:
@@ -148,13 +149,19 @@ class Process:
         # Activate callback restart only if defined
         if callback_restart:
             self._expect_running = True
-            self.monitor(callback_restart)
+            self.mon_thread = self.monitor(callback_restart,self.stop_event)
     
     def stop(self, timeout=3):
         if self.process is None:
             return
 
-        self._expect_running = False
+        self.stop_event.set()
+        if self._expect_running:
+            self._expect_running = False
+            try:
+                self.mon_thread.join()
+            except RuntimeError:
+                logger.debug(f"Thread closed")
 
         # Stop persistence read pipes attached to process
         if self._persist_read:
@@ -183,7 +190,11 @@ class Process:
         except psutil.NoSuchProcess:
             logger.debug(f"Process '{self.process}' already prematurely terminated ('{self.program}')")
 
+        except AttributeError:
+            logger.debug(f"Process went missing. ({sefl.program})")
+
         self.process = None
+        self.stop_event.clear()
 
     def wait(self):
         self._expect_running = False
@@ -235,7 +246,7 @@ class Process:
                 if self._persist_read is not None:
                     predicate = lambda: self._persist_read
 
-                while predicate():
+                while predicate() and not self.stop_event.is_set():
                     if wait:
                         time.sleep(wait)
 
@@ -257,6 +268,7 @@ class Process:
 
         thread = threading.Thread(target=func, args=(pipe,name))
         thread.start()
+        return thread
     
     @staticmethod
     def write(target, message: str, name=''):
@@ -281,7 +293,7 @@ class Process:
             name = path
         logger.debug(f"'{message}' written to '{name}'.")
 
-    def monitor(self, callback_restart):
+    def monitor(self, callback_restart, stop_event):
         """Restarts keygen if process terminates without a wait/stop trigger.
         
         Polls performed every 1 second.
@@ -289,11 +301,10 @@ class Process:
         
         def monitor_daemon():
             time.sleep(2)
-            while self._expect_running:
+            while self._expect_running and not stop_event.is_set():
                 if not self.is_running():
                     logger.debug(f"Activated process monitor for '{self.program}' ('{self.process}')")
                     callback_restart()
-                    return
                 time.sleep(2)
             logger.debug(f"Terminated process monitor for '{self.program}' ('{self.process}')")
     
@@ -301,12 +312,14 @@ class Process:
         thread = threading.Thread(target=monitor_daemon)
         thread.daemon = True
         thread.start()
+        return thread
 
     def start_thread_method(self, method_name: FunctionType):
         logger.debug(f"Started method {method_name} for '{self.program}' ('{self.process}')")
         thread = threading.Thread(target = method_name)
         thread.daemon = True
         thread.start()
+        return thread
 
 class HeadT1(NamedTuple):
     tag: int
