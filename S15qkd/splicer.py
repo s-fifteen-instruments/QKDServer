@@ -55,6 +55,7 @@ class Splicer(Process):
         self._qkd_protocol = qkd_protocol
         self._pol_compensator = callback_pol_comp_epoch
         self._callback_ecqueue = callback_ecqueue
+        self._callback_restart = callback_restart
         self._latest_message_time = time.time()
 
         args = [
