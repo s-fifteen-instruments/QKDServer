@@ -114,6 +114,7 @@ class Controller:
         """
         # Responsibility for upkeeping connection should lie with 'transferd'
         # i.e. 'transferd' should not drop out if connection established.
+        self._await_reply = 0
         if self.transferd.is_connected():
             return
         
@@ -303,12 +304,19 @@ class Controller:
 
     def _expect_reply(self, timeout: int):
         self._got_st1_reply = False
+        if self._await_reply == 5:
+            self._await_reply = 0
+            self.restart_transferd()
+            self.sleep(1)
+            self.restart_protocol()
+            return
         now = time.time()
         def reply_daemon():
             time.sleep(0.1)
             while not self._got_st1_reply:
                 if time.time() - now > timeout:
                     logger.debug(f'No reply within {timeout} s for st1')
+                    self._await_reply += 1
                     self.restart_protocol()
                     return
             return
