@@ -18,7 +18,11 @@ class Readevents(Process):
             self, 
             callback_restart=None,    # to restart keygen
         ):
-        assert not self.is_running()
+        try:
+            assert not self.is_running()
+        except AssertionError as msg:
+            print(msg)
+            callback_restart()
 
         det1corr = Process.config.local_detector_skew_correction.det1corr
         det2corr = Process.config.local_detector_skew_correction.det2corr
@@ -50,7 +54,12 @@ class Readevents(Process):
             level1=880,
             level2=0,
         ):
-        assert not self.is_running()
+        try:
+            assert not self.is_running()
+        except AssertionError as msg:
+            print(msg)
+            callback_restart()
+
         self._callback_stop = callback_stop
         det1corr = Process.config.local_detector_skew_correction.det1corr
         det2corr = Process.config.local_detector_skew_correction.det2corr
@@ -134,7 +143,11 @@ class Readevents(Process):
     def measure_local_count_rate_system(self):
         """Measure local photon count rate through shell. Done to solve process not terminated nicely for >160000 count rate per epoch.
            Don't need to handle pipes, but harder to recover if things don't work.""" 
-        assert not self.is_running()
+        try:
+            assert not self.is_running()
+        except AssertionError as msg:
+            print(msg)
+
         # Flush readevents
         # Terminates after single event retrieved
         super().start(['-q1'])
@@ -155,7 +168,11 @@ class Readevents(Process):
 
     def measure_local_count_rate(self):
         """Measure local photon count rate."""
-        assert not self.is_running()
+        try:
+            assert not self.is_running()
+        except AssertionError as msg:
+            print(msg)
+
         args = [
             '-a', 1,  # outmode 1
             '-X',     # legacy: high/low word swap
@@ -186,8 +203,11 @@ class Readevents(Process):
 
     def powercycle(self):
         super().stop()
-        assert not self.is_running()
-        super().start(['-q1', '-Z'])
+        try:
+            assert not self.is_running()
+        except AssertionError as msg:
+            print(msg)
+        super().start(['-q1', '-Z', '-t2000'])
         return
 
     def stop(self):

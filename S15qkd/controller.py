@@ -305,9 +305,10 @@ class Controller:
     def _expect_reply(self, timeout: int):
         self._got_st1_reply = False
         if self._await_reply == 5:
-            self._await_reply = 0
+            logger.debug(f'Awaited for {self._await_reply} times. Restarting transferd.')
             self.restart_transferd()
-            self.sleep(1)
+            time.sleep(1)
+            self._await_reply = 0
             self.restart_protocol()
             return
         now = time.time()
@@ -328,7 +329,7 @@ class Controller:
     @requires_transferd
     def _set_symmetry(self):
         """Sets Symmetry through pol_com status"""
-        if not self.polcom:
+        if self.polcom:
             self.transferd._low_count_side = False
         else:
             self.transferd._low_count_side = True
