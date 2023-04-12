@@ -399,6 +399,7 @@ class Controller:
         # 'serv_st1' is equivalent to a 'START' command
         if seq == "st1":
             self._got_st1_reply = True
+            self._await_reply = 0
             if low_count_side:
                 # Reflect message back to high_count_side
                 self.transferd.send(prepend_if_service("st1"))
@@ -414,6 +415,7 @@ class Controller:
 
         if seq == "st2":
             self._got_st1_reply = True
+            self._await_reply = 0
             if not low_count_side:
                 logger.error(f"High count side should not have received: {code}")
                 return

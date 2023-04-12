@@ -37,6 +37,7 @@ class Process:
         self._persist_read = None  # See read() below.
         self._expect_running = False  # See monitor() below.
         self.stop_event = threading.Event()
+        self._internal_threads = []
 
     @classmethod
     def load_config(cls, path=None):
@@ -149,7 +150,7 @@ class Process:
         # Activate callback restart only if defined
         if callback_restart:
             self._expect_running = True
-            self.mon_thread = self.monitor(callback_restart,self.stop_event)
+            self.monitor(callback_restart,self.stop_event)
     
     def stop(self, timeout=3):
         if self.process is None:
@@ -159,9 +160,12 @@ class Process:
         if self._expect_running:
             self._expect_running = False
             try:
-                self.mon_thread.join()
+                for thread in self._internal_threads:
+                    thread.join()
             except RuntimeError:
                 logger.debug(f"Thread closed")
+            finally:
+                self._internal_threads.clear()
 
         # Stop persistence read pipes attached to process
         if self._persist_read:
@@ -268,6 +272,7 @@ class Process:
 
         thread = threading.Thread(target=func, args=(pipe,name))
         thread.start()
+        self._internal_threads.append(thread)
         return thread
     
     @staticmethod
@@ -312,6 +317,7 @@ class Process:
         thread = threading.Thread(target=monitor_daemon)
         thread.daemon = True
         thread.start()
+        self._internal_threads.append(thread)
         return thread
 
     def start_thread_method(self, method_name: FunctionType):
@@ -319,6 +325,7 @@ class Process:
         thread = threading.Thread(target = method_name)
         thread.daemon = True
         thread.start()
+        self._internal_threads.append(thread)
         return thread
 
 class HeadT1(NamedTuple):
