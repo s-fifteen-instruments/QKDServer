@@ -229,7 +229,7 @@ class Controller:
 
         # Initiate SERVICE mode
         self.send("serv_st1")
-        self._expect_reply(timeout=10)
+        self._expect_reply(timeout=2)
 
     def start_key_generation(self):
         """Restarts key generation mode.
@@ -304,7 +304,7 @@ class Controller:
 
     def _expect_reply(self, timeout: int):
         self._got_st1_reply = False
-        if self._await_reply == 5:
+        if self._await_reply > 5:
             logger.debug(f'Awaited for {self._await_reply} times. Restarting transferd.')
             self.restart_transferd()
             time.sleep(1)

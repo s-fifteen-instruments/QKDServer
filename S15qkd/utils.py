@@ -38,6 +38,7 @@ class Process:
         self._expect_running = False  # See monitor() below.
         self.stop_event = threading.Event()
         self._internal_threads = []
+        self._read_pipes = []
 
     @classmethod
     def load_config(cls, path=None):
@@ -156,20 +157,25 @@ class Process:
         if self.process is None:
             return
 
+        # Stop persistence read pipes attached to process
+        if self._persist_read:
+            self._persist_read = False
+
         self.stop_event.set()
+        for pipe in self._read_pipes:
+            fd = os.open(pipe, os.O_WRONLY)
+            pipe = os.fdopen(fd, 'w')
+            pipe.write("\n")
+
         if self._expect_running:
             self._expect_running = False
             try:
                 for thread in self._internal_threads:
-                    thread.join()
-            except RuntimeError:
-                logger.debug(f"Thread closed")
+                    logger.debug(f"{thread.name} is alive {thread.is_alive()}")
+            except RuntimeError as msg:
+                logger.debug(f"{thread} Thread closed. {msg}")
             finally:
                 self._internal_threads.clear()
-
-        # Stop persistence read pipes attached to process
-        if self._persist_read:
-            self._persist_read = False
 
         try:
             # 'qcrypto' likely does not have child processes, but
@@ -232,6 +238,7 @@ class Process:
                     name = pipe
                 # Create file descriptor for read-only non-blocking pipe
                 # TODO(Justin): Why must a single threaded pipe read be non-blocking?
+                self._read_pipes.append(pipe) # pipe is still a path here
                 fd = os.open(pipe, os.O_RDONLY)
                 # Open file descriptor with *no* buffer
                 pipe = os.fdopen(fd, 'r')

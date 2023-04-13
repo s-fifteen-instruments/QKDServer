@@ -86,8 +86,8 @@ class Transferd(Process):
         try:
             assert not self.is_running()
         except AssertionError as msg:
-            print(msg)
-            sleep(0.1)
+            logger.error(f'{msg} Assertion error')
+            time.sleep(0.1)
 
         if self.communication_status != CommunicationStatus.DISCONNECTED:
             return
