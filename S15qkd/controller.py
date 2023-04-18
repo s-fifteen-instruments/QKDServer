@@ -115,7 +115,7 @@ class Controller:
         # Responsibility for upkeeping connection should lie with 'transferd'
         # i.e. 'transferd' should not drop out if connection established.
         self._await_reply = 0
-        if self.transferd.is_connected():
+        if self.transferd.is_running():
             return
         
         # MSGIN / MSGOUT pipes need to be ready prior to communication
