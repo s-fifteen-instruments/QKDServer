@@ -18,4 +18,3 @@ Welcome to QKDServer's documentation!
 
    Layout/User Guide
 
-   Issues
