@@ -36,6 +36,15 @@ extensions = [
     'sphinx_tabs.tabs'
 ]
 
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3/', None),
+    'sphinx': ('https://www.sphinx-doc.org/en/master/', None)
+}
+
+intersphinx_disabled_domains = ['std']
+
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -59,6 +68,9 @@ html_theme = 'sphinx_rtd_theme'
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
+
+# sphinx-tabs configuration
+sphinx_tabs_disable_tab_closing = True
 
 latex_elements = { 
     'figure_align' : 'H',
