@@ -211,6 +211,7 @@ class Readevents(Process):
         return
 
     def stop(self):
+        self.empty_seed_pipes()
         if self.process is None:
             return
         try:
@@ -221,5 +222,12 @@ class Readevents(Process):
         else:
             self.t.stop()
             self.gr.stop()
+        logger.debug('Stopping readevents')
         super().stop()
+        return
+
+    def empty_seed_pipes(self):
+        PipesQKD.drain_pipe(PipesQKD.TEEIN)
+        PipesQKD.drain_pipe(PipesQKD.SBIN)
+        PipesQKD.drain_pipe(PipesQKD.SB)
         return
