@@ -464,5 +464,5 @@ def service_T3(file_name: str) -> Optional[ServiceT3]:
     return service
 
 def epoch_after(epoch: str, added: int) -> str:
-    return hex(int(epoch,16)+10)[2:]
+    return hex(int(epoch,16) + added)[2:]
 
