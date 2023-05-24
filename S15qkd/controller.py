@@ -229,7 +229,7 @@ class Controller:
 
         # Initiate SERVICE mode
         self.send("serv_st1")
-        self._expect_reply(timeout=2)
+        self._expect_reply(timeout=10)
 
     def start_key_generation(self):
         """Restarts key generation mode.
@@ -489,10 +489,10 @@ class Controller:
             self.send('st_to_serv')
             self.splicer.stop()
             self.chopper.stop()
-            self.errc.empty()
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
-            time.sleep(1.2) # to allow chopper and splicer to end gracefully
+            time.sleep(1.9) # to allow chopper and splicer to end gracefully
+            self.errc.empty()
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,
@@ -602,7 +602,7 @@ class Controller:
             self.chopper.stop()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
-            time.sleep(1.2) # to allow chopper and splicer to end gracefully
+            time.sleep(1.9) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,

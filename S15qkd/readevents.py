@@ -207,7 +207,7 @@ class Readevents(Process):
             assert not self.is_running()
         except AssertionError as msg:
             print(msg)
-        super().start(['-q1', '-Z', '-t2000'])
+        super().start(['-q1', '-Z'])
         return
 
     def stop(self):
