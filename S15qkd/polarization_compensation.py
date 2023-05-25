@@ -498,7 +498,6 @@ class PolComp(object):
         phis = [0]*4
         lcvr_to_adjust = [0, 1, 2, 3] # only adjust these lcvr in n-D search
         lcvr_to_fix = [] # keep these lcvr phase fixed
-        logger.debug(f'Phis began with {phis},self.retardances {self.retardances}, delta_phis {delta_phis},voltage {self.set_voltage}')
         for i in lcvr_to_fix:
             phis[i] = self.retardances[i]
         for i in lcvr_to_adjust:
@@ -506,6 +505,7 @@ class PolComp(object):
             phis[i] = self.retardances[i] + delta_phis[i]
         phis = self.bound_retardance(phis)
         volt_ret,phi_ret = self._calculate_voltages(phis)
+        logger.debug(f'old voltage {self.set_voltage}, new_voltage {volt_ret}')
         for i in lcvr_to_adjust:
             self.set_voltage[i] = volt_ret[i]
             self.retardances[i] = phi_ret[i]

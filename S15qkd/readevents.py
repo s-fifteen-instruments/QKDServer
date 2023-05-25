@@ -224,6 +224,7 @@ class Readevents(Process):
             self.gr.stop()
         logger.debug('Stopping readevents')
         super().stop()
+        self.empty_seed_pipes()
         return
 
     def empty_seed_pipes(self):

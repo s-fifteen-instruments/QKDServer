@@ -211,7 +211,7 @@ class ErrorCorr(Process):
             self.QBER_servo_history.clear()
             self._callback_qber_exceed()
         else:
-            self._callback_pol_comp(qber=self.ec_err_fraction,epoch=epoch_after(self._ec_epoch,self._ec_nr_of_epochs))
+            self._callback_pol_comp(qber=self.ec_err_fraction,epoch=epoch_after(self._ec_epoch,int(self._ec_nr_of_epochs,10)))
 
         try:
             1+1
