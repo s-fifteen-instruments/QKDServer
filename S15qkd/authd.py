@@ -11,6 +11,7 @@
 #   'ssl.SSLError: [SSL: UNEXPECTED_MESSAGE] unexpected message (_ssl.c:1125)' error.
 #   This is with OpenSSL 1.1.1d (Sep 2019)
 
+import argparse
 import select
 import socket
 import ssl
@@ -23,6 +24,7 @@ import time
 import traceback
 from types import SimpleNamespace
 import qkd_globals
+from utils import Process
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,23 +32,23 @@ logging.basicConfig(
     datefmt="%Y%m%d_%H%M%S"
 )
 logger = logging.getLogger(__name__)
+config = Process.config
 
-#with open("authd.conf.json") as f:
-#    config = json.load(f)
-#HOSTNAME = config["target_hostname"]
-#PORT = config["port_authd"]
-#PORT_TD = config["port_transd"]
-#REMOTE_CERT = config["remote_cert"]
-#LOCAL_CERT = config["local_cert"]
-#LOCAL_KEY = config["local_key"]
-with open(qkd_globals.config_file, 'r') as f:
-    config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
-HOSTNAME = config.target_hostname
-PORT = config.port_authd
-PORT_TD = config.port_transd
-REMOTE_CERT = config.remote_cert
-LOCAL_CERT = config.local_cert
-LOCAL_KEY = config.local_key
+parser = argparse.ArgumentParser(description="")
+parser.add_argument("-H")  # hostname
+parser.add_argument("-p", type=int)  # port
+parser.add_argument("-P", type=int)  # transferd port
+parser.add_argument("-r")  # remote cert
+parser.add_argument("-c")  # local cert
+parser.add_argument("-k")  # local key
+args = parser.parse_args()
+
+HOSTNAME = args.H if args.H else config.target_hostname
+PORT = args.p if args.p else config.port_authd
+PORT_TD = args.P if args.P else config.port_transd
+REMOTE_CERT = args.r if args.r else config.remote_cert
+LOCAL_CERT = args.c if args.c else config.local_cert
+LOCAL_KEY = args.k if args.k else config.local_key
 
 SSL_CONTEXT_CLIENT = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 SSL_CONTEXT_CLIENT.load_verify_locations(cafile=REMOTE_CERT)

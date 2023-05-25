@@ -13,8 +13,11 @@ from typing import Union, Optional, NamedTuple
 
 import psutil
 
-from . import qkd_globals
-from .qkd_globals import QKDProtocol, logger, PipesQKD, FoldersQKD
+# Relative import (i.e. 'from . import ...') avoided
+# to allow the standalone file 'authd.py' to utilize 'S15qkd.utils.Process.load_config'
+# to load the default configuration (currently not running 'authd.py' as part of package)
+from S15qkd import qkd_globals
+from S15qkd.qkd_globals import QKDProtocol, logger, PipesQKD, FoldersQKD
 
 class Process:
     """Represents a single process.
