@@ -109,6 +109,12 @@ class ErrorCorr(Process):
         ):
         """
 
+        If 'remote_connection_id' is supplied in the global configuration file, then the notification
+        pipe will automatically append remote connection ID as well as (an alternating) direction to
+        switch between the bidirectional tables where the keys will be inserted. Resolution for which
+        table inserts the first key is performed by determining the output of the string comparison
+        "'local_connection_id' < 'remote_connection_id'".
+
         Note:
             The remote connection id is cached upon starting error correction, to avoid
             race condition when configuration reload is triggered while errcd is still
@@ -124,6 +130,8 @@ class ErrorCorr(Process):
         self._callback_restart = callback_restart
         self._callback_qber_exceed = callback_qber_exceed
         self.remote_connection_id = getattr(Process.config, "remote_connection_id", None)
+        local_connection_id = getattr(Process.config, "local_connection_id", "")
+        self.key_direction = int(local_connection_id < self.remote_connection_id)  # {0, 1}
 
         args = [
             '-c', PipesQKD.ECCMD,
@@ -166,12 +174,16 @@ class ErrorCorr(Process):
             *_,
         ) = message.split()
 
-        if self.remote_connection_id is not None:
-            notification = f"{self._ec_epoch} {self.remote_connection_id}"
-        else:
-            notification = self._ec_epoch
-        self.write(self._callback_guardian_note, message=notification)
-        logger.info(f'Sent {notification} to notify.pipe.')
+        if self.ec_final_bits > 0:
+            if self.remote_connection_id is not None:
+                notification = f"{self._ec_epoch} {self.remote_connection_id} {self.key_direction}"
+            else:
+                notification = self._ec_epoch
+            self.write(self._callback_guardian_note, message=notification)
+            logger.info(f'Sent {notification} to notify.pipe.')
+
+            # Flip key direction
+            self.key_direction = 1 - self.key_direction
 
         self._ec_key_gen_rate = self.ec_final_bits / (self.ec_nr_of_epochs * EPOCH_DURATION)
         logger.debug(f'Rate is {self.ec_key_gen_rate} bps.')
