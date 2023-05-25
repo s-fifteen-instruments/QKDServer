@@ -107,6 +107,14 @@ class ErrorCorr(Process):
             callback_qber_exceed = None,
             callback_pol_comp_qber = None, #Note: For passive polarization compensation, not implemented yet.
         ):
+        """
+
+        Note:
+            The remote connection id is cached upon starting error correction, to avoid
+            race condition when configuration reload is triggered while errcd is still
+            running. If no remote connection id is available, the notification pipe format
+            will follow the original specification, i.e. newline-delimited epoch filenames.
+        """
         assert not self.is_running()
         self._reset()
 
@@ -115,6 +123,7 @@ class ErrorCorr(Process):
         self._callback_pol_comp = callback_pol_comp_qber
         self._callback_restart = callback_restart
         self._callback_qber_exceed = callback_qber_exceed
+        self.remote_connection_id = getattr(Process.config, "remote_connection_id", None)
 
         args = [
             '-c', PipesQKD.ECCMD,
@@ -157,8 +166,13 @@ class ErrorCorr(Process):
             *_,
         ) = message.split()
 
-        self.write(self._callback_guardian_note, message =self._ec_epoch)
-        logger.info(f'Sent {self._ec_epoch} to notify.pipe.')
+        if self.remote_connection_id is not None:
+            notification = f"{self._ec_epoch} {self.remote_connection_id}"
+        else:
+            notification = self._ec_epoch
+        self.write(self._callback_guardian_note, message=notification)
+        logger.info(f'Sent {notification} to notify.pipe.')
+
         self._ec_key_gen_rate = self.ec_final_bits / (self.ec_nr_of_epochs * EPOCH_DURATION)
         logger.debug(f'Rate is {self.ec_key_gen_rate} bps.')
         if not self.total_ec_key_bits:
