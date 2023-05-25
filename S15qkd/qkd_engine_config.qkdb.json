@@ -1,4 +1,20 @@
 {
+  "connections": {
+    "QKDE0001": {
+      "remote_connection_id": "QKDE0001",
+      "target_hostname": "a.qkd.external",
+      "remote_cert": "authd.qkda.cert",
+      "do_polarization_compensation": true
+    },
+    "QKDE0003": {
+      "remote_connection_id": "QKDE0003",
+      "target_hostname": "c.qkd.external",
+      "remote_cert": "authd.qkdc.cert",
+      "do_polarization_compensation": true
+    }
+  },
+  "remote_connection_id": "QKDE0001",
+  "local_connection_id": "QKDE0002",
   "target_hostname": "a.qkd.external",
   "remote_cert": "authd.qkda.cert",
   "local_cert": "authd.qkdb.cert",

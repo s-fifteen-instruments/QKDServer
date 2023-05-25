@@ -41,11 +41,20 @@ class Process:
         self._expect_running = False  # See monitor() below.
     
     @classmethod
-    def load_config(cls, path=None):
+    def load_config(cls, path=None, conn_id: Optional[str] = None):
         if not path:
             path = qkd_globals.config_file
         with open(path, 'r') as f:
-            cls.config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+            config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+
+        # Apply configuration override
+        if conn_id:
+            if hasattr(config.connections, conn_id):
+                config.__dict__.update(**getattr(config.connections, conn_id).__dict__)
+            else:
+                logger.error(f"No connection ID with '{conn_id}'.")
+
+        cls.config = config
 
     def start(
             self,
