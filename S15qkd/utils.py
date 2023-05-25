@@ -39,7 +39,10 @@ class Process:
         self.process = None
         self._persist_read = None  # See read() below.
         self._expect_running = False  # See monitor() below.
-    
+        self.stop_event = threading.Event()
+        self._internal_threads = []
+        self._read_pipes = []
+
     @classmethod
     def load_config(cls, path=None, conn_id: Optional[str] = None):
         if not path:
@@ -161,17 +164,31 @@ class Process:
         # Activate callback restart only if defined
         if callback_restart:
             self._expect_running = True
-            self.monitor(callback_restart)
+            self.monitor(callback_restart,self.stop_event)
     
     def stop(self, timeout=3):
         if self.process is None:
             return
 
-        self._expect_running = False
-
         # Stop persistence read pipes attached to process
         if self._persist_read:
             self._persist_read = False
+
+        self.stop_event.set()
+        for pipe in self._read_pipes:
+            fd = os.open(pipe, os.O_WRONLY)
+            pipe = os.fdopen(fd, 'w')
+            pipe.write("\n")
+
+        if self._expect_running:
+            self._expect_running = False
+            try:
+                for thread in self._internal_threads:
+                    logger.debug(f"{thread.name} is alive {thread.is_alive()}")
+            except RuntimeError as msg:
+                logger.debug(f"{thread} Thread closed. {msg}")
+            finally:
+                self._internal_threads.clear()
 
         try:
             # 'qcrypto' likely does not have child processes, but
@@ -196,7 +213,11 @@ class Process:
         except psutil.NoSuchProcess:
             logger.debug(f"Process '{self.process}' already prematurely terminated ('{self.program}')")
 
+        except AttributeError:
+            logger.debug(f"Process went missing. ({self.program})")
+
         self.process = None
+        self.stop_event.clear()
 
     def wait(self):
         self._expect_running = False
@@ -230,6 +251,7 @@ class Process:
                     name = pipe
                 # Create file descriptor for read-only non-blocking pipe
                 # TODO(Justin): Why must a single threaded pipe read be non-blocking?
+                self._read_pipes.append(pipe) # pipe is still a path here
                 fd = os.open(pipe, os.O_RDONLY)
                 # Open file descriptor with *no* buffer
                 pipe = os.fdopen(fd, 'r')
@@ -248,7 +270,7 @@ class Process:
                 if self._persist_read is not None:
                     predicate = lambda: self._persist_read
 
-                while predicate():
+                while predicate() and not self.stop_event.is_set():
                     if wait:
                         time.sleep(wait)
 
@@ -270,6 +292,8 @@ class Process:
 
         thread = threading.Thread(target=func, args=(pipe,name))
         thread.start()
+        self._internal_threads.append(thread)
+        return thread
     
     @staticmethod
     def write(target, message: str, name=''):
@@ -294,7 +318,7 @@ class Process:
             name = path
         logger.debug(f"'{message}' written to '{name}'.")
 
-    def monitor(self, callback_restart):
+    def monitor(self, callback_restart, stop_event):
         """Restarts keygen if process terminates without a wait/stop trigger.
         
         Polls performed every 1 second.
@@ -302,11 +326,10 @@ class Process:
         
         def monitor_daemon():
             time.sleep(2)
-            while self._expect_running:
+            while self._expect_running and not stop_event.is_set():
                 if not self.is_running():
                     logger.debug(f"Activated process monitor for '{self.program}' ('{self.process}')")
                     callback_restart()
-                    return
                 time.sleep(2)
             logger.debug(f"Terminated process monitor for '{self.program}' ('{self.process}')")
     
@@ -314,12 +337,16 @@ class Process:
         thread = threading.Thread(target=monitor_daemon)
         thread.daemon = True
         thread.start()
+        self._internal_threads.append(thread)
+        return thread
 
     def start_thread_method(self, method_name: FunctionType):
         logger.debug(f"Started method {method_name} for '{self.program}' ('{self.process}')")
         thread = threading.Thread(target = method_name)
         thread.daemon = True
         thread.start()
+        self._internal_threads.append(thread)
+        return thread
 
 class HeadT1(NamedTuple):
     tag: int
@@ -378,7 +405,9 @@ def read_T3_header(file_name: str) -> Optional[HeadT3]:
     if Path(file_name).is_file():
         with open(file_name, 'rb') as f:
             head_info = f.read(16) # 16 bytes of T3 header https://qcrypto.readthedocs.io/en/documentation/file%20specification.html
-
+    else:
+        headt3 = HeadT3(3,int(file_name.split('/')[-1],16),0,0)
+        return headt3
     headt3 = HeadT3._make(unpack('iIIi', head_info)) #int, unsigned int, unsigned int, int
     if (headt3.tag != 0x103 and headt3.tag != 3) :
         logger.error(f'{file_name} is not a Type3 header file')
@@ -447,5 +476,6 @@ def service_T3(file_name: str) -> Optional[ServiceT3]:
     service.qber = float(round(er_coin /(er_coin + gd_coin),3)) #ignore garbage
     return service
 
-
+def epoch_after(epoch: str, added: int) -> str:
+    return hex(int(epoch,16) + added)[2:]
 

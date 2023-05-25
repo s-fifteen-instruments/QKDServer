@@ -32,6 +32,7 @@ SOFTWARE.
 
 # Built-in/Generic Imports
 import pathlib
+import threading
 import time
 from typing import Optional
 
@@ -159,7 +160,8 @@ class Controller:
         """
         # Responsibility for upkeeping connection should lie with 'transferd'
         # i.e. 'transferd' should not drop out if connection established.
-        if self.transferd.is_connected():
+        self._await_reply = 0
+        if self.transferd.is_running():
             return
         
         # MSGIN / MSGOUT pipes need to be ready prior to communication
@@ -219,6 +221,7 @@ class Controller:
 
         # Restart transferd
         self._establish_connection()
+        self._set_symmetry()
 
     # TODO(Justin): Rename to 'stop' and update callback in QKD_status.py
     def stop_key_gen(self, inform_remote: bool = True):
@@ -272,6 +275,7 @@ class Controller:
 
         # Initiate SERVICE mode
         self.send("serv_st1")
+        self._expect_reply(timeout=10)
 
     def start_key_generation(self):
         """Restarts key generation mode.
@@ -285,10 +289,11 @@ class Controller:
         
         # Initiate symmetry negotiation
         #self._negotiate_symmetry()
-        time.sleep(0.8)
+        #time.sleep(0.8)
         
         # Initiate BBM92 mode
         self.send("st1")
+        self._expect_reply(timeout=10)
 
     def restart_protocol(self):
         """Restarts respective SERVICE/KEYGEN mode.
@@ -303,9 +308,9 @@ class Controller:
     def reset_timestamp(self):
         """Stops readevents, resets timestamp and restart"""
         self.readevents.powercycle()
-        time.sleep(3) # at least 2 seconds needed for the chip to powerdown
+        time.sleep(2) # at least 2 seconds needed for the chip to powerdown
         self.stop_key_gen()
-        time.sleep(7) # at least 2 seconds needed for the monitors to end.
+        time.sleep(2) # at least 2 seconds needed for the monitors to end.
         self.restart_protocol()
 
     def callback_epoch(self, msg):
@@ -313,6 +318,20 @@ class Controller:
          and if LCVR exist"""
         if self._qkd_protocol == QKDProtocol.SERVICE and self.polcom:
             self.polcom.send_epoch(msg)
+        else:
+            None
+
+    def recompensate_service(self):
+        """Convenience function"""
+        if self.transferd.low_count_side:
+            self.BBM92_to_service()
+        else:
+            None
+
+    def drift_secure_comp(self,qber,epoch):
+        """Convenience function"""
+        if self.polcom:
+            self.polcom.update_QBER_secure(qber,epoch)
         else:
             None
 
@@ -329,10 +348,34 @@ class Controller:
         """Convenience method to forward messages to transferd."""
         return self.transferd.send(message)
 
+    def _expect_reply(self, timeout: int):
+        self._got_st1_reply = False
+        if self._await_reply > 5:
+            logger.debug(f'Awaited for {self._await_reply} times. Restarting transferd.')
+            self.restart_transferd()
+            time.sleep(1)
+            self._await_reply = 0
+            self.restart_protocol()
+            return
+        now = time.time()
+        def reply_daemon():
+            time.sleep(0.1)
+            while not self._got_st1_reply:
+                if time.time() - now > timeout:
+                    logger.debug(f'No reply within {timeout} s for st1')
+                    self._await_reply += 1
+                    self.restart_protocol()
+                    return
+            return
+        thread = threading.Thread(target=reply_daemon)
+        thread.daemon = True
+        thread.start()
+        return
+
     @requires_transferd
     def _set_symmetry(self):
         """Sets Symmetry through pol_com status"""
-        if not self.polcom:
+        if self.polcom:
             self.transferd._low_count_side = False
         else:
             self.transferd._low_count_side = True
@@ -401,6 +444,8 @@ class Controller:
         # Whole process flow should kick off with low count side sending '*st1' message
         # 'serv_st1' is equivalent to a 'START' command
         if seq == "st1":
+            self._got_st1_reply = True
+            self._await_reply = 0
             if low_count_side:
                 # Reflect message back to high_count_side
                 self.transferd.send(prepend_if_service("st1"))
@@ -415,6 +460,8 @@ class Controller:
             self.pol_com_walk()
 
         if seq == "st2":
+            self._got_st1_reply = True
+            self._await_reply = 0
             if not low_count_side:
                 logger.error(f"High count side should not have received: {code}")
                 return
@@ -468,18 +515,12 @@ class Controller:
             )
         if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
             if not self.errc.is_running():
-                if low_count_side:
-                    self.errc.start(
-                        qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
-                        self.start_service_mode, # restart protocol   
-                        self.BBM92_to_service, # protocol for exceeding qber_limit
-                   )
-                else:
-                    self.errc.start(
-                        qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
-                        self.start_service_mode, # restart protocol 
+                self.errc.start(
+                    qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
+                    self.start_service_mode, # restart protocol
+                    self.recompensate_service, # protocol for exceeding qber_limit
+                    self.drift_secure_comp,
                     )
-
     @requires_transferd
     def BBM92_to_service(self):
         """Stops the programs which needs protocol, namely
@@ -494,10 +535,10 @@ class Controller:
             self.send('st_to_serv')
             self.splicer.stop()
             self.chopper.stop()
-            self.errc.empty()
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
-            time.sleep(1.2) # to allow chopper and splicer to end gracefully
+            time.sleep(1.9) # to allow chopper and splicer to end gracefully
+            self.errc.empty()
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,
@@ -509,7 +550,10 @@ class Controller:
             # Assume called from (errc) low count side. Only need to restart costream with elapsed time difference and new epoch
             
             # Get current time difference before stopping costream
-            td = int(self._time_diff) - int(self.costream.latest_deltat)
+            try:
+                td = int(self._time_diff) - int(self.costream.latest_deltat)
+            except TypeError:
+                self.restart_protocol()
             last_secure_epoch = self.transferd.last_received_epoch
             #
             self.costream.stop()
@@ -604,7 +648,7 @@ class Controller:
             self.chopper.stop()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
-            time.sleep(1.2) # to allow chopper and splicer to end gracefully
+            time.sleep(1.9) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,
@@ -616,7 +660,10 @@ class Controller:
             # Assume called from polcom (High) side. Only need to restart costream with elapsed time difference and new epoch
             
             # Get current time difference before stopping costream
-            td = int(self._time_diff) - int(self.costream.latest_deltat)
+            try:
+                td = int(self._time_diff) - int(self.costream.latest_deltat)
+            except TypeError:
+                self.restart_protocol()
             last_service_epoch = self.transferd.last_received_epoch
             #
             self.costream.stop()
@@ -644,17 +691,12 @@ class Controller:
             logger.debug(f'costream restarted')
         if Process.config.error_correction:
             if not self.errc.is_running():
-                if low_count_side:
-                    self.errc.start(
-                        qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
-                        self.start_service_mode, # restart protocol
-                        self.BBM92_to_service, # protocol for exceeding qber_limit
+                self.errc.start(
+                    qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
+                    self.start_service_mode, # restart protocol
+                    self.recompensate_service, # protocol for exceeding qber_limit
+                    self.drift_secure_comp,
                    )
-                else:
-                    self.errc.start(
-                        qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
-                        self.start_service_mode, # restart protocol
-                    )
 
     @requires_transferd
     def _retrieve_secure_remote_epoch(self, last_service_epoch: str ):

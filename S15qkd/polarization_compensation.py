@@ -57,7 +57,7 @@ EPOCH_DURATION = 0.537
 MAX_UPDATE_NUM = 1100 # ~ 10 minutes
 
 def qber_cost_func(qber: float, desired_qber: float = 0.05, amplitude: float = 8.5, exponent: float = 1.5) -> float:
-    return amplitude * abs(qber - desired_qber)**exponent
+    return amplitude * (max(qber,desired_qber)-desired_qber)**exponent
 
 def get_current_epoch():
     """Returns the current epoch in integer.
@@ -410,6 +410,21 @@ class PolComp(object):
                 return_val.append(ret)
         return return_val
 
+    def update_QBER_secure(self, qber: float, epoch:str = None):
+        if not self.epoch_passed(epoch):
+            return # start a
+        if qber < self._last_qber:
+            self.last_voltage_list = self.set_voltage.copy()
+            self.last_retardances = self.retardances.copy()
+            self.lcvr_narrow_down2(qber)
+            self._last_qber= qber
+        else:
+            self.set_voltage = self.last_voltage_list.copy()
+            self.retardances = self.last_retardances.copy()
+            self.lcvr_narrow_down2(self._last_qber)
+        self.next_epoch = get_current_epoch()
+        logger.debug(f'Next epoch set to "{hex(self.next_epoch)[2:]}".')
+
     def update_QBER(self, qber: float, qber_threshold: float = 0.085, epoch: str = None):
         self.qber_counter += 1
         if self.qber_counter < 10: # in case pfind finds a bad match, we don't want to change the lcvr voltage too early
@@ -437,6 +452,8 @@ class PolComp(object):
                 self.averaging_n = 10
             if qber_mean < qber_threshold:
                 np.savetxt(self.LCR_params.volt_file, [self.set_voltage])
+                self.last_voltage_list = self.set_voltage.copy()
+                self.last_retardances = self.retardances.copy()
                 self._callback()
                 self._last_qber= qber_mean
                 logger.info(f'BBM92 called')
@@ -476,14 +493,12 @@ class PolComp(object):
         logger.debug(f'Kicked to new voltage.')
 	
     def lcvr_narrow_down(self,  curr_qber: float):
-        
         ret_range = qber_cost_func(curr_qber)
         delta_phis = [0]*4
         phis = [0]*4
         lcvr_to_adjust = [0, 1, 2, 3] # only adjust these lcvr in n-D search
         lcvr_to_fix = [] # keep these lcvr phase fixed
         logger.debug(f'Phis began with {phis},self.retardances {self.retardances}, delta_phis {delta_phis},voltage {self.set_voltage}')
-
         for i in lcvr_to_fix:
             phis[i] = self.retardances[i]
         for i in lcvr_to_adjust:
@@ -496,7 +511,26 @@ class PolComp(object):
             self.retardances[i] = phi_ret[i]
         self._set_voltage()
         logger.debug(f'Phis are {phis},self.retardances {self.retardances}, delta_phis {delta_phis},voltage {self.set_voltage}')
-        #self._set_retardance(phis)
+
+    def lcvr_narrow_down2(self,  curr_qber: float):
+        ret_range = qber_cost_func(curr_qber)
+        delta_phis = [0]*4
+        phis = [0]*4
+        lcvr_to_adjust = [2, 3] # only adjust these lcvr in n-D search
+        lcvr_to_fix = [0, 1] # keep these lcvr phase fixed
+        logger.debug(f'Phis began with {phis},self.retardances {self.retardances}, delta_phis {delta_phis},voltage {self.set_voltage}')
+        for i in lcvr_to_fix:
+            phis[i] = self.retardances[i]
+        for i in lcvr_to_adjust:
+            delta_phis[i] = np.random.uniform(-ret_range, ret_range)
+            phis[i] = self.retardances[i] + delta_phis[i]
+        phis = self.bound_retardance(phis)
+        volt_ret,phi_ret = self._calculate_voltages(phis)
+        for i in lcvr_to_adjust:
+            self.set_voltage[i] = volt_ret[i]
+            self.retardances[i] = phi_ret[i]
+        self._set_voltage()
+        logger.debug(f'Phis are {phis},self.retardances {self.retardances}, delta_phis {delta_phis},voltage {self.set_voltage}')
 
     @property
     def voltage(self) -> list:
@@ -517,39 +551,4 @@ class PolComp(object):
     @property
     def last_qber(self) -> float:
         return self._last_qber
-
-
-
-import os
-
-LCR_VOLT_FILENAME = 'latest_LCR_voltages.txt'
-
-LCVR1_CALLIBRATION_FILEPATH = 'lcvr_callibration.csv'
-LCVR2_CALLIBRATION_FILEPATH = 'lcvr_callibration.csv'
-
-# Lookup table to convert retardances to LCVR voltages
-
-class PolarizationDriftCompensation(object):
-    def __init__(self, lcr_path: str = '/dev/serial/by-id/usb-S-Fifteen_Instruments_Quad_LCD_driver_LCDD-001-if00',
-                 averaging_n: int = 5):
-        self.lcr_driver = LCRDriver(lcr_path)
-        self.lcr_driver.all_channels_on()
-        self.averaging_n = averaging_n
-        self.LCRvoltages_file_name = LCR_VOLT_FILENAME
-        if not os.path.exists(self.LCRvoltages_file_name):
-            #np.savetxt(self.LCRvoltages_file_name, [1.85, 3.01, 2.99, 4.36])
-            np.savetxt(self.LCRvoltages_file_name, [4.781, 1.625, 2.104, 3.963])
-        self.V1, self.V2, self.V3, self.V4 = np.genfromtxt(
-            self.LCRvoltages_file_name).T
-        self.lcr_driver.V1 = self.V1
-        self.lcr_driver.V2 = self.V2
-        self.lcr_driver.V3 = self.V3
-        self.lcr_driver.V4 = self.V4
-        self.last_voltage_list = [self.V1, self.V2, self.V3, self.V4]
-        self.qber_list = []
-        self._last_qber = 1
-        self.qber_counter = 0
-        self.next_epoch = None
-        self.stokes_v = []
-
 

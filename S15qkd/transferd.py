@@ -83,7 +83,12 @@ class Transferd(Process):
             callback_localrate=None,  # to readevents measurement
             callback_restart=None,    # to restart keygen
         ):
-        assert not self.is_running()
+        try:
+            assert not self.is_running()
+        except AssertionError as msg:
+            logger.error(f'{msg} Assertion error')
+            time.sleep(0.1)
+
         if self.communication_status != CommunicationStatus.DISCONNECTED:
             return
 
@@ -174,7 +179,10 @@ class Transferd(Process):
             message: Response from remote transferd (optional)
             callback_localrate: ...
         """
-        assert self.is_connected()
+        try:
+            assert self.is_connected()
+        except AssertionError as msg:
+            print(msg)
 
         # Negotiation was done, skip
         if self._low_count_side is not None and self._negotiating == SymmetryNegotiationState.FINISHED:
