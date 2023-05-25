@@ -72,6 +72,12 @@ class Controller:
         Process.load_config()
         dir_qcrypto = pathlib.Path(Process.config.program_root)
 
+        # TODO:
+        #   Short-term: Add 'S15qkd' directory to configuration and call authd.py
+        #     relative to imported directory, just like 'dir_qcrypto' above.
+        #   Long-term: Subclass 'authd' as a Process, to use the same logging
+        #     mechanisms.
+        self.authd = Process("python3 /root/code/QKDServer/S15qkd/authd.py")
         self.readevents = Readevents(dir_qcrypto / 'readevents')
         self.transferd = Transferd(dir_qcrypto / 'transferd')
         self.chopper = Chopper(dir_qcrypto / 'chopper')
@@ -80,6 +86,46 @@ class Controller:
         self.splicer = Splicer(dir_qcrypto / 'splicer')
         self.pfind = Pfind(dir_qcrypto / 'pfind')
         self.errc = ErrorCorr(dir_qcrypto / 'errcd')
+
+        self._initialize_pipes()  # cryptostuff directory needed to allow authd to write to file
+        self.restart_authd()
+
+        if Process.config.do_polarization_compensation:
+            self.polcom = PolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
+        else:
+            self.polcom = None
+            self.callback_epoch = None
+        # Statuses
+        self.qkd_engine_state = QKDEngineState.OFF
+        self._qkd_protocol = QKDProtocol.SERVICE  # TODO(Justin): Deprecate this field.
+        self._reset()
+
+        # Auto-initialization when server starts up
+        self._establish_connection()
+
+        self._set_symmetry()
+
+    def restart_authd(self):
+        config = Process.config
+        self.authd.stop()
+        self.authd.start([
+            "-H", config.target_hostname,
+            "-p", config.port_authd,
+            "-P", config.port_transd,
+            "-r", config.remote_cert,
+            "-c", config.local_cert,
+            "-k", config.local_key,
+        ],
+        stderr="authd.err")
+
+    def reload_configuration(self, conn_id: Optional[str] = None):
+        self.stop_key_gen()
+
+        Process.load_config(conn_id=conn_id)
+        self.restart_authd()
+        self.restart_transferd()  # restart to force out of inconsistent state
+
+        # No need to teardown PolComp, as long as no interaction with device
         if Process.config.do_polarization_compensation:
             self.polcom = PolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
         else:
@@ -764,4 +810,7 @@ def get_error_corr_info():
 
 def restart_transferd():
     return controller.restart_transferd()
+
+def reload_configuration(conn_id):
+    return controller.reload_configuration(conn_id)
 

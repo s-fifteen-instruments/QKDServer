@@ -11,10 +11,6 @@
 # Comment this line out in production environment.
 cd /root/code/QKDServer && pip install -e .
 
-# Start authd in subprocess
-# Note authd will automatically terminate when this script (gunicorn) exits
-cd /root/code/QKDServer/S15qkd && python3 authd.py &
-
 # Optionally adds server certificate if cert/key pair exists in 'certs' subdirectory
 CERT=/root/code/QKDServer/Settings_WebClient/certs/cert.crt
 KEY=/root/code/QKDServer/Settings_WebClient/certs/cert.key
