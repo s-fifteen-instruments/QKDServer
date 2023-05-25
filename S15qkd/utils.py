@@ -139,7 +139,8 @@ class Process:
 
         # Run program in child process
         # psutil.Popen used for continuous tracking of PID
-        command = [self.program, *list(map(str, args))]
+        # Preprocess command string with whitespace-splitting to allow calling of stacked programs
+        command = [*str(self.program).split(" "), *list(map(str, args))]
         self.process = psutil.Popen(
             command,
             stdin=stdin,
