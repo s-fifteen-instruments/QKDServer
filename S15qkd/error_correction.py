@@ -180,6 +180,8 @@ class ErrorCorr(Process):
             else:
                 notification = self._ec_epoch
             self.write(self._callback_guardian_note, message=notification)
+            with open("/epoch_files/notified", "a+") as file:
+                file.write(f"{notification}\n")
             logger.info(f'Sent {notification} to notify.pipe.')
 
             # Flip key direction
