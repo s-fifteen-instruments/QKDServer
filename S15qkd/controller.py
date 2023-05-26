@@ -131,7 +131,6 @@ class Controller:
             self.polcom = PolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
         else:
             self.polcom = None
-            self.callback_epoch = None
         # Statuses
         self.qkd_engine_state = QKDEngineState.OFF
         self._qkd_protocol = QKDProtocol.SERVICE  # TODO(Justin): Deprecate this field.
