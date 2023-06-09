@@ -216,7 +216,7 @@ class Controller:
     # MAIN CONTROL METHODS
     def restart_transferd(self):
         """ Stops and restarts tranferd"""
-        self.stop_key_gen()
+        self.stop_key_gen(inform_remote=False)
         self.transferd.stop()
         self.qkd_engine_state = QKDEngineState.OFF
         qkd_globals.PipesQKD.drain_all_pipes()
