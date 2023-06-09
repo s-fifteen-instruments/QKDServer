@@ -91,10 +91,15 @@ class Controller:
         self._initialize_pipes()  # cryptostuff directory needed to allow authd to write to file
         self.restart_authd()
 
-        if Process.config.do_polarization_compensation:
+        if Process.config.LCR_polarization_compensator_path is not "":
             self.polcom = PolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
+            if Process.config.do_polarization_compensation:
+                self.polcom.do_polcom = True
+            else:
+                self.polcom.do_polcom = False
+                self.callback_epoch = None
         else:
-            self.polcom = None
+            self.polcom.do_polcom = False
             self.callback_epoch = None
         # Statuses
         self.qkd_engine_state = QKDEngineState.OFF
@@ -120,7 +125,6 @@ class Controller:
         stderr="authd.err")
 
     def reload_configuration(self, conn_id: Optional[str] = None):
-        self.stop_key_gen()
 
         Process.load_config(conn_id=conn_id)
         self.restart_authd()
@@ -128,9 +132,9 @@ class Controller:
 
         # No need to teardown PolComp, as long as no interaction with device
         if Process.config.do_polarization_compensation:
-            self.polcom = PolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
+            self.polcom.do_polcom = True
         else:
-            self.polcom = None
+            self.polcom.do_polcom = False
         # Statuses
         self.qkd_engine_state = QKDEngineState.OFF
         self._qkd_protocol = QKDProtocol.SERVICE  # TODO(Justin): Deprecate this field.
@@ -315,7 +319,7 @@ class Controller:
     def callback_epoch(self, msg):
         """ Only send epochs to polarization compensation in servicemode
          and if LCVR exist"""
-        if self._qkd_protocol == QKDProtocol.SERVICE and self.polcom:
+        if self._qkd_protocol == QKDProtocol.SERVICE and self.polcom.do_polcom:
             self.polcom.send_epoch(msg)
         else:
             None
@@ -329,13 +333,13 @@ class Controller:
 
     def drift_secure_comp(self,qber,epoch):
         """Convenience function"""
-        if self.polcom:
+        if self.polcom.do_polcom:
             self.polcom.update_QBER_secure(qber,epoch)
         else:
             None
 
     def pol_com_walk(self):
-        if self._qkd_protocol == QKDProtocol.SERVICE and self.polcom:
+        if self._qkd_protocol == QKDProtocol.SERVICE and self.polcom.do_polcom:
             self.polcom.do_walks(0)
             logger.debug(f'do walk started')
         else:
@@ -374,7 +378,7 @@ class Controller:
     @requires_transferd
     def _set_symmetry(self):
         """Sets Symmetry through pol_com status"""
-        if self.polcom:
+        if self.polcom.do_polcom:
             self.transferd._low_count_side = False
         else:
             self.transferd._low_count_side = True
@@ -640,7 +644,7 @@ class Controller:
         that pfind found should still be correct.
         """
         low_count_side = self.transferd.low_count_side
-        if self.polcom:
+        if self.polcom.do_polcom:
             self.send('serv_to_st')
         if low_count_side:  
             self.splicer.stop()
@@ -793,7 +797,7 @@ class Controller:
             'coincidences': self.costream.latest_coincidences,
             'accidentals': self.costream.latest_accidentals,
             'protocol': self._qkd_protocol,
-            'last_qber': self.polcom.last_qber if self.polcom and self._qkd_protocol is QKDProtocol.SERVICE  else '',
+            'last_qber': self.polcom.last_qber if self.polcom.do_polcom and self._qkd_protocol is QKDProtocol.SERVICE  else '',
         }
 
     def get_error_corr_info(self):
