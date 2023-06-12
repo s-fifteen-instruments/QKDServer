@@ -31,9 +31,9 @@
   "FFT_buffer_order": 25,
   "local_detector_skew_correction": {
     "det1corr": 0,
-    "det2corr": -1735,
-    "det3corr": 15,
-    "det4corr": -217
+    "det2corr": -1536,
+    "det3corr": 206,
+    "det4corr": -1002
   },
   "max_event_time_pause": 20000,
   "autorestart_costream": true,
