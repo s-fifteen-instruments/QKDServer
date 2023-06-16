@@ -92,7 +92,7 @@ class Controller:
         self._initialize_pipes()  # cryptostuff directory needed to allow authd to write to file
         self.restart_authd()
 
-        if Process.config.LCR_polarization_compensator_path is not "":
+        if Process.config.LCR_polarization_compensator_path != "":
             self.polcom = PolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
             if Process.config.do_polarization_compensation:
                 self.do_polcom = True
@@ -124,6 +124,10 @@ class Controller:
             "-k", config.local_key,
         ],
         stderr="authd.err")
+
+    def restart_connection(self):
+        self.restart_authd()
+        self.restart_transferd()  # restart to force out of inconsistent state
 
     def update_config(self):
         curr_conn = Process.config.remote_connection_id
@@ -818,6 +822,7 @@ class Controller:
             'accidentals': self.costream.latest_accidentals,
             'protocol': self._qkd_protocol,
             'last_qber': self.polcom.last_qber if self.do_polcom and self._qkd_protocol is QKDProtocol.SERVICE  else '',
+            'remote':  Process.config.target_hostname,
         }
 
     def get_error_corr_info(self):
@@ -875,6 +880,9 @@ def get_error_corr_info():
 
 def restart_transferd():
     return controller.restart_transferd()
+
+def restart_connection():
+    return controller.restart_connection()
 
 def reload_configuration(conn_id):
     return controller.reload_configuration(conn_id)

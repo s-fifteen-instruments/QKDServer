@@ -64,6 +64,7 @@ def serve_layout():
     ])
 
     # Raw key generation status
+    remote = html.Div(['Remote target: ', html.Nobr(id='remote')])
     connection_status = html.Div(['Connection status: ', html.Nobr(id='connection_status')])
     symmetry_status = html.Div(['Symmetry: ', html.Nobr(id='symmetry')])
     protocol_status = html.Div(['Protocol: ', html.Nobr(id='protocol')])
@@ -79,6 +80,7 @@ def serve_layout():
     status_labels = dbc.Card([
         dbc.CardHeader(html.H4("Raw key generation")),
         dbc.CardBody([
+            remote,
             connection_status,
             symmetry_status,
             protocol_status,
@@ -138,7 +140,7 @@ def serve_layout():
     # Start and stop key generation buttons
     start_key_gen_button = dbc.Button('Start key generation', color="success", id='start_raw_key_gen')
     kill_all_processes_button = dbc.Button('Stop all processes', color="danger", id='kill_all_processes')
-    restart_transferd_button = dbc.Button('Restart transferd', color="danger", id='restart_transferd')
+    restart_transferd_button = dbc.Button('Restart connection', color="danger", id='restart_transferd')
 
     # Time interval between queries for presence of qcrypto processes
     proc_status_interval = dcc.Interval(
@@ -224,6 +226,7 @@ raw_keygen_info_list = [
     'coincidences',
     'accidentals',
     'last_qber',
+    'remote',
 ]
 
 @app.callback(
@@ -234,6 +237,7 @@ def load_state_info(n):
     status_dct = qkd_ctrl.get_status_info()
     status_dct['symmetry'] = symmetry_matching[status_dct['symmetry']]
     status_dct['protocol'] = 'BBM92 mode' if status_dct['protocol'] == 1 else 'Service mode'
+    status_dct['remote'] = status_dct['remote'] if status_dct['connection_status'] == 1 else ''
     return [status_dct[info] for info in raw_keygen_info_list]
 
 
@@ -360,5 +364,5 @@ def on_kill_button_click(n):
 def on_kill_button_click(n):
     if n is None:
         raise PreventUpdate
-    qkd_ctrl.restart_transferd()
+    qkd_ctrl.restart_connection()
     return ''
