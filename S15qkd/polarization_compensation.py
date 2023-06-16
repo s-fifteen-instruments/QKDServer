@@ -83,7 +83,6 @@ class PolComp(object):
 
     #@dataclass
     class LCR_V(NamedTuple):
-        volt_file: str
         V1: float
         V2: float
         V3: float
