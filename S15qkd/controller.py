@@ -810,7 +810,7 @@ class Controller:
 
     def get_status_info(self):
         return {
-            'connection_status': self.transferd.communication_status,
+            'connection_status': Process.config.target_hostname if self.transferd.communication_status else '',
             'state': self.qkd_engine_state,  # TODO(Justin): Possible to replace protocol?
             'last_received_epoch': self.transferd.last_received_epoch,
             'init_time_diff': self._time_diff,
@@ -822,7 +822,6 @@ class Controller:
             'accidentals': self.costream.latest_accidentals,
             'protocol': self._qkd_protocol,
             'last_qber': self.polcom.last_qber if self.do_polcom and self._qkd_protocol is QKDProtocol.SERVICE  else '',
-            'remote':  Process.config.target_hostname,
         }
 
     def get_error_corr_info(self):

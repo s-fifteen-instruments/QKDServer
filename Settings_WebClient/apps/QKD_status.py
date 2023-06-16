@@ -64,8 +64,7 @@ def serve_layout():
     ])
 
     # Raw key generation status
-    remote = html.Div(['Remote target: ', html.Nobr(id='remote')])
-    connection_status = html.Div(['Connection status: ', html.Nobr(id='connection_status')])
+    connection_status = html.Div(['Remote target: ', html.Nobr(id='connection_status')])
     symmetry_status = html.Div(['Symmetry: ', html.Nobr(id='symmetry')])
     protocol_status = html.Div(['Protocol: ', html.Nobr(id='protocol')])
     init_time_diff_status = html.Div(['Initial time difference: ', html.Nobr(id='init_time_diff')])
@@ -80,7 +79,6 @@ def serve_layout():
     status_labels = dbc.Card([
         dbc.CardHeader(html.H4("Raw key generation")),
         dbc.CardBody([
-            remote,
             connection_status,
             symmetry_status,
             protocol_status,
@@ -226,7 +224,6 @@ raw_keygen_info_list = [
     'coincidences',
     'accidentals',
     'last_qber',
-    'remote',
 ]
 
 @app.callback(
@@ -237,7 +234,6 @@ def load_state_info(n):
     status_dct = qkd_ctrl.get_status_info()
     status_dct['symmetry'] = symmetry_matching[status_dct['symmetry']]
     status_dct['protocol'] = 'BBM92 mode' if status_dct['protocol'] == 1 else 'Service mode'
-    status_dct['remote'] = status_dct['remote'] if status_dct['connection_status'] == 1 else ''
     return [status_dct[info] for info in raw_keygen_info_list]
 
 
