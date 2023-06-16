@@ -471,7 +471,6 @@ class PolComp(object):
             if qber_mean < 0.12:
                 self.averaging_n = 4000
             if qber_mean < qber_threshold:
-                np.savetxt(self.LCR_params.volt_file, [self.set_voltage])
                 self.last_voltage_list = self.set_voltage.copy()
                 self.last_retardances = self.retardances.copy()
                 self._callback()
