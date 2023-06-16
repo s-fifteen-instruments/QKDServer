@@ -100,6 +100,7 @@ class Controller:
                 self.do_polcom = False
                 self.callback_epoch = None
         else:
+            self.polcom = None
             self.do_polcom = False
             self.callback_epoch = None
         # Statuses
