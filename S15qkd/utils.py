@@ -19,6 +19,17 @@ import psutil
 from S15qkd import qkd_globals
 from S15qkd.qkd_globals import QKDProtocol, logger, PipesQKD, FoldersQKD
 
+def class2dict(instance, built_dict={}):
+    """Converts nested class items into nested dictionaries
+       https://stackoverflow.com/a/63906646
+    """
+    if not hasattr(instance, "__dict__"):
+        return instance
+    new_subdic = vars(instance)
+    for key, value in new_subdic.items():
+        new_subdic[key] = class2dict(value)
+    return new_subdic
+
 class Process:
     """Represents a single process.
 
@@ -58,6 +69,15 @@ class Process:
                 logger.error(f"No connection ID with '{conn_id}'.")
 
         cls.config = config
+
+    @classmethod
+    def save_config(cls, path=None, conn_id: Optional[str] = None):
+        if not path:
+            path = qkd_globals.config_file
+        if cls.config is None:
+            return
+        with open(path, 'w') as f:
+            json.dump(class2dict(cls.config), f, indent=2)
 
     def start(
             self,

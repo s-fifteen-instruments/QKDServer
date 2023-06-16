@@ -51,7 +51,7 @@ class Readevents(Process):
             callback_restart=None,
             callback_stop=None,
             blindmode=241,
-            level1=880,
+            level1=1080,
             level2=0,
         ):
         try:

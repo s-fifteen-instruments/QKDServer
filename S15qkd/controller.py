@@ -35,6 +35,7 @@ import pathlib
 import threading
 import time
 from typing import Optional
+from types import SimpleNamespace
 
 # Internal processes
 from .transferd import Transferd, SymmetryNegotiationState
@@ -124,13 +125,31 @@ class Controller:
         ],
         stderr="authd.err")
 
-    def reload_configuration(self, conn_id: Optional[str] = None):
+    def update_config(self):
+        curr_conn = Process.config.remote_connection_id
+        if self.polcom:
+            Process.config.connections.__dict__[curr_conn].LCR_volt_info = SimpleNamespace()
+            Process.config.connections.__dict__[curr_conn].LCR_volt_info.V1 = self.polcom.lcr.V1
+            Process.config.connections.__dict__[curr_conn].LCR_volt_info.V2 = self.polcom.lcr.V2
+            Process.config.connections.__dict__[curr_conn].LCR_volt_info.V3 = self.polcom.lcr.V3
+            Process.config.connections.__dict__[curr_conn].LCR_volt_info.V4 = self.polcom.lcr.V4
+            logger.debug(f"Current Polarization is: {self.polcom.lcr.V1}, {self.polcom.lcr.V2}, {self.polcom.lcr.V3}, {self.polcom.lcr.V4}. Config saved")
 
+    def reload_configuration(self, conn_id: Optional[str] = None):
+        self.update_config()
+        Process.save_config()
         Process.load_config(conn_id=conn_id)
+        logger.debug(f"New config {Process.config.connections}")
         self.restart_authd()
         self.restart_transferd()  # restart to force out of inconsistent state
 
-        # No need to teardown PolComp, as long as no interaction with device
+        config = Process.config
+        if self.polcom:
+            self.polcom.lcr.V1 = config.LCR_volt_info.V1
+            self.polcom.lcr.V2 = config.LCR_volt_info.V2
+            self.polcom.lcr.V3 = config.LCR_volt_info.V3
+            self.polcom.lcr.V4 = config.LCR_volt_info.V4
+
         if Process.config.do_polarization_compensation:
             self.do_polcom = True
         else:
@@ -239,6 +258,7 @@ class Controller:
         # Stop own processes (except transferd)
         self.errc.stop()
         self.splicer.stop()
+        self.pfind.stop()
         self.costream.stop()
         self.chopper2.stop()
         self.chopper.stop()

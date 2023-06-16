@@ -83,7 +83,6 @@ class PolComp(object):
 
     #@dataclass
     class LCR_V(NamedTuple):
-        target_host: str
         volt_file: str
         V1: float
         V2: float
@@ -96,7 +95,7 @@ class PolComp(object):
         self.lcr.all_channels_on()
         # Load parameters from config
         LCR_volt_info = qkd_globals.config['LCR_volt_info']
-        self.LCR_params = self.LCR_V(qkd_globals.config['target_hostname'],*LCR_volt_info.values())
+        self.LCR_params = self.LCR_V(*LCR_volt_info.values())
         self.set_voltage = [self.LCR_params.V1, self.LCR_params.V2,
                             self.LCR_params.V3, self.LCR_params.V4]
         self._load_lut()
@@ -122,7 +121,7 @@ class PolComp(object):
         self._last_qber = 1
         self.qber_counter = 0
         self.qber_current = 1
-        self.averaging_n = 4
+        self.averaging_n = 2000
         self.next_epoch = 0
         self.next_equator = True
         self.S3_swap = None
@@ -246,6 +245,7 @@ class PolComp(object):
             self.set_voltage[lcvr_idx] = voltage
             # Change LCVR setting
             self._set_voltage()
+            time.sleep(EPOCH_DURATION*1.5)
             # Get epoch when LCVR setting was changed
             curr_epoch = get_current_epoch()
             voltages = self.set_voltage.copy()
@@ -266,6 +266,10 @@ class PolComp(object):
         # Pull relevant qber value
         qber = diagnosis.qber
         return qber
+
+    def find_diagnosis_from_epoch(self, epoch_path):
+        diagnosis = service_T3(epoch_path)
+        return diagnosis
 
     def process_qber(self, qber: float, epoch: str):
         """Process the received qber from epoch"""
@@ -342,7 +346,11 @@ class PolComp(object):
         if self.walks_array:
             self.process_qber(self.find_qber_from_epoch(epoch_path), epoch)
         else:
-            self.update_QBER(self.find_qber_from_epoch(epoch_path), self.qber_threshold, epoch)
+            self.update_QBER_from_diagnosis(
+                self.find_diagnosis_from_epoch(epoch_path),
+                self.qber_threshold,
+                epoch,
+            )
 
     def voltage_lookup(self, retardance: float, id: int) -> float:
         """For a given retardance value, gets the corresponding LCVR voltage.
@@ -425,7 +433,7 @@ class PolComp(object):
         self.next_epoch = get_current_epoch()
         logger.debug(f'Next epoch set to "{hex(self.next_epoch)[2:]}".')
 
-    def update_QBER(self, qber: float, qber_threshold: float = 0.085, epoch: str = None):
+    def update_QBER_from_diagnosis(self, diagnosis, qber_threshold: float = 0.085, epoch: str = None):
         self.qber_counter += 1
         if self.qber_counter < 10: # in case pfind finds a bad match, we don't want to change the lcvr voltage too early
             return
@@ -436,20 +444,33 @@ class PolComp(object):
         if not self.epoch_passed(epoch):
             return # start averaging from next epoch onwards
 
-        self.qber_list.append(qber)
-        if len(self.qber_list) >= self.averaging_n:
-            qber_mean = np.mean(self.qber_list)
+        self.qber_list.append(diagnosis)
+        total_bits = sum([d.okcount for d in self.qber_list])
+        # Note: 'averaging_n' represents the number of bits to calculate the averaged QBER over
+        logger.info("Accumulating bits for QBER calculation: %d / %d", total_bits, self.averaging_n)
+        if total_bits >= self.averaging_n:
+
+            # Compute QBER from set of diagnosis in each epoch
+            matrices = np.array([d.coinc_matrix for d in self.qber_list])
+            coinc_matrix = np.sum(matrices, axis=0)
+            er_coin = sum(coinc_matrix[[0, 5, 10, 15]])  # VV, AA, HH, DD
+            gd_coin = sum(coinc_matrix[[2, 7, 8, 13]])  # VH, AD, HV, DA
+            if er_coin + gd_coin == 0:
+                qber_mean = 1.0
+            else:
+                qber_mean = round(er_coin / (er_coin + gd_coin), 3)
+
             self.qber_list.clear()
             logger.info(
-                f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs at voltages {self.set_voltage}. Phi search range: {qber_cost_func(qber_mean):.2f}')
+                f'Avg(qber): {qber_mean:.2f} of the last {total_bits} bits at voltages {self.set_voltage}. Phi search range: {qber_cost_func(qber_mean):.2f}')
             if qber_mean > 0.3:
-                self.averaging_n = 2
+                self.averaging_n = 400
             if qber_mean < 0.3:
-                self.averaging_n = 2
+                self.averaging_n = 800
             if qber_mean < 0.15:
-                self.averaging_n = 5
+                self.averaging_n = 1000
             if qber_mean < 0.12:
-                self.averaging_n = 10
+                self.averaging_n = 4000
             if qber_mean < qber_threshold:
                 np.savetxt(self.LCR_params.volt_file, [self.set_voltage])
                 self.last_voltage_list = self.set_voltage.copy()
@@ -462,8 +483,6 @@ class PolComp(object):
                 self.last_voltage_list = self.set_voltage.copy()
                 self.last_retardances = self.retardances.copy()
                 self.lcvr_narrow_down(qber_mean)
-                #np.savetxt(self.LCR_params.LCR_volt_file,
-                #           [*self.last_voltage_list])
             else:
                 self.set_voltage = self.last_voltage_list.copy()
                 self.retardances = self.last_retardances.copy()
@@ -479,7 +498,7 @@ class PolComp(object):
             self.kickout()
             self.next_epoch = get_current_epoch()
             self.qber_counter = 10
-            self.averaging_n = 2
+            self.averaging_n = 2000
             self.qber_list.clear()
             self._last_qber = 1 # Set to one to not go back to last voltage values
             self.do_walks(0)
