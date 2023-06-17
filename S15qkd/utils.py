@@ -499,3 +499,9 @@ def service_T3(file_name: str) -> Optional[ServiceT3]:
 def epoch_after(epoch: str, added: int) -> str:
     return hex(int(epoch,16) + added)[2:]
 
+def get_current_epoch():
+    """Returns the current epoch in integer.
+
+    Hex value of epoch can be checked with 'hex(get_current_epoch())[2:]'.
+    """
+    return time.time_ns() >> 29

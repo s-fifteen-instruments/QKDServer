@@ -45,7 +45,7 @@ from .costream import Costream
 from .splicer import Splicer
 from .readevents import Readevents
 from .pfind import Pfind
-from .utils import Process, read_T2_header, HeadT2
+from .utils import Process, read_T2_header, HeadT2, get_current_epoch
 from .error_correction import ErrorCorr
 from .polarization_compensation import PolComp
 
@@ -98,11 +98,9 @@ class Controller:
                 self.do_polcom = True
             else:
                 self.do_polcom = False
-                self.callback_epoch = None
         else:
             self.polcom = None
             self.do_polcom = False
-            self.callback_epoch = None
         # Statuses
         self.qkd_engine_state = QKDEngineState.OFF
         self._qkd_protocol = QKDProtocol.SERVICE  # TODO(Justin): Deprecate this field.
@@ -144,16 +142,15 @@ class Controller:
         self.update_config()
         Process.save_config()
         Process.load_config(conn_id=conn_id)
-        logger.debug(f"New config {Process.config.connections}")
+        logger.debug(f"New config {Process.config}")
         self.restart_authd()
         self.restart_transferd()  # restart to force out of inconsistent state
 
         config = Process.config
         if self.polcom:
-            self.polcom.lcr.V1 = config.LCR_volt_info.V1
-            self.polcom.lcr.V2 = config.LCR_volt_info.V2
-            self.polcom.lcr.V3 = config.LCR_volt_info.V3
-            self.polcom.lcr.V4 = config.LCR_volt_info.V4
+            self.polcom.set_voltage = [config.LCR_volt_info.V1, config.LCR_volt_info.V2, config.LCR_volt_info.V3, config.LCR_volt_info.V4]
+            self.polcom._set_voltage()
+            self.polcom.last_voltage_list = self.polcom.set_voltage.copy()
 
         if Process.config.do_polarization_compensation:
             self.do_polcom = True
@@ -592,7 +589,7 @@ class Controller:
             logger.debug(f'SERVICE protocol set')
             last_secure_epoch = self.transferd.last_received_epoch
             try:
-                start_epoch = self._retrieve_service_remote_epoch(f"{int(last_secure_epoch,16)+1:x}")
+                start_epoch = self._retrieve_service_remote_epoch(hex(get_current_epoch())[2:])
             except RuntimeError:
                 self.restart_protocol()
                 return
@@ -608,6 +605,16 @@ class Controller:
             self._first_epoch = start_epoch # Refresh first epoch and time_diff
             self._time_diff = int(td)
             logger.debug(f'costream restarted')
+
+    def _remote_epoch_arrived(self, epoch: str, timeout: float = 15):
+        end_time = time.time() + timeout
+        while int(self.transferd.last_received_epoch,16) < int(epoch,16):
+            logger.debug(f"remote epoch {epoch} not received yet")
+            time.sleep(qkd_globals.EPOCH_DURATION)
+            if time.time() > end_time:
+                logger.debug(f"remote epoch {epoch} not received in {timeout} seconds.")
+                raise RuntimeError
+        return epoch
 
     def _epochs_exist(self, epoch: str):
         """Check that epoch exists in both receivedfiles and t1 folders
@@ -635,13 +642,13 @@ class Controller:
 
 
     @requires_transferd
-    def _retrieve_service_remote_epoch(self, last_secure_epoch: str ):
+    def _retrieve_service_remote_epoch(self, curr_epoch: str ):
         """Retrieve new epochs with correct protocol from remote(chopper) epoch
         and match with local (chopper2) epoch
 
         Performed by high count side.
         """
-        epoch = last_secure_epoch
+        epoch = self._remote_epoch_arrived(curr_epoch)
         file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
         logger.debug(f'Filename {file_path}')
         headt2 = HeadT2(0,0,0,0,0xf,0)
@@ -653,7 +660,7 @@ class Controller:
                 logger.error('No service epoch received after 10 tries')
                 raise RuntimeError
             logger.debug(f'{hex(headt2.epoch)} {headt2.base_bits}')
-            epoch = hex(headt2.epoch+1)[2:]
+            epoch = self._remote_epoch_arrived(hex(headt2.epoch+1)[2:])
             time.sleep(qkd_globals.EPOCH_DURATION)
             file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
             headt2 = read_T2_header(file_path)
@@ -701,7 +708,7 @@ class Controller:
             self._qkd_protocol = qkd_protocol
             logger.debug(f'BBM92 protocol set')
             try:
-                start_epoch = self._retrieve_secure_remote_epoch(last_service_epoch)
+                start_epoch = self._retrieve_secure_remote_epoch(hex(get_current_epoch())[2:])
             except RuntimeError:
                 self.restart_protocol()
                 return
@@ -727,13 +734,13 @@ class Controller:
                    )
 
     @requires_transferd
-    def _retrieve_secure_remote_epoch(self, last_service_epoch: str ):
+    def _retrieve_secure_remote_epoch(self, curr_epoch: str ):
         """Retrieve new epochs with correct protocol from remote(chopper) epoch
         and match with local (chopper2) epoch
 
         Performed by high count side.
         """
-        epoch = last_service_epoch
+        epoch = self._remote_epoch_arrived(curr_epoch)
         file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
         logger.debug(f'Filename {file_path}')
         headt2 = HeadT2(0,0,0,0,0xf,0)
@@ -745,8 +752,7 @@ class Controller:
                 logger.error('No secure epochs received after 10 tries')
                 raise RuntimeError
             logger.debug(f'{hex(headt2.epoch)} {headt2.base_bits}')
-            epoch = hex(headt2.epoch+1)[2:]
-            time.sleep(qkd_globals.EPOCH_DURATION)
+            epoch = self._remote_epoch_arrived(hex(headt2.epoch+1)[2:])
             file_path = f'{qkd_globals.FoldersQKD.RECEIVEFILES}/{epoch}'
             headt2 = read_T2_header(file_path)
             i += 1
