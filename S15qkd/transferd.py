@@ -34,7 +34,7 @@ import subprocess
 import time
 
 from .utils import Process
-from .qkd_globals import logger, PipesQKD, FoldersQKD
+from .qkd_globals import logger, PipesQKD, FoldersQKD, kill_process_by_name
 
 # Almost guaranteed to be connected due to authd
 # Removing state 'OFF' 
@@ -134,7 +134,10 @@ class Transferd(Process):
     
     def digest_stderr(self, pipe):
         for line in iter(pipe.readline, b''):
-            logger.info(f'[stderr] {line.decode()}')
+            msg = line.decode()
+            logger.info(f'[stderr] {msg}')
+            if 'error in bind' in msg:
+                kill_process_by_name('transferd')
         
     def digest_transferlog(self, pipe):
         '''
