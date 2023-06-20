@@ -2,6 +2,9 @@ serial_devs = $(shell for dev in /dev/serial/by-id/* ;\
 	    do echo -n "--device $$dev:$$dev " ;\
 	    done)
 
+timestamp=$(shell date +%Y%M%d)
+host=$(shell hostname)
+
 all: stop default
 
 build_fresh:
@@ -13,6 +16,9 @@ restart: stop default log
 
 log:
 	docker logs -f qkd
+
+savelog:
+	docker logs qkd > $(timestamp)_qkdlog_$(host) 2>&1
 exec:
 	docker exec -w /root/code/QKDServer/Settings_WebClient -it qkd /bin/sh
 

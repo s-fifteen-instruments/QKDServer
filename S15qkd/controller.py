@@ -871,6 +871,7 @@ def start_key_generation():
 def stop_key_gen():
     """Initiated by QKD controller via the QKD server status page."""
     controller.stop_key_gen()
+    controller._got_st1_reply = False
 
 def service_to_BBM92():
     return controller.service_to_BBM92()
