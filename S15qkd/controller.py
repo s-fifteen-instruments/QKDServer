@@ -144,7 +144,7 @@ class Controller:
         Process.load_config(conn_id=conn_id)
         logger.debug(f"New config {Process.config}")
         self.restart_authd()
-        self.restart_transferd()  # restart to force out of inconsistent state
+        self.transferd.stop()  # stop transferd to force out of inconsistent state
 
         config = Process.config
         if self.polcom:
@@ -856,9 +856,9 @@ class Controller:
         return self._sig_short
 
     def check_alive_threads(self):
-        logging.debug(f"Checking for threads started by threading.")
+        logger.debug(f"Checking for threads started by threading.")
         for thread in threading.enumerate():
-            logging.debug(f"Threads alive are : {thread.name}")
+            logger.debug(f"Threads alive are : {thread.name}")
 
 Process.load_config()
 controller = Controller()
@@ -874,7 +874,7 @@ def start_key_generation():
 def stop_key_gen():
     """Initiated by QKD controller via the QKD server status page."""
     controller.stop_key_gen()
-    controller._got_st1_reply = False
+    controller._got_st1_reply = True
     time.sleep(2.5)
     controller.check_alive_threads()
 

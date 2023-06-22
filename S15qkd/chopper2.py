@@ -119,9 +119,9 @@ class Chopper2(Process):
                 return
         return
 
-    def _no_message_monitor(self):
+    def _no_message_monitor(self, stop_event):
         timeout_seconds = 5
-        while self.is_running():
+        while self.is_running() and not stop_event.is_set():
             if time.time() - self._latest_message_time > timeout_seconds:
                 logger.debug(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
                 self._callback_reset_timestamp()

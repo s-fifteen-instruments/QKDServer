@@ -52,7 +52,7 @@ class Process:
         self._expect_running = False  # See monitor() below.
         self.stop_event = threading.Event()
         self._internal_threads = []
-        self._read_pipes = []
+        self._read_named_pipes = []
 
     @classmethod
     def load_config(cls, path=None, conn_id: Optional[str] = None):
@@ -195,16 +195,42 @@ class Process:
             self._persist_read = False
 
         self.stop_event.set()
-        for pipe in self._read_pipes:
+        for pipe in self._read_named_pipes:
+            #logger.debug(f"Named pipes are {pipe}")
+            pipename = pipe.split('/')[-1]
+            #for thread in self._internal_threads:
+            #    if pipename in thread.name:
+            #        logger.debug(f"thread is {thread.name}. pipe is {pipe}")
+            #        break
+                
+            logger.debug(f"Pipe is {pipe}")
             fd = os.open(pipe, os.O_WRONLY)
-            pipe = os.fdopen(fd, 'w')
-            pipe.write("\n")
+            pipeh = os.fdopen(fd, 'w')
+            pipeh.write("\n")
+            #while thread.is_alive() and isinstance(pipe,str):
+            #    logger.debug(f"Pipe is {pipe}")
+            #    fd = os.open(pipe, os.O_WRONLY)
+            #    pipeh = os.fdopen(fd, 'w')
+            #    pipeh.write("\n")
 
         if self._expect_running:
             self._expect_running = False
             try:
                 for thread in self._internal_threads:
-                    logger.debug(f"{thread.name} is alive {thread.is_alive()}")
+                    if thread.is_alive():
+                        logger.debug(f"{thread.name} is alive")
+                        if 'tm_' in thread.name:
+                            thread.join()
+                        else:
+                            for pipe in self._read_named_pipes:
+                                pipename = pipe.split('/')[-1]
+                                if pipename.casefold() in thread.name.casefold():
+                                    logger.debug(f"Writing new line to {pipe} for {thread.name}")
+                                    fd = os.open(pipe, os.O_WRONLY)
+                                    pipeh = os.fdopen(fd, 'w')
+                                    pipeh.write("\n")
+                    else:
+                        logger.debug(f"{thread.name} is dead")
             except RuntimeError as msg:
                 logger.debug(f"{thread} Thread closed. {msg}")
             finally:
@@ -263,7 +289,7 @@ class Process:
         """
         if persist:
             self._persist_read = True
-        
+
         def func(pipe, name):
             # Create pipe if is not already open for reading
             if not isinstance(pipe, io.IOBase):
@@ -271,7 +297,7 @@ class Process:
                     name = pipe
                 # Create file descriptor for read-only non-blocking pipe
                 # TODO(Justin): Why must a single threaded pipe read be non-blocking?
-                self._read_pipes.append(pipe) # pipe is still a path here
+                self._read_named_pipes.append(pipe) # pipe is still a path here
                 fd = os.open(pipe, os.O_RDONLY)
                 # Open file descriptor with *no* buffer
                 pipe = os.fdopen(fd, 'r')
@@ -310,8 +336,9 @@ class Process:
             if name:
                 logger.info(f"Named pipe '{name}' closed.")
 
-        ThreadName = 'reader_' + name
-        thread = threading.Thread(name=ThreadName, target=func, args=(pipe,name))
+        thread = threading.Thread(target=func, args=(pipe,name))
+        ThreadName = 'r' + thread.name.split('-')[-1] + '-' + name
+        thread.name = ThreadName
         thread.start()
         self._internal_threads.append(thread)
         return thread
@@ -355,8 +382,9 @@ class Process:
             logger.debug(f"Terminated process monitor for '{self.program}' ('{self.process}')")
     
         logger.debug(f"Starting process monitor for '{self.program}' ('{self.process}')")
-        ThreadName = "monitord_" + str(self.program).split('/')[-1]
-        thread = threading.Thread(target=monitor_daemon, name=ThreadName)
+        thread = threading.Thread(target=monitor_daemon)
+        ThreadName = "md_" + thread.name.split('-')[-1] + '-' + str(self.program).split('/')[-1]
+        thread.name = ThreadName
         thread.daemon = True
         thread.start()
         self._internal_threads.append(thread)
@@ -364,8 +392,9 @@ class Process:
 
     def start_thread_method(self, method_name: FunctionType):
         logger.debug(f"Started method {method_name} for '{self.program}' ('{self.process}')")
-        thread = threading.Thread(target = method_name)
-        thread.name = method_name.__name__
+        thread = threading.Thread(target = method_name, args=(self.stop_event,))
+        ThreadName = 'tm_' + thread.name.split('-')[-1] + '-' + method_name.__name__
+        thread.name = ThreadName
         thread.daemon = True
         thread.start()
         self._internal_threads.append(thread)
