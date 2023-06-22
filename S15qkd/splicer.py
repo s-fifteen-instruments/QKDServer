@@ -114,9 +114,9 @@ class Splicer(Process):
             else:
                 logger.debug(f'Base bits not proper yet. Protocol: {qkd_protocol}, T3 basebits: {headt3.bits_per_entry} T4 basebits: {headt4.base_bits}')
 
-    def _no_message_monitor(self):
+    def _no_message_monitor(self, stop_event):
         timeout_seconds = 200
-        while self.is_running():
+        while self.is_running() and not stop_event.is_set():
             if time.time() - self._latest_message_time > timeout_seconds:
                 logger.debug(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
                 self._callback_restart()
