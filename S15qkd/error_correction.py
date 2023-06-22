@@ -96,7 +96,7 @@ class ErrorCorr(Process):
             self._ec_thread_on = False
             time.sleep(EPOCH_DURATION)
             self._servoed_QBER = Process.config.default_QBER
-        self.do_ec_thread = threading.Thread(target=self.do_error_correction, args=(), daemon=True)
+        self.do_ec_thread = threading.Thread(target=self.do_error_correction, args=(), daemon=True, name="errcd")
         self._ec_thread_on = True
         self.do_ec_thread.start()
 
@@ -148,7 +148,7 @@ class ErrorCorr(Process):
             Process.config.privacy_amplification # For switching off pa.
         ]
         super().start(args, stdout='errcd_stdout', stderr='errcd_stderr', callback_restart=callback_restart)
-        self.do_ec_thread = threading.Thread(target=self.do_error_correction, args=(), daemon=True)
+        self.do_ec_thread = threading.Thread(target=self.do_error_correction, args=(), daemon=True, name="errcd")
         self._ec_thread_on = True
         self.do_ec_thread.start()
         # To move to class

@@ -310,7 +310,8 @@ class Process:
             if name:
                 logger.info(f"Named pipe '{name}' closed.")
 
-        thread = threading.Thread(target=func, args=(pipe,name))
+        ThreadName = 'reader_' + name
+        thread = threading.Thread(name=ThreadName, target=func, args=(pipe,name))
         thread.start()
         self._internal_threads.append(thread)
         return thread
@@ -354,7 +355,8 @@ class Process:
             logger.debug(f"Terminated process monitor for '{self.program}' ('{self.process}')")
     
         logger.debug(f"Starting process monitor for '{self.program}' ('{self.process}')")
-        thread = threading.Thread(target=monitor_daemon)
+        ThreadName = "monitord_" + str(self.program).split('/')[-1]
+        thread = threading.Thread(target=monitor_daemon, name=ThreadName)
         thread.daemon = True
         thread.start()
         self._internal_threads.append(thread)
@@ -363,6 +365,7 @@ class Process:
     def start_thread_method(self, method_name: FunctionType):
         logger.debug(f"Started method {method_name} for '{self.program}' ('{self.process}')")
         thread = threading.Thread(target = method_name)
+        thread.name = method_name.__name__
         thread.daemon = True
         thread.start()
         self._internal_threads.append(thread)

@@ -854,8 +854,11 @@ class Controller:
     @property
     def sig_short(self) -> Optional[int]:
         return self._sig_short
-    
 
+    def check_alive_threads(self):
+        logging.debug(f"Checking for threads started by threading.")
+        for thread in threading.enumerate():
+            logging.debug(f"Threads alive are : {thread.name}")
 
 Process.load_config()
 controller = Controller()
@@ -872,6 +875,8 @@ def stop_key_gen():
     """Initiated by QKD controller via the QKD server status page."""
     controller.stop_key_gen()
     controller._got_st1_reply = False
+    time.sleep(2.5)
+    controller.check_alive_threads()
 
 def service_to_BBM92():
     return controller.service_to_BBM92()

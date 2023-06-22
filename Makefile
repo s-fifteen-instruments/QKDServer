@@ -2,7 +2,7 @@ serial_devs = $(shell for dev in /dev/serial/by-id/* ;\
 	    do echo -n "--device $$dev:$$dev " ;\
 	    done)
 
-timestamp=$(shell date +%Y%M%d)
+timestamp=$(shell date +%Y%m%d)
 host=$(shell hostname)
 
 all: stop default
