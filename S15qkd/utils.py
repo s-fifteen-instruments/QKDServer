@@ -220,11 +220,12 @@ class Process:
                     if thread.is_alive():
                         logger.debug(f"{thread.name} is alive")
                         if 'tm_' in thread.name:
-                            thread.join()
+                            logger.debug(f"stop_event is {self.stop_event.is_set()} ")
                         else:
                             for pipe in self._read_named_pipes:
                                 pipename = pipe.split('/')[-1]
                                 if pipename.casefold() in thread.name.casefold():
+                                    time.sleep(0.2)
                                     logger.debug(f"Writing new line to {pipe} for {thread.name}")
                                     fd = os.open(pipe, os.O_WRONLY)
                                     pipeh = os.fdopen(fd, 'w')

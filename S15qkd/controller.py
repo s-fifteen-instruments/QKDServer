@@ -378,12 +378,12 @@ class Controller:
         if self._await_reply > 5:
             logger.debug(f'Awaited for {self._await_reply} times. Restarting transferd.')
             self.restart_transferd()
-            time.sleep(1)
+            time.sleep(2)
             self._await_reply = 0
             self.restart_protocol()
             return
         now = time.time()
-        def reply_daemon():
+        def reply_handler():
             time.sleep(0.1)
             while not self._got_st1_reply:
                 if time.time() - now > timeout:
@@ -392,8 +392,7 @@ class Controller:
                     self.restart_protocol()
                     return
             return
-        thread = threading.Thread(target=reply_daemon)
-        thread.daemon = True
+        thread = threading.Thread(target=reply_handler)
         thread.start()
         return
 
@@ -560,6 +559,8 @@ class Controller:
             self.send('st_to_serv')
             self.splicer.stop()
             self.chopper.stop()
+            qkd_globals.PipesQKD.drain_all_pipes()
+            qkd_globals.FoldersQKD.remove_stale_comm_files()
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
             time.sleep(1.9) # to allow chopper and splicer to end gracefully
@@ -681,6 +682,8 @@ class Controller:
         if low_count_side:  
             self.splicer.stop()
             self.chopper.stop()
+            qkd_globals.PipesQKD.drain_all_pipes()
+            qkd_globals.FoldersQKD.remove_stale_comm_files()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
             time.sleep(1.9) # to allow chopper and splicer to end gracefully
