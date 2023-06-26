@@ -240,13 +240,17 @@ class Process:
                             if pipename.casefold() in thread.name.casefold():
                                 time.sleep(0.2)
                                 Process.write(pipe, "", name=pipe)
-                                Process.write(pipe, "", name=pipe)
                                 logger.debug(f"Writing new line to {pipe} for {thread.name}")
                                 thread.join(timeout=0.5)
                                 if not thread.is_alive():
                                     self._read_named_pipes.remove(pipe)
+                                    self._internal_threads.remove(thread)
                 else:
                     logger.debug(f"{thread.name} is dead")
+                    for pipe in self._read_named_pipes:
+                        pipename = pipe.split('/')[-1]
+                        if pipename.casefold() in thread.name.casefold():
+                            self._read_named_pipes.remove(pipe)
                     self._internal_threads.remove(thread)
         except RuntimeError as msg:
             logger.debug(f"{thread} Thread closed. {msg}")
@@ -385,6 +389,7 @@ class Process:
         thread = threading.Thread(target = method_name, args=(self.stop_event,))
         ThreadName = 'tm_' + thread.name.split('-')[-1] + '-' + method_name.__name__
         thread.name = ThreadName
+        thread.daemon = True
         thread.start()
         self._internal_threads.append(thread)
         return thread

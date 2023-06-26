@@ -240,8 +240,7 @@ class Controller:
         self.stop_key_gen(inform_remote=False)
         self.transferd.stop()
         self.qkd_engine_state = QKDEngineState.OFF
-        qkd_globals.PipesQKD.drain_all_pipes()
-        qkd_globals.FoldersQKD.remove_stale_comm_files()
+        self.clear_comms()
 
         # Restart transferd
         self._establish_connection()
@@ -270,8 +269,7 @@ class Controller:
         self._reset()
         
         # TODO(Justin): Refactor error correction and pipe creation
-        qkd_globals.PipesQKD.drain_all_pipes()
-        qkd_globals.FoldersQKD.remove_stale_comm_files()
+        self.clear_comms()
 
     @requires_transferd
     def _stop_key_gen_remote(self):
@@ -559,8 +557,7 @@ class Controller:
             self.send('st_to_serv')
             self.splicer.stop()
             self.chopper.stop()
-            qkd_globals.PipesQKD.drain_all_pipes()
-            qkd_globals.FoldersQKD.remove_stale_comm_files()
+            self.clear_comms()
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
             time.sleep(1.9) # to allow chopper and splicer to end gracefully
@@ -583,8 +580,7 @@ class Controller:
             last_secure_epoch = self.transferd.last_received_epoch
             #
             self.costream.stop()
-            qkd_globals.PipesQKD.drain_all_pipes()
-            qkd_globals.FoldersQKD.remove_stale_comm_files()
+            self.clear_comms()
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
             logger.debug(f'SERVICE protocol set')
@@ -682,8 +678,7 @@ class Controller:
         if low_count_side:  
             self.splicer.stop()
             self.chopper.stop()
-            qkd_globals.PipesQKD.drain_all_pipes()
-            qkd_globals.FoldersQKD.remove_stale_comm_files()
+            self.clear_comms()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
             time.sleep(1.9) # to allow chopper and splicer to end gracefully
@@ -705,8 +700,7 @@ class Controller:
             last_service_epoch = self.transferd.last_received_epoch
             #
             self.costream.stop()
-            qkd_globals.PipesQKD.drain_all_pipes()
-            qkd_globals.FoldersQKD.remove_stale_comm_files()
+            self.clear_comms()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
             logger.debug(f'BBM92 protocol set')
@@ -846,6 +840,10 @@ class Controller:
             'total_ec_key_bits': self.errc.total_ec_key_bits,
             'init_QBER': self.errc.init_QBER_info,
         }
+
+    def clear_comms(self):
+        qkd_globals.PipesQKD.drain_all_pipes() # This reads all pipes
+        qkd_globals.FoldersQKD.remove_stale_comm_files()
 
     def get_bl_info(self):
         return self.readevents.blinded

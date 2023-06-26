@@ -195,6 +195,17 @@ class PipesQKD(str, Enum):
         f = os.fdopen(fd, 'rb', 0)
         f.readall()
 
+    @classmethod
+    def flush_all_pipes(cls):
+        for fn in cls:
+            cls.flush_pipe(fn)
+
+    @staticmethod
+    def flush_pipe(pipe_name: str):
+        fd = os.open(pipe_name, os.O_WRONLY | os.O_NONBLOCK)
+        f = os.fdopen(fd, 'wb', 0)
+        f.write("\n".encode())
+
     def __str__(self):
         """Allows implicit conversion to value.
         
