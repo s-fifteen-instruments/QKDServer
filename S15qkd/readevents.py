@@ -90,7 +90,7 @@ class Readevents(Process):
                 '-s',
                 '-b',
         ]
-        self.gr = Process( pathlib.Path(Process.config.program_root) / 'getrate2')
+        self.gr = Process(pathlib.Path(Process.config.program_root) / 'getrate2')
         self.gr.start(args_getrate2, stdin = PipesQKD.SBIN, stdout=PipesQKD.SB )
 
         # Persist readevents

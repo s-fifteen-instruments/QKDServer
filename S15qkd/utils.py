@@ -257,6 +257,7 @@ class Process:
 
 
         self.process = None
+        self._read_named_pipes.clear()
         self.stop_event.clear()
 
     def wait(self):
