@@ -113,10 +113,10 @@ class Transferd(Process):
         ]
         super().start(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        self.read(PipesQKD.MSGOUT, self.digest_msgout, wait=0.05, name="transferd.msgout", persist=True)
-        self.read(PipesQKD.TRANSFERLOG, self.digest_transferlog, wait=0.1, name="transferd.transferlog", persist=True)
-        self.read(self.process.stdout, self.digest_stdout, wait=0.1, name="transferd.stdout", persist=True)
-        self.read(self.process.stderr, self.digest_stderr, wait=0.1, name="transferd.stderr", persist=True)
+        self.read(PipesQKD.MSGOUT, self.digest_msgout, wait=0.05, name="transferd.msgout", persist=False)
+        self.read(PipesQKD.TRANSFERLOG, self.digest_transferlog, wait=0.1, name="transferd.transferlog", persist=False)
+        self.read(self.process.stdout, self.digest_stdout, wait=0.1, name="transferd.stdout", persist=False)
+        self.read(self.process.stderr, self.digest_stderr, wait=0.1, name="transferd.stderr", persist=False)
 
         time.sleep(0.2)  # give some time to connect to the partnering computer
 

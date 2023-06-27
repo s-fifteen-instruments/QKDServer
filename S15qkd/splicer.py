@@ -67,7 +67,7 @@ class Splicer(Process):
         ]
         super().start(args, stdout='splicer_stdout', stderr='splicer_stderr', callback_restart=callback_restart)
         self.read(PipesQKD.GENLOG, self.digest_splice_outpipe, 'GENLOG', persist=True)
-        self.read(PipesQKD.PRESPLICER, self.send_splice_inpipe, 'PRESPLICER', persist=True)
+        self.read(PipesQKD.PRESPLICER, self.send_splice_inpipe, 'PRESPLICEPIPE', persist=True)
         super().start_thread_method(self._no_message_monitor)
 
     def digest_splice_outpipe(self, pipe):
