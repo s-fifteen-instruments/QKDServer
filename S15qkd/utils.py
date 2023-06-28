@@ -240,6 +240,7 @@ class Process:
                             if pipename.casefold() in thread.name.casefold():
                                 time.sleep(0.2)
                                 Process.write(pipe, "", name=pipe)
+                                Process.write(pipe, "", name=pipe)
                                 logger.debug(f"Writing new line to {pipe} for {thread.name}")
                                 thread.join(timeout=0.5)
                                 if not thread.is_alive():
@@ -257,7 +258,7 @@ class Process:
 
 
         self.process = None
-        self._read_named_pipes.clear()
+        #self._read_named_pipes.clear()
         self.stop_event.clear()
 
     def wait(self):
@@ -268,7 +269,7 @@ class Process:
         return self.process and self.process.poll() is None
     
     # Helper
-    def read(self, pipe, callback, name='', wait=0.1, persist=False):
+    def read(self, pipe, callback, name='', wait=0.02, persist=False):
         """TODO
 
         If opening any pipes from the same parent thread, ensure that

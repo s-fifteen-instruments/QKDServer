@@ -60,7 +60,6 @@ class Chopper(Process):
         
         # T2LOG pipe must be opened before starting chopper!
         # Might be some premature writing to T2LOG in chopper.c
-        self.read(PipesQKD.T2LOG, self.digest_t2logpipe, name='T2LOGPIPE', persist=True)
 
         args = [
             '-i', PipesQKD.RAWEVENTS,
@@ -76,6 +75,7 @@ class Chopper(Process):
             '-m', Process.config.max_event_diff,
         ]
         super().start(args, stderr="choppererror", callback_restart=callback_restart)
+        self.read(PipesQKD.T2LOG, self.digest_t2logpipe, name='T2LOGPIPE', persist=True)
         logger.info('Started chopper.')
         super().start_thread_method(self._no_message_monitor)
 

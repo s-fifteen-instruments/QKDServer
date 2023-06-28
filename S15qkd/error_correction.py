@@ -124,7 +124,7 @@ class ErrorCorr(Process):
         assert not self.is_running()
         self._reset()
 
-        self.read(PipesQKD.ECNOTE, self.ecnotepipe_digest, 'ECNOTE', persist=True)
+        self.read(PipesQKD.ECNOTE, self.ecnotepipe_digest, 'ECNOTEPIPE', persist=True)
         self._callback_guardian_note = callback_guardian_note
         self._callback_pol_comp = callback_pol_comp_qber
         self._callback_restart = callback_restart
