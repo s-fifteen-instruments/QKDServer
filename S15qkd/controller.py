@@ -89,7 +89,7 @@ class Controller:
         self.pfind = Pfind(dir_qcrypto / 'pfind')
         self.errc = ErrorCorr(dir_qcrypto / 'errcd')
 
-        self._initialize_pipes()  # cryptostuff directory needed to allow authd to write to file
+        self._initialize_pipes()  # cryptostuff directory needed to allow authd to write to file. Initialize only once to make needed structure and pips.
         self.restart_authd()
 
         if Process.config.LCR_polarization_compensator_path != "":
@@ -190,7 +190,6 @@ class Controller:
         
         # MSGIN / MSGOUT pipes need to be ready prior to communication
         # TODO(Justin): Check if method below fails if pipes already initialized.
-        self._initialize_pipes()
         self.transferd.start(
             self.callback_msgout,
             self.readevents.measure_local_count_rate_system,
