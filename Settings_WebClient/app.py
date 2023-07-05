@@ -20,8 +20,14 @@ def keygen_status():
     """
     status = qkd_ctrl.get_process_states()
     is_generating_keys = status['error_correction']
-    status_code = 200 if is_generating_keys else 404
-    return "", status_code
+    if is_generating_keys:
+        errc_info = qkd_ctrl.get_error_corr_info()
+        ret = str(errc_info['ec_key_gen_rate'])
+        status_code = 200
+    else:
+        status_code = 404
+        ret = ""
+    return ret, status_code
 
 @app.server.route("/set_conn/<conn_id>")
 def set_connection(conn_id):
