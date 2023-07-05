@@ -142,6 +142,20 @@ class NetworkSwitchController(OpticalSwitch):
     def is_running(self):
         return self.thread.is_alive()
 
+import json
+config_file = '/root/code/QKDSource/Settings_WebClient/config.json'
+with open(config_file, 'r') as f:
+    config = json.load(f)
+conn = config['connections']
+
+nsc = NetworkSwitchController(conn)
+
+def status():
+   return nsc.status()
+def begin():
+   return nsc.begin()
+def end():
+   return nsc.end()
 
 if __name__ == "__main__":
     conn = {'conn0': {
