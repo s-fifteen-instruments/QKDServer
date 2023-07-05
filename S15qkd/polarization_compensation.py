@@ -476,6 +476,7 @@ class PolComp(object):
                 self._callback()
                 self._last_qber= qber_mean
                 logger.info(f'BBM92 called')
+                self.qber_counter=0
                 return
             if qber_mean < self._last_qber:
                 self.last_voltage_list = self.set_voltage.copy()
