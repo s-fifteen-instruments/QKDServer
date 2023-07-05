@@ -158,9 +158,9 @@ if __name__ == "__main__":
                 },
             'conn2': {
                 'add0': 'c.qkd.internal',
-                'conn0': 'set_conn/QKDE0004',
+                'req0': 'set_conn/QKDE0004',
                 'add1': 'd.qkd.internal',
-                'conn1': 'set_conn/QKDE0003',
+                'req1': 'set_conn/QKDE0003',
                 'route': 2
                 }
             }
