@@ -71,6 +71,8 @@ class NetworkSwitchController(OpticalSwitch):
         ret1 = self.send_url(add1,status_req)
         if ret.status_code == 200 and ret1.status_code == 200 :
             print(f"Error correction running on {add0} and {add1}")
+        if ret.text == ret1.text:
+            return ret.text
 
     def stop(self, conn = None):
         if conn is None and self.curr_conn is None:
