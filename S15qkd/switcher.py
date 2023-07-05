@@ -49,12 +49,13 @@ class NetworkSwitchController(OpticalSwitch):
             return
         elif conn is None:
             conn = self.curr_conn
-        add0 = conn[0][0]
+        add0 = conn['add0']
+        add1 = conn['add1']
         self.curr_conn = conn
         start_req = "start_keygen"
         ret = self.send_url(add0,start_req)
         if ret.status_code == 204:
-            print(f"Starting key generation between {conn[0][0]} and {conn[1][0]}")
+            print(f"Starting key generation between {add0} and {add1}")
 
     def status(self, conn = None):
         if conn is None and self.curr_conn is None:
@@ -62,8 +63,8 @@ class NetworkSwitchController(OpticalSwitch):
             return
         elif conn is None:
             conn = self.curr_conn
-        add0 = conn[0][0]
-        add1 = conn[1][0]
+        add0 = conn['add0']
+        add1 = conn['add1']
         self.curr_conn = conn
         status_req = "status_keygen"
         ret = self.send_url(add0,status_req)
@@ -74,26 +75,26 @@ class NetworkSwitchController(OpticalSwitch):
     def stop(self, conn = None):
         if conn is None and self.curr_conn is None:
             print("No connections defined, stopping all")
-            self.stop(self.conns[0])
-            self.stop(self.conns[1])
-            self.stop(self.conns[2])
+            self.stop(self.conns['conn0'])
+            self.stop(self.conns['conn1'])
+            self.stop(self.conns['conn2'])
             return
         elif conn is None:
             conn = self.curr_conn
-        add0 = conn[0][0]
-        add1 = conn[1][0]
+        add0 = conn['add0']
+        add1 = conn['add1']
         self.curr_conn = conn
         stop_req = "stop_keygen"
         ret = self.send_url(add0,stop_req)
         ret1 = self.send_url(add1,stop_req)
         if ret.status_code == 204:
-            print(f"Stopping key generation between {conn[0][0]} and {conn[1][0]}")
+            print(f"Stopping key generation between {add0} and {add1}")
 
     def connect(self, conn):
-        add0 = conn[0][0]
-        req0 = conn[0][1]
-        add1 = conn[1][0]
-        req1 = conn[1][1]
+        add0 = conn['add0']
+        req0 = conn['req0']
+        add1 = conn['add1']
+        req1 = conn['req1']
         while True:
             ret1 = self.send_url(add0,req0)
             print(add0,ret1.status_code)
@@ -101,7 +102,7 @@ class NetworkSwitchController(OpticalSwitch):
             print(add1,ret2.status_code)
             if ret1.status_code == 204 and ret2.status_code == 204:
                 break
-        self.c(conn[2])
+        self.c(conn['route'])
         self.curr_conn = conn
 
     def begin(self, wait=20):
@@ -109,10 +110,10 @@ class NetworkSwitchController(OpticalSwitch):
             if self.curr_conn is None:
                 i = 0
             else:
-                i = self.conns.index(self.curr_conn)
+                i = int([j for j in self.conns if self.conns[j] == self.curr_conn][0][-1])
             wait_for = wait*60 #wait minutes switching
             print(f"Beginning switching cycle for {wait} minutes each")
-            self.connect(self.conns[i])
+            self.connect(self.conns[f'conn{i}'])
             self.start()
             end_time = time.time() + wait_for
             while not self.threadlock.is_set():
@@ -123,7 +124,7 @@ class NetworkSwitchController(OpticalSwitch):
                     i = 0
                 else:
                     i += 1
-                self.connect(self.conns[i])
+                self.connect(self.conns[f'conn{i}'])
                 self.start()
                 end_time = time.time() + wait_for
 
@@ -141,19 +142,29 @@ class NetworkSwitchController(OpticalSwitch):
 
 
 if __name__ == "__main__":
+    conn = {'conn0': {
+                'add0': 'c.qkd.internal',
+                'req0': 'set_conn/QKDE0006',
+                'add1': 'g.qkd.internal',
+                'req1': 'set_conn/QKDE0003',
+                'route': 0
+                },
+            'conn1': {
+                'add0': 'd.qkd.internal',
+                'req0': 'set_conn/QKDE0006',
+                'add1': 'g.qkd.internal',
+                'req1': 'set_conn/QKDE0004',
+                'route': 1
+                },
+            'conn2': {
+                'add0': 'c.qkd.internal',
+                'conn0': 'set_conn/QKDE0004',
+                'add1': 'd.qkd.internal',
+                'conn1': 'set_conn/QKDE0003',
+                'route': 2
+                }
+            }
 
-    conn0 = [["c.qkd.internal", "set_conn/QKDE0006"],
-             ["g.qkd.internal", "set_conn/QKDE0003"],
-             0]
-
-    conn1 = [["d.qkd.internal", "set_conn/QKDE0006"],
-             ["g.qkd.internal", "set_conn/QKDE0004"],
-             1]
-
-    conn2 = [["c.qkd.internal", "set_conn/QKDE0004"],
-             ["d.qkd.internal", "set_conn/QKDE0003"],
-             2]
-    conn = [conn0, conn1, conn2]
     nsc = NetworkSwitchController(conn)
     nsc.begin(wait = 4) #wait in minutes
     time.sleep(10)
