@@ -306,15 +306,15 @@ class PolComp(object):
         self.last_retardances = self.retardances.copy()
         self.qber_current = qber_min
         self.next_epoch = get_current_epoch()
-        if qber_min < self.qber_threshold_2: # minimum qber applied is low enough. Don't do_walk anymore.
-            #self._callback()
-            #logger.info(f'BBM92 called')
-            #self.first_pass = False
-            #logger.debug(f'do_walks ended')
-            return False
-        elif qber_min < self.qber_threshold: # minimum qber applied is low enough. Don't do_walk anymore.
+        if qber_min < self.qber_threshold: # minimum qber applied is low enough. Start BBM92.
+            self.last_voltage_list = self.set_voltage.copy()
+            self.last_retardances = self.retardances.copy()
+            self._last_qber= qber_min
+            self.qber_counter=0
             self._callback()
             logger.info(f'BBM92 called')
+            return False
+        elif qber_min < self.qber_threshold_2: # minimum qber applied is low enough. .
             return False
         return True
 

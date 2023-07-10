@@ -359,7 +359,8 @@ class Controller:
 
     def pol_com_walk(self):
         if self._qkd_protocol == QKDProtocol.SERVICE and self.do_polcom:
-            self.polcom.do_walks(0)
+            thread = threading.Thread(target=self.polcom.do_walks) # defaults to lcvr_idx=0
+            thread.start()
             logger.debug(f'do walk started')
         else:
             None    
