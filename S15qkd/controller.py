@@ -766,11 +766,12 @@ class Controller:
         The usable periods is the number of overlapping epoch files.
         Different implementations are possible, with the following notes:
         
-            - The first and last epoch files are potentially underfilled.
+            - The first epoch files are potentially underfilled.
             - To account for latency and mismatch in epoch collection start times,
               an additional 2 epoch duration buffer is provided.
         """
-        target_num_epochs = Process.config.pfind_epochs
+        extra = 2 # one for first underfilled epoch and one for spare at the end
+        target_num_epochs = Process.config.pfind_epochs + extra
         timeout_seconds = (target_num_epochs + 2) * qkd_globals.EPOCH_DURATION
         end_time = time.time() + timeout_seconds
 
@@ -791,13 +792,14 @@ class Controller:
 
         if remote_epoch > local_epoch:
             start_epoch = self.transferd.first_received_epoch
-            usable_periods = target_num_epochs - abs(remote_epoch-local_epoch)
+            usable_periods = target_num_epochs
         else:
             start_epoch = self.chopper2.first_epoch
             usable_periods = target_num_epochs
         
-        # Ignore the last potentially underfilled epoch, as per legacy code
-        usable_periods -= 1
+        # Ignore the first potentially underfilled epoch, as per legacy code
+        start_epoch = hex(int(start_epoch,16)+1)[2:]
+        usable_periods -= extra
         return start_epoch, usable_periods
 
     def get_process_states(self):
