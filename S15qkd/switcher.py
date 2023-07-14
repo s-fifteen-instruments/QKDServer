@@ -182,10 +182,11 @@ if __name__ == "__main__":
             }
 
     nsc = NetworkSwitchController(conn)
-    nsc.begin(wait = 4) #wait in minutes
-    time.sleep(10)
-    endtime= time.time() + 15*60
-    while time.time() < endtime:
-        nsc.status(nsc.curr_conn)
-        time.sleep(30)
-    nsc.end()
+    def begin():
+        nsc.begin(wait = 4) #wait in minutes
+        time.sleep(10)
+        endtime= time.time() + 15*60
+        while time.time() < endtime:
+            nsc.status(nsc.curr_conn)
+            time.sleep(30)
+        nsc.end()
