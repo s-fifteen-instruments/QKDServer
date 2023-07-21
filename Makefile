@@ -21,7 +21,7 @@ savelog:
 	mkdir -p logs
 	docker logs qkd > logs/$(timestamp)_qkdlog_$(host) 2>&1
 exec:
-	docker exec -w /root/code/QKDServer/Settings_WebClient -it qkd /bin/sh
+	docker exec -w /root/code/QKDServer/Settings_WebClient -it qkd /bin/bash
 
 stop:
 	-docker stop qkd

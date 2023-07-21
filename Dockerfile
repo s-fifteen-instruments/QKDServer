@@ -54,8 +54,6 @@ RUN \
     && cd ${HOME}/code/qcrypto/remotecrypto \
     && make CC=${CC} \
     && cd ../errorcorrection \
-# Fix '-lm' placement in compile statement by shifting to end
-    && sed -i -r "s/-lm (.*)$/\1 -lm/g" Makefile \
     && make CC=${CC} \
     && cd ../timestamp7 \
     && make CC=${CC}
