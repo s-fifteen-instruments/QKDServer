@@ -11,7 +11,10 @@
 #   docker run -it --rm -v /dev:/dev --device-cgroup-rule='a *:* rwm'  mathias/qkdserver:latest
 # This mounts the dev folder and keeps it in sync with the host sytem.
 
-FROM python:3.9-alpine
+# Small footnote for apk del if nested in different RUN context
+# https://stackoverflow.com/questions/46221063/what-is-build-deps-for-apk-add-virtual-command#comment86443214_46221063
+
+FROM python:3.9-slim
 LABEL Author="Mathias Seidler"
 
 ARG CC=gcc
@@ -28,44 +31,37 @@ ENV HOME=/root
 
 # Install necessary packages
 RUN \
-    # --mount=type=ssh \
-    apk update --no-cache \
-    && apk add --no-cache --virtual qkdserver-base \
-        build-base \
-        gcc \
-        clang \
-        llvm-dev \
-        wget \
+    apt update \
+    && apt install -y \
+# For compiling, includes gcc
+        build-essential \
+# For pfind.c compilation
+        libfftw3-dev \
         git \
-        openssh \
-    && apk add --virtual qkdserver-run \
-        fftw-dev \
-        make \
         vim \
-        bash \
-        grep \
-        coreutils \
-        linux-headers \
-        libstdc++ \
-    && pip install --upgrade pip setuptools wheel \
-    && pip install git+https://github.com/s-fifteen-instruments/pyS15.git
+# For pkill
+        procps \
+    && pip install -U pip setuptools wheel \
+    && pip install git+https://github.com/s-fifteen-instruments/pyS15.git \
+# Fix missing pyximport dependency in pyS15
+    && pip install Cython
 
 # Install qcrypto
 RUN \
-    # --mount=type=ssh \
     mkdir -p ${HOME}/code \
     && cd ${HOME}/code \
     && git clone https://github.com/s-fifteen-instruments/qcrypto.git qcrypto \
     && cd ${HOME}/code/qcrypto/remotecrypto \
     && make CC=${CC} \
     && cd ../errorcorrection \
+# Fix '-lm' placement in compile statement by shifting to end
+    && sed -i -r "s/-lm (.*)$/\1 -lm/g" Makefile \
     && make CC=${CC} \
     && cd ../timestamp7 \
     && make CC=${CC}
     
 # Install the python qcrypto wrapper
 RUN \
-    # --mount=type=ssh \
     cd ${HOME}/code \
     && git clone --branch master https://github.com/s-fifteen-instruments/QKDServer.git QKDServer \
     && cd ${HOME}/code/QKDServer \
@@ -75,14 +71,5 @@ RUN \
     && ln -s ${HOME}/code/qcrypto bin
 
 RUN \
-    # --mount=type=ssh \
     pip install ipython gunicorn
 
-# Delete packages which were only needed to compile the applications. This reduces the docker container size.
-#RUN \
-    # --mount=type=ssh \
-    # apk del --no-cache qkdserver-base
-
-# Set an entry point into the image
-#WORKDIR ${HOME}/code/QKDServer/Settings_WebClient
-#CMD [ "gunicorn", "--threads=1", "-b 0.0.0.0:8000", "index:server"]
