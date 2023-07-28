@@ -88,7 +88,12 @@ def connect_as_transferd_server(server_socket):
 def listen_as_server(addr: str = "0.0.0.0", port: int = 55555) -> socket.socket:
     ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
     ssock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # reuse port address
-    ssock.bind((addr, port))
+    try:
+        ssock.bind((addr, port))
+    except OSError as e:
+        logger.error('Failed to bind address: '+ str(e))
+        logger.info('Killing any authd orphaned process')
+        qkd_globals.kill_process_by_cmdline('authd.py')
     ssock.listen()
     logger.info(f"Listening as server on {port}/tcp for connections...")
     return ssock

@@ -107,6 +107,23 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
 
 
 
+def kill_process_by_cmdline(process_name: str):
+    '''
+    Searches processes by cmdline arg and kills them.
+    '''
+    list_of_process_objects = []
+    # Iterate over the all the running process
+    for proc in psutil.process_iter():
+        try:
+            pinfo = proc.as_dict(attrs=['pid', 'name', 'create_time','cmdline'])
+            # Check if process name contains the given name string.
+            if any(process_name.lower() in ext for ext in pinfo['cmdline'].lower()):
+                list_of_process_objects.append(pinfo)
+                psutil.Process(pinfo['pid']).kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+    return list_of_process_objects
+
 def kill_process_by_name(process_name: str):
     '''
     Searches processes by name and kills them.
