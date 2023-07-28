@@ -33,10 +33,13 @@ class NetworkSwitchController(OpticalSwitch):
         self.threadlock = threading.Event()
         super().__init__()
 
-    def send_url(self, add:str, req: str, port_num: int = 8000):
+    def send_url(self, add:str, req:str, tls: bool = True, port_num: int = 8000):
         p_num = f":{port_num}"
         try:
-            ret = requests.get(f"http://{add}{p_num}/{req}")
+            if tls:
+               ret = requests.get(f"https://{add}{p_num}/{req}", verify='/root/keys/cert.crt') #Location of S-Fifteen CA chain
+            else:
+               ret = requests.get(f"http://{add}{p_num}/{req}")
         except:
             print("error")
             ret = requests.models.Response()
