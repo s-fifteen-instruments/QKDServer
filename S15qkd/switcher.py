@@ -140,7 +140,10 @@ class NetworkSwitchController(OpticalSwitch):
         self.threadlock.set()
 
     def is_running(self):
-        return self.thread.is_alive()
+        if hasattr(self,'thread'):
+            return self.thread.is_alive()
+        else:
+            return False
 
 import json
 config_file = '/root/code/QKDSource/Settings_WebClient/config.json'
