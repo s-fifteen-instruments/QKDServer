@@ -117,7 +117,7 @@ def kill_process_by_cmdline(process_name: str):
         try:
             pinfo = proc.as_dict(attrs=['pid', 'name', 'create_time','cmdline'])
             # Check if process name contains the given name string.
-            if any(process_name.lower() in ext for ext in pinfo['cmdline'].lower()):
+            if any(process_name.lower() in ext.lower() for ext in pinfo['cmdline']):
                 list_of_process_objects.append(pinfo)
                 psutil.Process(pinfo['pid']).kill()
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):

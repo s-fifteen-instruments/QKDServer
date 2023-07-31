@@ -124,7 +124,6 @@ class ErrorCorr(Process):
         assert not self.is_running()
         self._reset()
 
-        self.read(PipesQKD.ECNOTE, self.ecnotepipe_digest, 'ECNOTEPIPE', persist=True)
         self._callback_guardian_note = callback_guardian_note
         self._callback_pol_comp = callback_pol_comp_qber
         self._callback_restart = callback_restart
@@ -151,6 +150,7 @@ class ErrorCorr(Process):
         self.do_ec_thread = threading.Thread(target=self.do_error_correction, args=(), daemon=True, name="errcd")
         self._ec_thread_on = True
         self.do_ec_thread.start()
+        self.read(PipesQKD.ECNOTE, self.ecnotepipe_digest, 'ECNOTEPIPE', persist=True)
         # To move to class
         # self.do_errc.start_py_thread()
 

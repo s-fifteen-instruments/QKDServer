@@ -89,6 +89,7 @@ class Controller:
         self.pfind = Pfind(dir_qcrypto / 'pfind')
         self.errc = ErrorCorr(dir_qcrypto / 'errcd')
 
+        self._clean_orphaned_qcrypto()
         self._initialize_pipes()  # cryptostuff directory needed to allow authd to write to file. Initialize only once to make needed structure and pips.
         self.restart_authd()
 
@@ -206,6 +207,9 @@ class Controller:
         else:
             self.qkd_engine_state = QKDEngineState.ONLY_COMMUNICATION
     
+    def _clean_orphaned_qcrypto(self):
+        qkd_globals.kill_existing_qcrypto_processes()
+        qkd_globals.kill_process_by_cmdline('authd.py')
     def _initialize_pipes(self):
         """Prepares folders and pipes for connection.
 
