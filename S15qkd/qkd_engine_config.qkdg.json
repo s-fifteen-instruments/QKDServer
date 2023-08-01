@@ -1,39 +1,39 @@
 {
   "connections": {
-    "QKDE0001": {
-      "remote_connection_id": "QKDE0001",
-      "target_hostname": "a.qkd.external",
-      "remote_cert": "authd.qkda.cert",
+    "QKDE0004": {
+      "remote_connection_id": "QKDE0004",
+      "target_hostname": "d.qkd.internal",
+      "remote_cert": "../S15qkd/authd.qkdd.cert",
       "do_polarization_compensation": true
     },
     "QKDE0003": {
       "remote_connection_id": "QKDE0003",
-      "target_hostname": "c.qkd.external",
-      "remote_cert": "authd.qkdc.cert",
+      "target_hostname": "c.qkd.internal",
+      "remote_cert": "../S15qkd/authd.qkdc.cert",
       "do_polarization_compensation": true
     }
   },
-  "remote_connection_id": "QKDE0001",
-  "local_connection_id": "QKDE0002",
-  "target_hostname": "a.qkd.external",
-  "remote_cert": "authd.qkda.cert",
-  "local_cert": "authd.qkdb.cert",
-  "local_key": "authd.qkdb.key",
+  "remote_connection_id": "QKDE0004",
+  "local_connection_id": "QKDE0006",
+  "target_hostname": "d.qkd.external",
+  "remote_cert": "../S15qkd/authd.qkdd.cert",
+  "local_cert": "../S15qkd/authd.qkdg.cert",
+  "local_key": "../S15qkd/authd.qkdg.key",
   "port_authd": 55555,
   "port_transd": 4855,
   "local_authd_ip": "localhost",
   "data_root": "/tmp/cryptostuff",
   "program_root": "bin/remotecrypto",
-  "identity": "QKD-B (Pol Comp)",
+  "identity": "QKD-G (Test)",
   "remote_coincidence_window": 6,
   "tracking_window": 30,
   "track_filter_time_constant": 200000,
   "FFT_buffer_order": 23,
   "local_detector_skew_correction": {
-    "det1corr": 134,
-    "det2corr": -81,
-    "det3corr": -14,
-    "det4corr": 0
+    "det1corr": 0,
+    "det2corr": -1536,
+    "det3corr": 206,
+    "det4corr": -1002
   },
   "max_event_time_pause": 20000,
   "autorestart_costream": true,
@@ -50,17 +50,17 @@
   "privacy_amplification": true,
   "errcd_killfile_option": "-k",
   "QBER_limit": 0.1,
-  "QBER_threshold": 0.085,
+  "QBER_threshold": 0.090,
   "default_QBER": 0.06,
   "minimal_block_size": 20000,
   "target_bit_error": 1e-09,
   "servo_blocks": 5,
   "do_polarization_compensation": true,
-  "LCR_polarization_compensator_path": "/dev/serial/by-id/usb-S-Fifteen_Instruments_Quad_LCD_driver_LCDD-001-if00",
+  "LCR_polarization_compensator_path": "/dev/serial/by-id/usb-S-Fifteen_Instruments_Quad_LCD_driver_LCDD-003-if00",
   "LCR_volt_info": {
-    "V1": 4.781,
-    "V2": 1.625,
-    "V3": 2.104,
-    "V4": 3.963
+    "V1": 3.0,
+    "V2": 1.35,
+    "V3": 1.165,
+    "V4": 2.328
   }
 }

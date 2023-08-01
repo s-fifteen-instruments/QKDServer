@@ -1,4 +1,20 @@
 {
+  "connections": {
+    "QKDE0002": {
+      "remote_connection_id": "QKDE0002",
+      "target_hostname": "b.qkd.external",
+      "remote_cert": "authd.qkdb.cert",
+      "do_polarization_compensation": false
+    },
+    "QKDE0003": {
+      "remote_connection_id": "QKDE0003",
+      "target_hostname": "c.qkd.external",
+      "remote_cert": "authd.qkdc.cert",
+      "do_polarization_compensation": false
+    }
+  },
+  "remote_connection_id": "QKDE0002",
+  "local_connection_id": "QKDE0001",
   "target_hostname": "b.qkd.external",
   "remote_cert": "authd.qkdb.cert",
   "local_cert": "authd.qkda.cert",
@@ -12,7 +28,7 @@
   "remote_coincidence_window": 6,
   "tracking_window": 30,
   "track_filter_time_constant": 200000,
-  "FFT_buffer_order": 25,
+  "FFT_buffer_order": 23,
   "local_detector_skew_correction": {
     "det1corr": -31,
     "det2corr": 16,
@@ -26,7 +42,7 @@
   "protocol": 1,
   "max_event_diff": 20000,
   "kill_option": "-k -K",
-  "pfind_epochs": 12,
+  "pfind_epochs": 3,
   "costream_histo_option": "",
   "costream_histo_number": 50,
   "error_correction_program_path": "bin/errorcorrection",
@@ -42,7 +58,6 @@
   "do_polarization_compensation": false,
   "LCR_polarization_compensator_path": "",
   "LCR_volt_info": {
-    "LCR_volt_file": "latest_LCR_voltages.txt",
     "V1": 2.0,
     "V2": 2.0,
     "V3": 2.0,

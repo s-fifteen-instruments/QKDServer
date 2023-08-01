@@ -28,6 +28,7 @@ SOFTWARE.
 """
 
 import pathlib
+import time
 
 from .utils import Process, read_T3_header, HeadT3, read_T4_header, HeadT4
 from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD, QKDEngineState
@@ -48,12 +49,12 @@ class Splicer(Process):
         """
         assert not self.is_running()
 
-        self.read(PipesQKD.GENLOG, self.digest_splice_outpipe, 'GENLOG', persist=True)
-        self.read(PipesQKD.PRESPLICER, self.send_splice_inpipe, 'PRESPLICER', persist=True)
 
         self._qkd_protocol = qkd_protocol
         self._pol_compensator = callback_pol_comp_epoch
         self._callback_ecqueue = callback_ecqueue
+        self._callback_restart = callback_restart
+        self._latest_message_time = time.time()
 
         args = [
             '-d', FoldersQKD.T3FILES,
@@ -65,13 +66,17 @@ class Splicer(Process):
             '-m', PipesQKD.GENLOG,
         ]
         super().start(args, stdout='splicer_stdout', stderr='splicer_stderr', callback_restart=callback_restart)
+        self.read(PipesQKD.GENLOG, self.digest_splice_outpipe, 'GENLOG', persist=True)
+        self.read(PipesQKD.PRESPLICER, self.send_splice_inpipe, 'PRESPLICEPIPE', persist=True)
+        super().start_thread_method(self._no_message_monitor)
 
     def digest_splice_outpipe(self, pipe):
         # message = pipe.readline().decode().rstrip('\n').lstrip('\x00')
         message = pipe.readline().rstrip('\n').lstrip('\x00')
         if len(message) == 0:
             return
-        
+
+        self._latest_message_time = time.time()
         qkd_protocol = self._qkd_protocol
         logger.debug(f'[genlog] {message}')
         if qkd_protocol == QKDProtocol.BBM92:
@@ -108,3 +113,13 @@ class Splicer(Process):
                 logger.debug(f'Sent epoch name {epoch} to splicer.')
             else:
                 logger.debug(f'Base bits not proper yet. Protocol: {qkd_protocol}, T3 basebits: {headt3.bits_per_entry} T4 basebits: {headt4.base_bits}')
+
+    def _no_message_monitor(self, stop_event):
+        timeout_seconds = 200
+        while not stop_event.is_set() and self.is_running():
+            if time.time() - self._latest_message_time > timeout_seconds:
+                logger.debug(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
+                self._callback_restart()
+                return
+            time.sleep(timeout_seconds)
+        return

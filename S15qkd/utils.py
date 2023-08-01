@@ -13,8 +13,22 @@ from typing import Union, Optional, NamedTuple
 
 import psutil
 
-from . import qkd_globals
-from .qkd_globals import QKDProtocol, logger, PipesQKD, FoldersQKD
+# Relative import (i.e. 'from . import ...') avoided
+# to allow the standalone file 'authd.py' to utilize 'S15qkd.utils.Process.load_config'
+# to load the default configuration (currently not running 'authd.py' as part of package)
+from S15qkd import qkd_globals
+from S15qkd.qkd_globals import QKDProtocol, logger, PipesQKD, FoldersQKD
+
+def class2dict(instance, built_dict={}):
+    """Converts nested class items into nested dictionaries
+       https://stackoverflow.com/a/63906646
+    """
+    if not hasattr(instance, "__dict__"):
+        return instance
+    new_subdic = vars(instance)
+    for key, value in new_subdic.items():
+        new_subdic[key] = class2dict(value)
+    return new_subdic
 
 class Process:
     """Represents a single process.
@@ -36,13 +50,34 @@ class Process:
         self.process = None
         self._persist_read = None  # See read() below.
         self._expect_running = False  # See monitor() below.
-    
+        self.stop_event = threading.Event()
+        self._internal_threads = []
+        self._read_named_pipes = []
+
     @classmethod
-    def load_config(cls, path=None):
+    def load_config(cls, path=None, conn_id: Optional[str] = None):
         if not path:
             path = qkd_globals.config_file
         with open(path, 'r') as f:
-            cls.config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+            config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+
+        # Apply configuration override
+        if conn_id:
+            if hasattr(config.connections, conn_id):
+                config.__dict__.update(**getattr(config.connections, conn_id).__dict__)
+            else:
+                logger.error(f"No connection ID with '{conn_id}'.")
+
+        cls.config = config
+
+    @classmethod
+    def save_config(cls, path=None, conn_id: Optional[str] = None):
+        if not path:
+            path = qkd_globals.config_file
+        if cls.config is None:
+            return
+        with open(path, 'w') as f:
+            json.dump(class2dict(cls.config), f, indent=2)
 
     def start(
             self,
@@ -127,7 +162,8 @@ class Process:
 
         # Run program in child process
         # psutil.Popen used for continuous tracking of PID
-        command = [self.program, *list(map(str, args))]
+        # Preprocess command string with whitespace-splitting to allow calling of stacked programs
+        command = [*str(self.program).split(" "), *list(map(str, args))]
         self.process = psutil.Popen(
             command,
             stdin=stdin,
@@ -148,17 +184,19 @@ class Process:
         # Activate callback restart only if defined
         if callback_restart:
             self._expect_running = True
-            self.monitor(callback_restart)
+            self.monitor(callback_restart,self.stop_event)
     
     def stop(self, timeout=3):
         if self.process is None:
             return
 
-        self._expect_running = False
-
         # Stop persistence read pipes attached to process
         if self._persist_read:
             self._persist_read = False
+
+        self.stop_event.set()
+        if self._expect_running:
+            self._expect_running = False
 
         try:
             # 'qcrypto' likely does not have child processes, but
@@ -183,7 +221,45 @@ class Process:
         except psutil.NoSuchProcess:
             logger.debug(f"Process '{self.process}' already prematurely terminated ('{self.program}')")
 
+        except AttributeError:
+            logger.debug(f"Process went missing. ({self.program})")
+
+        for pipe in self._read_named_pipes:
+            pipename = pipe.split('/')[-1]
+            logger.debug(f"Pipe is {pipe}")
+            Process.write(pipe, "", name=pipe)
+        try:
+            for thread in self._internal_threads:
+                if thread.is_alive():
+                    logger.debug(f"{thread.name} is alive")
+                    if 'tm_' in thread.name:
+                        logger.debug(f"stop_event is {self.stop_event.is_set()} ")
+                    else:
+                        for pipe in self._read_named_pipes:
+                            pipename = pipe.split('/')[-1]
+                            if pipename.casefold() in thread.name.casefold():
+                                time.sleep(0.2)
+                                Process.write(pipe, "", name=pipe)
+                                Process.write(pipe, "", name=pipe)
+                                logger.debug(f"Writing new line to {pipe} for {thread.name}")
+                                thread.join(timeout=0.5)
+                                if not thread.is_alive():
+                                    self._read_named_pipes.remove(pipe)
+                                    self._internal_threads.remove(thread)
+                else:
+                    logger.debug(f"{thread.name} is dead")
+                    for pipe in self._read_named_pipes:
+                        pipename = pipe.split('/')[-1]
+                        if pipename.casefold() in thread.name.casefold():
+                            self._read_named_pipes.remove(pipe)
+                    self._internal_threads.remove(thread)
+        except RuntimeError as msg:
+            logger.debug(f"{thread} Thread closed. {msg}")
+
+
         self.process = None
+        #self._read_named_pipes.clear()
+        self.stop_event.clear()
 
     def wait(self):
         self._expect_running = False
@@ -193,7 +269,7 @@ class Process:
         return self.process and self.process.poll() is None
     
     # Helper
-    def read(self, pipe, callback, name='', wait=0.1, persist=False):
+    def read(self, pipe, callback, name='', wait=0.02, persist=False):
         """TODO
 
         If opening any pipes from the same parent thread, ensure that
@@ -209,7 +285,7 @@ class Process:
         """
         if persist:
             self._persist_read = True
-        
+
         def func(pipe, name):
             # Create pipe if is not already open for reading
             if not isinstance(pipe, io.IOBase):
@@ -217,6 +293,7 @@ class Process:
                     name = pipe
                 # Create file descriptor for read-only non-blocking pipe
                 # TODO(Justin): Why must a single threaded pipe read be non-blocking?
+                self._read_named_pipes.append(pipe) # pipe is still a path here
                 fd = os.open(pipe, os.O_RDONLY)
                 # Open file descriptor with *no* buffer
                 pipe = os.fdopen(fd, 'r')
@@ -235,7 +312,7 @@ class Process:
                 if self._persist_read is not None:
                     predicate = lambda: self._persist_read
 
-                while predicate():
+                while predicate() and not self.stop_event.is_set():
                     if wait:
                         time.sleep(wait)
 
@@ -256,7 +333,11 @@ class Process:
                 logger.info(f"Named pipe '{name}' closed.")
 
         thread = threading.Thread(target=func, args=(pipe,name))
+        ThreadName = 'r' + thread.name.split('-')[-1] + '-' + name
+        thread.name = ThreadName
         thread.start()
+        self._internal_threads.append(thread)
+        return thread
     
     @staticmethod
     def write(target, message: str, name=''):
@@ -281,7 +362,7 @@ class Process:
             name = path
         logger.debug(f"'{message}' written to '{name}'.")
 
-    def monitor(self, callback_restart):
+    def monitor(self, callback_restart, stop_event):
         """Restarts keygen if process terminates without a wait/stop trigger.
         
         Polls performed every 1 second.
@@ -289,24 +370,31 @@ class Process:
         
         def monitor_daemon():
             time.sleep(2)
-            while self._expect_running:
+            while self._expect_running and not stop_event.is_set():
                 if not self.is_running():
                     logger.debug(f"Activated process monitor for '{self.program}' ('{self.process}')")
                     callback_restart()
-                    return
                 time.sleep(2)
             logger.debug(f"Terminated process monitor for '{self.program}' ('{self.process}')")
     
         logger.debug(f"Starting process monitor for '{self.program}' ('{self.process}')")
         thread = threading.Thread(target=monitor_daemon)
+        ThreadName = "md_" + thread.name.split('-')[-1] + '-' + str(self.program).split('/')[-1]
+        thread.name = ThreadName
         thread.daemon = True
         thread.start()
+        self._internal_threads.append(thread)
+        return thread
 
     def start_thread_method(self, method_name: FunctionType):
         logger.debug(f"Started method {method_name} for '{self.program}' ('{self.process}')")
-        thread = threading.Thread(target = method_name)
+        thread = threading.Thread(target = method_name, args=(self.stop_event,))
+        ThreadName = 'tm_' + thread.name.split('-')[-1] + '-' + method_name.__name__
+        thread.name = ThreadName
         thread.daemon = True
         thread.start()
+        self._internal_threads.append(thread)
+        return thread
 
 class HeadT1(NamedTuple):
     tag: int
@@ -365,7 +453,9 @@ def read_T3_header(file_name: str) -> Optional[HeadT3]:
     if Path(file_name).is_file():
         with open(file_name, 'rb') as f:
             head_info = f.read(16) # 16 bytes of T3 header https://qcrypto.readthedocs.io/en/documentation/file%20specification.html
-
+    else:
+        headt3 = HeadT3(3,int(file_name.split('/')[-1],16),0,0)
+        return headt3
     headt3 = HeadT3._make(unpack('iIIi', head_info)) #int, unsigned int, unsigned int, int
     if (headt3.tag != 0x103 and headt3.tag != 3) :
         logger.error(f'{file_name} is not a Type3 header file')
@@ -434,5 +524,12 @@ def service_T3(file_name: str) -> Optional[ServiceT3]:
     service.qber = float(round(er_coin /(er_coin + gd_coin),3)) #ignore garbage
     return service
 
+def epoch_after(epoch: str, added: int) -> str:
+    return hex(int(epoch,16) + added)[2:]
 
+def get_current_epoch():
+    """Returns the current epoch in integer.
 
+    Hex value of epoch can be checked with 'hex(get_current_epoch())[2:]'.
+    """
+    return time.time_ns() >> 29

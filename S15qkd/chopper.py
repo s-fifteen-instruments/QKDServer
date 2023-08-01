@@ -60,7 +60,6 @@ class Chopper(Process):
         
         # T2LOG pipe must be opened before starting chopper!
         # Might be some premature writing to T2LOG in chopper.c
-        self.read(PipesQKD.T2LOG, self.digest_t2logpipe, 'T2LOG', persist=True)
 
         args = [
             '-i', PipesQKD.RAWEVENTS,
@@ -76,6 +75,7 @@ class Chopper(Process):
             '-m', Process.config.max_event_diff,
         ]
         super().start(args, stderr="choppererror", callback_restart=callback_restart)
+        self.read(PipesQKD.T2LOG, self.digest_t2logpipe, name='T2LOGPIPE', persist=True)
         logger.info('Started chopper.')
         super().start_thread_method(self._no_message_monitor)
 
@@ -116,13 +116,15 @@ class Chopper(Process):
                 return
         return
 
-    def _no_message_monitor(self):
+    def _no_message_monitor(self, stop_event):
         timeout_seconds = 5
-        while self.is_running():
+        logger.debug(f"'{self.program}' started no_message_monitor.")
+        while not stop_event.is_set() and self.is_running():
             if time.time() - self._latest_message_time > timeout_seconds:
                 logger.debug(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
                 self._callback_reset_timestamp()
                 return
             time.sleep(timeout_seconds)
+        logger.debug(f"'{self.program}' ended no_message_monitor. Event set is {stop_event.is_set()}. is_running is {self.is_running()}.")
         return
 

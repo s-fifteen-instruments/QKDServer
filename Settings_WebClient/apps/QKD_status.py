@@ -64,7 +64,7 @@ def serve_layout():
     ])
 
     # Raw key generation status
-    connection_status = html.Div(['Connection status: ', html.Nobr(id='connection_status')])
+    connection_status = html.Div(['Remote target: ', html.Nobr(id='connection_status')])
     symmetry_status = html.Div(['Symmetry: ', html.Nobr(id='symmetry')])
     protocol_status = html.Div(['Protocol: ', html.Nobr(id='protocol')])
     init_time_diff_status = html.Div(['Initial time difference: ', html.Nobr(id='init_time_diff')])
@@ -138,7 +138,7 @@ def serve_layout():
     # Start and stop key generation buttons
     start_key_gen_button = dbc.Button('Start key generation', color="success", id='start_raw_key_gen')
     kill_all_processes_button = dbc.Button('Stop all processes', color="danger", id='kill_all_processes')
-    restart_transferd_button = dbc.Button('Restart transferd', color="danger", id='restart_transferd')
+    restart_transferd_button = dbc.Button('Restart connection', color="danger", id='restart_transferd')
 
     # Time interval between queries for presence of qcrypto processes
     proc_status_interval = dcc.Interval(
@@ -360,5 +360,5 @@ def on_kill_button_click(n):
 def on_kill_button_click(n):
     if n is None:
         raise PreventUpdate
-    qkd_ctrl.restart_transferd()
+    qkd_ctrl.restart_connection()
     return ''

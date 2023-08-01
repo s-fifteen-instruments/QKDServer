@@ -34,7 +34,7 @@ import subprocess
 import time
 
 from .utils import Process
-from .qkd_globals import logger, PipesQKD, FoldersQKD
+from .qkd_globals import logger, PipesQKD, FoldersQKD, kill_process_by_name
 
 # Almost guaranteed to be connected due to authd
 # Removing state 'OFF' 
@@ -83,7 +83,12 @@ class Transferd(Process):
             callback_localrate=None,  # to readevents measurement
             callback_restart=None,    # to restart keygen
         ):
-        assert not self.is_running()
+        try:
+            assert not self.is_running()
+        except AssertionError as msg:
+            logger.error(f'{msg} Assertion error')
+            time.sleep(0.1)
+
         if self.communication_status != CommunicationStatus.DISCONNECTED:
             return
 
@@ -108,10 +113,10 @@ class Transferd(Process):
         ]
         super().start(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        self.read(self.process.stdout, self.digest_stdout, wait=0.5, name="transferd.stdout", persist=True)
-        self.read(self.process.stderr, self.digest_stderr, wait=0.5, name="transferd.stderr", persist=True)
-        self.read(PipesQKD.MSGOUT, self.digest_msgout, wait=0.05, persist=True)
-        self.read(PipesQKD.TRANSFERLOG, self.digest_transferlog, wait=0.1, persist=True)
+        self.read(PipesQKD.MSGOUT, self.digest_msgout, wait=0.05, name="transferd.msgout", persist=False)
+        self.read(PipesQKD.TRANSFERLOG, self.digest_transferlog, wait=0.1, name="transferd.transferlog", persist=False)
+        self.read(self.process.stdout, self.digest_stdout, wait=0.1, name="transferd.stdout", persist=False)
+        self.read(self.process.stderr, self.digest_stderr, wait=0.1, name="transferd.stderr", persist=False)
 
         time.sleep(0.2)  # give some time to connect to the partnering computer
 
@@ -129,7 +134,10 @@ class Transferd(Process):
     
     def digest_stderr(self, pipe):
         for line in iter(pipe.readline, b''):
-            logger.info(f'[stderr] {line.decode()}')
+            msg = line.decode()
+            logger.info(f'[stderr] {msg}')
+            if 'error in bind' in msg:
+                kill_process_by_name('transferd')
         
     def digest_transferlog(self, pipe):
         '''
@@ -174,7 +182,10 @@ class Transferd(Process):
             message: Response from remote transferd (optional)
             callback_localrate: ...
         """
-        assert self.is_connected()
+        try:
+            assert self.is_connected()
+        except AssertionError as msg:
+            print(msg)
 
         # Negotiation was done, skip
         if self._low_count_side is not None and self._negotiating == SymmetryNegotiationState.FINISHED:

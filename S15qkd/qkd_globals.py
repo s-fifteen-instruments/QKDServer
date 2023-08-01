@@ -107,6 +107,23 @@ class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
 
 
 
+def kill_process_by_cmdline(process_name: str):
+    '''
+    Searches processes by cmdline arg and kills them.
+    '''
+    list_of_process_objects = []
+    # Iterate over the all the running process
+    for proc in psutil.process_iter():
+        try:
+            pinfo = proc.as_dict(attrs=['pid', 'name', 'create_time','cmdline'])
+            # Check if process name contains the given name string.
+            if any(process_name.lower() in ext.lower() for ext in pinfo['cmdline']):
+                list_of_process_objects.append(pinfo)
+                psutil.Process(pinfo['pid']).kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+    return list_of_process_objects
+
 def kill_process_by_name(process_name: str):
     '''
     Searches processes by name and kills them.
@@ -195,6 +212,17 @@ class PipesQKD(str, Enum):
         f = os.fdopen(fd, 'rb', 0)
         f.readall()
 
+    @classmethod
+    def flush_all_pipes(cls):
+        for fn in cls:
+            cls.flush_pipe(fn)
+
+    @staticmethod
+    def flush_pipe(pipe_name: str):
+        fd = os.open(pipe_name, os.O_WRONLY | os.O_NONBLOCK)
+        f = os.fdopen(fd, 'wb', 0)
+        f.write("\n".encode())
+
     def __str__(self):
         """Allows implicit conversion to value.
         
@@ -230,7 +258,10 @@ class FoldersQKD(str, Enum):
     def remove_stale_comm_files(cls):
         for folder in [cls.RECEIVEFILES + '/*', cls.SENDFILES + '/*', cls.T1FILES + '/*', cls.T3FILES + '/*']:
             for f in glob.glob(folder):
-                os.remove(f)
+                try:
+                    os.remove(f)
+                except FileNotFoundError:
+                    logger.debug(f"File {f} removed by another process")
 
     def __str__(self):
         """See FoldersQKD.__str__ for documentation."""

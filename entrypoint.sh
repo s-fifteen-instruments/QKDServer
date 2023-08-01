@@ -11,10 +11,6 @@
 # Comment this line out in production environment.
 cd /root/code/QKDServer && pip install -e .
 
-# Start authd in subprocess
-# Note authd will automatically terminate when this script (gunicorn) exits
-cd /root/code/QKDServer/S15qkd && python3 authd.py &
-
 # Optionally adds server certificate if cert/key pair exists in 'certs' subdirectory
 CERT=/root/code/QKDServer/Settings_WebClient/certs/cert.crt
 KEY=/root/code/QKDServer/Settings_WebClient/certs/cert.key
@@ -25,6 +21,6 @@ fi
 
 # Run and persist server
 cd /root/code/QKDServer/Settings_WebClient \
-        && gunicorn --timeout 600 --threads=1 $CERT_FLAGS -b 0.0.0.0:8000 index:server
+        && gunicorn --timeout 30 --worker-connections=1 --threads=1 $CERT_FLAGS -b 0.0.0.0:8000 index:server
 
 #&& apk add gcc build-base clang \

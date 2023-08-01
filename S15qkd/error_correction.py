@@ -47,7 +47,7 @@ import collections
 from statistics import mean
 
 # from . import qkd_globals, controller
-from .utils import Process, read_T3_header, HeadT3
+from .utils import Process, read_T3_header, HeadT3, epoch_after
 from .qkd_globals import logger, PipesQKD, FoldersQKD, QKDEngineState
 
 EPOCH_DURATION = 0.536  # seconds
@@ -96,7 +96,7 @@ class ErrorCorr(Process):
             self._ec_thread_on = False
             time.sleep(EPOCH_DURATION)
             self._servoed_QBER = Process.config.default_QBER
-        self.do_ec_thread = threading.Thread(target=self.do_error_correction, args=(), daemon=True)
+        self.do_ec_thread = threading.Thread(target=self.do_error_correction, args=(), daemon=True, name="errcd")
         self._ec_thread_on = True
         self.do_ec_thread.start()
 
@@ -107,14 +107,30 @@ class ErrorCorr(Process):
             callback_qber_exceed = None,
             callback_pol_comp_qber = None, #Note: For passive polarization compensation, not implemented yet.
         ):
+        """
+
+        If 'remote_connection_id' is supplied in the global configuration file, then the notification
+        pipe will automatically append remote connection ID as well as (an alternating) direction to
+        switch between the bidirectional tables where the keys will be inserted. Resolution for which
+        table inserts the first key is performed by determining the output of the string comparison
+        "'local_connection_id' < 'remote_connection_id'".
+
+        Note:
+            The remote connection id is cached upon starting error correction, to avoid
+            race condition when configuration reload is triggered while errcd is still
+            running. If no remote connection id is available, the notification pipe format
+            will follow the original specification, i.e. newline-delimited epoch filenames.
+        """
         assert not self.is_running()
         self._reset()
 
-        self.read(PipesQKD.ECNOTE, self.ecnotepipe_digest, 'ECNOTE', persist=True)
         self._callback_guardian_note = callback_guardian_note
         self._callback_pol_comp = callback_pol_comp_qber
         self._callback_restart = callback_restart
         self._callback_qber_exceed = callback_qber_exceed
+        self.remote_connection_id = getattr(Process.config, "remote_connection_id", None)
+        local_connection_id = getattr(Process.config, "local_connection_id", "")
+        self.key_direction = int(local_connection_id < self.remote_connection_id)  # {0, 1}
 
         args = [
             '-c', PipesQKD.ECCMD,
@@ -131,9 +147,10 @@ class ErrorCorr(Process):
             Process.config.privacy_amplification # For switching off pa.
         ]
         super().start(args, stdout='errcd_stdout', stderr='errcd_stderr', callback_restart=callback_restart)
-        self.do_ec_thread = threading.Thread(target=self.do_error_correction, args=(), daemon=True)
+        self.do_ec_thread = threading.Thread(target=self.do_error_correction, args=(), daemon=True, name="errcd")
         self._ec_thread_on = True
         self.do_ec_thread.start()
+        self.read(PipesQKD.ECNOTE, self.ecnotepipe_digest, 'ECNOTEPIPE', persist=True)
         # To move to class
         # self.do_errc.start_py_thread()
 
@@ -157,8 +174,19 @@ class ErrorCorr(Process):
             *_,
         ) = message.split()
 
-        self.write(self._callback_guardian_note, message =self._ec_epoch)
-        logger.info(f'Sent {self._ec_epoch} to notify.pipe.')
+        if self.ec_final_bits > 0:
+            if self.remote_connection_id is not None:
+                notification = f"{self._ec_epoch} {self.remote_connection_id} {self.key_direction}"
+            else:
+                notification = self._ec_epoch
+            self.write(self._callback_guardian_note, message=notification)
+            with open("/epoch_files/notified", "a+") as file:
+                file.write(f"{notification}\n")
+            logger.info(f'Sent {notification} to notify.pipe.')
+
+            # Flip key direction
+            self.key_direction = 1 - self.key_direction
+
         self._ec_key_gen_rate = self.ec_final_bits / (self.ec_nr_of_epochs * EPOCH_DURATION)
         logger.debug(f'Rate is {self.ec_key_gen_rate} bps.')
         if not self.total_ec_key_bits:
@@ -178,10 +206,14 @@ class ErrorCorr(Process):
         elif self._callback_qber_exceed and self.ec_err_fraction > 0.15: #if more than 15% restart immediately and don't need to average over self._servo_blocks.
             logger.error(f'QBER: {self.ec_err_fraction} above {0.15}. Restarting polarization compensation.')
             self._servoed_QBER = self.ec_err_fraction
+            self.QBER_servo_history.clear()
             self._callback_qber_exceed()
         elif self._callback_qber_exceed and self.servoed_QBER > self.QBER_limit:
             logger.error(f'QBER: {self.servoed_QBER} above {self.QBER_limit}. Restarting polarization compensation.')
+            self.QBER_servo_history.clear()
             self._callback_qber_exceed()
+        else:
+            self._callback_pol_comp(qber=self.ec_err_fraction,epoch=epoch_after(self._ec_epoch,int(self._ec_nr_of_epochs,10)))
 
         try:
             1+1

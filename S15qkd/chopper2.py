@@ -70,7 +70,7 @@ class Chopper2(Process):
             '-4', # Force four detector option
         ]
         super().start(args, stderr="chopper2error", callback_restart=callback_restart)
-        self.read(PipesQKD.T1LOG, self.digest_t1logpipe, wait=0.1, name="T1LOG")
+        self.read(PipesQKD.T1LOG, self.digest_t1logpipe, wait=0.1, name="T1LOGPIPE", persist=True)
         logger.info('Started chopper2.')
         super().start_thread_method(self._no_message_monitor)
 
@@ -119,9 +119,9 @@ class Chopper2(Process):
                 return
         return
 
-    def _no_message_monitor(self):
+    def _no_message_monitor(self, stop_event):
         timeout_seconds = 5
-        while self.is_running():
+        while not stop_event.is_set() and self.is_running():
             if time.time() - self._latest_message_time > timeout_seconds:
                 logger.debug(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
                 self._callback_reset_timestamp()

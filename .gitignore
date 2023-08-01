@@ -4,6 +4,7 @@ S15qkd/qkd_engine_config.json
 S15qkd/*.cert
 S15qkd/*.key
 Settings_WebClient/certs
+logs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
