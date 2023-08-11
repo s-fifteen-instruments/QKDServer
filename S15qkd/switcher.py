@@ -14,11 +14,11 @@ class OpticalSwitch(TripleOpticalSwitch):
         Connections depends on internal fiber connections to external outputs.
         May change on subsequent updates.
         """
-        if conn == 0: # c-g
+        if conn == 0: # 1-3
             self.route = (0,1,1)
-        elif conn == 1: #d-g
+        elif conn == 1: #1-2
             self.route = (0,0,0)
-        elif conn == 2: #c-d
+        elif conn == 2: #2-3
             self.route = (1,1,1)
         else:
             print(f"route undefined. Current route is: {self.route}")
