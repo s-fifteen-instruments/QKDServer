@@ -402,9 +402,9 @@ class Controller:
     def _set_symmetry(self):
         """Sets Symmetry through pol_com status"""
         if self.do_polcom:
-            self.transferd._low_count_side = False
-        else:
             self.transferd._low_count_side = True
+        else:
+            self.transferd._low_count_side = False
         self.transferd._negotiating = SymmetryNegotiationState.FINISHED
 
     @requires_transferd
@@ -481,8 +481,8 @@ class Controller:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
             self.transferd.send(prepend_if_service("st2"))
             self.chopper2.start(self.restart_protocol, self.reset_timestamp)
-            #self.readevents.start(self.restart_protocol)
-            self.readevents.start_sb(self.restart_protocol, self.stop_key_gen)
+            self.readevents.start(self.restart_protocol)
+            #self.readevents.start_sb(self.restart_protocol, self.stop_key_gen)
             self.pol_com_walk()
 
         if seq == "st2":
@@ -497,8 +497,8 @@ class Controller:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
             self.transferd.send(prepend_if_service("st3"))
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
-            #self.readevents.start(self.restart_protocol)
-            self.readevents.start_sb(self.restart_protocol, self.stop_key_gen)
+            self.readevents.start(self.restart_protocol)
+            #self.readevents.start_sb(self.restart_protocol, self.stop_key_gen)
             self.pol_com_walk()
             self.splicer.start(
                 qkd_protocol,

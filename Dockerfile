@@ -14,7 +14,7 @@
 # Small footnote for apk del if nested in different RUN context
 # https://stackoverflow.com/questions/46221063/what-is-build-deps-for-apk-add-virtual-command#comment86443214_46221063
 
-FROM python:3.9-slim
+FROM python:3.9.16-slim
 LABEL Author="Mathias Seidler"
 
 ARG CC=gcc

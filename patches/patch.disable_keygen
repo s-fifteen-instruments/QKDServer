@@ -1,0 +1,20 @@
+diff --git a/S15qkd/polarization_compensation.py b/S15qkd/polarization_compensation.py
+index e82e699..7b04852 100644
+--- a/S15qkd/polarization_compensation.py
++++ b/S15qkd/polarization_compensation.py
+@@ -314,6 +314,7 @@ class PolComp(object):
+         self._calculate_retardances()
+         self.last_retardances = self.retardances.copy()
+         self.qber_current = qber_min
++        qber_min += 30
+         self.next_epoch = get_current_epoch()
+         if qber_min < self.qber_threshold_2: # minimum qber applied is low enough. Don't do_walk anymore.
+             #self._callback()
+@@ -436,6 +437,7 @@ class PolComp(object):
+         self.qber_list.append(qber)
+         if len(self.qber_list) >= self.averaging_n:
+             qber_mean = np.mean(self.qber_list)
++            qber_mean += 30
+             self.qber_list.clear()
+             logger.info(
+                 f'Avg(qber): {qber_mean:.2f} of the last {self.averaging_n} epochs at voltages {self.set_voltage}. Phi search range: {qber_cost_func(qber_mean):.2f}')

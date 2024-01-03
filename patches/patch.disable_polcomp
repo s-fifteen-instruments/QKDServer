@@ -1,0 +1,31 @@
+diff --git a/S15qkd/polarization_compensation.py b/S15qkd/polarization_compensation.py
+index f55bea0..be32a66 100644
+--- a/S15qkd/polarization_compensation.py
++++ b/S15qkd/polarization_compensation.py
+@@ -43,7 +43,7 @@ import time
+ from typing import Tuple, NamedTuple, Any
+ from dataclasses import dataclass
+ 
+-from S15lib.instruments.lcr_driver import LCRDriver
++from S15lib.instruments.lcr_driver import LCRDriver, MockLCRDriver
+ 
+ 
+ from .utils import HeadT1, ServiceT3, service_T3
+@@ -94,7 +94,7 @@ class PolComp(object):
+ 
+     def __init__(self, lcr_path: str = '', callback_service_to_BBM92 = None ):
+         # Get device
+-        self.lcr = LCRDriver(lcr_path)
++        self.lcr = MockLCRDriver(lcr_path)
+         self.lcr.all_channels_on()
+         # Load parameters from config
+         LCR_volt_info = qkd_globals.config['LCR_volt_info']
+@@ -534,7 +534,7 @@ LCVR2_CALLIBRATION_FILEPATH = 'lcvr_callibration.csv'
+ class PolarizationDriftCompensation(object):
+     def __init__(self, lcr_path: str = '/dev/serial/by-id/usb-S-Fifteen_Instruments_Quad_LCD_driver_LCDD-001-if00',
+                  averaging_n: int = 5):
+-        self.lcr_driver = LCRDriver(lcr_path)
++        self.lcr_driver = MockLCRDriver(lcr_path)
+         self.lcr_driver.all_channels_on()
+         self.averaging_n = averaging_n
+         self.LCRvoltages_file_name = LCR_VOLT_FILENAME

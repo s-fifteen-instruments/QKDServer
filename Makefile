@@ -2,32 +2,40 @@ serial_devs = $(shell for dev in /dev/serial/by-id/* ;\
 	    do echo -n "--device $$dev:$$dev " ;\
 	    done)
 
-timestamp=$(shell date +%Y%m%d)
+timestamp=$(shell date +%Y%m%d_%H0000)
 host=$(shell hostname)
 
 all: stop default
 
 build_fresh:
+	#docker build --network host --no-cache --security-opt seccomp:unconfined -t s-fifteen/qkdserver:qkd .
 	docker build --network host --no-cache -t s-fifteen/qkdserver:qkd .
 build:
 	docker build --network host -t s-fifteen/qkdserver:qkd .
 
 restart: stop default log
+load-module:
+	-sudo insmod /home/bob/programs/usbtmst4/driver/usbtmst4.ko
 
 log:
 	docker logs -f qkd
 
 savelog:
-	mkdir -p logs
-	docker logs qkd > logs/$(timestamp)_qkdlog_$(host) 2>&1
+	mkdir -p logs/$(timestamp)
+	docker logs qkd > logs/$(timestamp)/qkdlog_$(host) 2>&1
+	docker cp qkd:/tmp/cryptostuff logs/$(timestamp)/cryptostuff_$(host)
+	rm -f logs/$(timestamp)_qkdlog_$(host).tar.gz
+	tar czf logs/$(timestamp)_qkdlog_$(host).tar.gz -C logs $(timestamp)
+	rm -rf logs/$(timestamp)
+	mv logs/$(timestamp)_qkdlog_$(host).tar.gz target
+
 exec:
 	docker exec -w /root/code/QKDServer/Settings_WebClient -it qkd /bin/bash
 
 stop:
-	-docker stop qkd
-	sleep 7
+	-docker stop qkd && sleep 8
 
-default:
+default qkd: load-module
 	test -f "S15qkd/qkd_engine_config.json" || { echo "No configuration file found - run 'make qkda' or 'make qkdb' first."; exit 1; }
 	docker run \
 		--volume /root/code/QKDServer/S15qkd:/root/code/QKDServer/S15qkd \
@@ -38,6 +46,7 @@ default:
 		--volume /root/code/QKDServer/Settings_WebClient/index.py:/root/code/QKDServer/Settings_WebClient/index.py \
 		--volume /root/code/QKDServer/entrypoint.sh:/root/entrypoint.sh \
 		--volume /root/keys/authd:/root/keys/authd \
+		--volume epochs:/epoch_files \
 		--name qkd --rm -dit \
 		--network host \
 		--entrypoint="/root/entrypoint.sh" \
