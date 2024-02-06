@@ -1,0 +1,35 @@
+{
+  "connections": {
+    "QKDE0003": {
+      "remote_connection_id": "QKDE0003",
+      "target_hostname": "c.qkd.internal",
+      "remote_cert": "../S15qkd/authd.qkdc.cert",
+      "do_polarization_compensation": false
+    },
+    "QKDE0006": {
+      "remote_connection_id": "QKDE0006",
+      "target_hostname": "g.qkd.internal",
+      "remote_cert": "../S15qkd/authd.qkdg.cert",
+      "do_polarization_compensation": false
+    }
+  },
+  "remote_connection_id": "QKDE0003",
+  "local_connection_id": "QKDE0004",
+  "target_hostname": "c.qkd.internal",
+  "remote_cert": "../S15qkd/authd.qkdc.cert",
+  "local_cert": "../S15qkd/authd.qkdd.cert",
+  "local_key": "../S15qkd/authd.qkdd.key",
+  "identity": "QKD-D",
+  "local_detector_skew_correction": {
+    "det1corr": 0,
+    "det2corr": 107,
+    "det3corr": 48,
+    "det4corr": -217
+  },
+  "LCR_volt_info": {
+    "V1": 2.0,
+    "V2": 1.625,
+    "V3": 2.104,
+    "V4": 3.963
+  }
+}

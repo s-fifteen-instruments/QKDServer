@@ -1,0 +1,37 @@
+{
+  "connections": {
+    "QKDE0001": {
+      "remote_connection_id": "QKDE0001",
+      "target_hostname": "a.qkd.external",
+      "remote_cert": "authd.qkda.cert",
+      "do_polarization_compensation": true
+    },
+    "QKDE0003": {
+      "remote_connection_id": "QKDE0003",
+      "target_hostname": "c.qkd.external",
+      "remote_cert": "authd.qkdc.cert",
+      "do_polarization_compensation": true
+    }
+  },
+  "remote_connection_id": "QKDE0001",
+  "local_connection_id": "QKDE0002",
+  "target_hostname": "a.qkd.external",
+  "remote_cert": "authd.qkda.cert",
+  "local_cert": "authd.qkdb.cert",
+  "local_key": "authd.qkdb.key",
+  "identity": "QKD-B (Pol Comp)",
+  "local_detector_skew_correction": {
+    "det1corr": 134,
+    "det2corr": -81,
+    "det3corr": -14,
+    "det4corr": 0
+  },
+  "do_polarization_compensation": true,
+  "LCR_polarization_compensator_path": "/dev/serial/by-id/usb-S-Fifteen_Instruments_Quad_LCD_driver_LCDD-001-if00",
+  "LCR_volt_info": {
+    "V1": 4.781,
+    "V2": 1.625,
+    "V3": 2.104,
+    "V4": 3.963
+  }
+}
