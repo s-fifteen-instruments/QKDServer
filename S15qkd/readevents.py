@@ -3,7 +3,7 @@
 import pathlib
 import subprocess
 import os
-from numpy import mean
+import numpy as np
 
 from .utils import Process
 from . import qkd_globals
@@ -127,8 +127,8 @@ class Readevents(Process):
         if len(self.sb) < 4:
             return
         else:
-            sb_mean = mean(self.sb)
-            count_mean = mean(self.tt_counts)
+            sb_mean = np.mean(self.sb)
+            count_mean = np.mean(self.tt_counts)
             self.sb.pop()
             self.tt_counts.pop()
 
