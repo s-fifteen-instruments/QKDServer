@@ -1,0 +1,69 @@
+{
+  "connections": {
+    "QKDE0005": {
+      "remote_connection_id": "QKDE0005",
+      "target_hostname": "192.168.101.96",
+      "remote_cert": "/root/keys/authd/belgianwit-qkd.crt",
+      "do_polarization_compensation": false
+    },
+    "QKDE0006": {
+      "remote_connection_id": "QKDE0006",
+      "target_hostname": "192.168.101.96",
+      "remote_cert": "/root/keys/authd/belgianwit-qkd.crt",
+      "do_polarization_compensation": false
+    }
+  },
+  "remote_connection_id": "QKDE0001",
+  "local_connection_id": "QKDE0003",
+  "target_hostname": "100.102.187.142",
+  "remote_cert": "/root/keys/authd/belgianwit-qkd.crt",
+  "local_cert": "/root/keys/authd/thinkrat-qkd.crt",
+  "local_key": "/root/keys/authd/thinkrat-qkd.key",
+  "port_authd": 55555,
+  "port_transd": 4855,
+  "local_authd_ip": "localhost",
+  "data_root": "/tmp/cryptostuff",
+  "program_root": "bin/remotecrypto",
+  "pfind_root": "/root/code/fpfind/src/fpfind",
+  "identity": "QKD-A (586nm)",
+  "remote_coincidence_window": 8,
+  "tracking_window": 50,
+  "track_filter_time_constant": 200000,
+  "FFT_buffer_order": 24,
+  "local_detector_skew_correction": {
+    "det1corr": 0,
+    "det2corr": -826,
+    "det3corr": -718,
+    "det4corr": -1087
+  },
+  "max_event_time_pause": 20000,
+  "autorestart_costream": true,
+  "costream_general_log": true,
+  "freqcd_threshold": 34400,
+  "clock_source": "-e",
+  "protocol": 1,
+  "max_event_diff": 20000,
+  "kill_option": "-k -K",
+  "pfind_epochs": 5,
+  "costream_histo_option": "",
+  "costream_histo_number": 10,
+  "error_correction_program_path": "bin/errorcorrection",
+  "error_correction": true,
+  "privacy_amplification": true,
+  "errcd_killfile_option": "-k",
+  "QBER_limit": 0.10,
+  "QBER_threshold": 0.07,
+  "default_QBER": 0.06,
+  "minimal_block_size": 100000,
+  "target_bit_error": 1e-09,
+  "servo_blocks": 5,
+  "do_polarization_compensation": false,
+  "LCR_polarization_compensator_path": "",
+  "LCR_volt_info": {
+    "LCR_volt_file": "latest_LCR_voltages.txt",
+    "V1": 2.0,
+    "V2": 2.0,
+    "V3": 2.0,
+    "V4": 2.0
+  }
+}
