@@ -76,3 +76,10 @@ qkda:
 # Apply example QKD-B settings
 qkdb:
 	cp S15qkd/qkd_engine_config.qkdb.json S15qkd/qkd_engine_config.json
+
+
+generate-config:
+	jq -s '.[0]*.[1]' \
+		S15qkd/configs/qkd_engine_config.default.json \
+		S15qkd/configs/qkd_engine_config.local.json \
+		> S15qkd/qkd_engine_config.json

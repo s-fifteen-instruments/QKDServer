@@ -4,7 +4,7 @@
 """
 This module wraps the error correction process and attaches readers to the process pipes.
 
-The code for the error correction process can be found under: 
+The code for the error correction process can be found under:
 https://github.com/kurtsiefer/qcrypto/tree/master/errorcorrection
 
 Copyright (c) 2020 Mathias A. Seidler, S-Fifteen Instruments Pte. Ltd.
@@ -128,7 +128,7 @@ class ErrorCorr(Process):
         self._callback_pol_comp = callback_pol_comp_qber
         self._callback_restart = callback_restart
         self._callback_qber_exceed = callback_qber_exceed
-        self.remote_connection_id = getattr(Process.config, "remote_connection_id", None)
+        self.remote_connection_id = getattr(Process.config, "remote_connection_id", "")
         local_connection_id = getattr(Process.config, "local_connection_id", "")
         self.key_direction = int(local_connection_id < self.remote_connection_id)  # {0, 1}
 
@@ -175,7 +175,7 @@ class ErrorCorr(Process):
         ) = message.split()
 
         if self.ec_final_bits > 0:
-            if self.remote_connection_id is not None:
+            if self.remote_connection_id:
                 notification = f"{self._ec_epoch} {self.remote_connection_id} {self.key_direction}"
             else:
                 notification = self._ec_epoch
@@ -235,7 +235,7 @@ class ErrorCorr(Process):
         undigested_raw_bits = 0
         first_epoch = ''
         undigested_epochs = 0
-        
+
 
         while self.is_running() and self._ec_thread_on :
             # Attempt get from queue (FIFO). If no item is available, sleep a while
@@ -275,7 +275,7 @@ class ErrorCorr(Process):
             else:
                 logger.debug(
                     f'Undigested raw bits:{undigested_raw_bits}. Undigested epochs: {undigested_epochs}.')
-            
+
             self.ec_queue.task_done()
 
         logger.info(f'Thread finished.')
@@ -287,7 +287,7 @@ class ErrorCorr(Process):
     @property
     def ec_raw_bits(self):
         return int(self._ec_raw_bits)
-    
+
     @property
     def ec_key_gen_rate(self):
         return round(self._ec_key_gen_rate, 2)
