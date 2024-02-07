@@ -60,6 +60,11 @@
       "use_ttl_trigger": false,
       "use_fast_mode": false,
       "use_blinding_countermeasure": true
+    },
+    "polarization_compensation": {
+      "target_qber": 0.05,
+      "loss_exponent": 1.5,
+      "loss_coefficient": 8.5
     }
   },
   "ENVIRONMENT": {

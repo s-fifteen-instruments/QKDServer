@@ -47,6 +47,7 @@ from S15lib.instruments import LCRDriver
 from .utils import HeadT1, ServiceT3, service_T3
 from . import qkd_globals
 from .qkd_globals import logger, FoldersQKD
+from .utils import Process
 
 VOLT_MIN = 0.9
 VOLT_MAX = 5.5
@@ -56,7 +57,23 @@ EPOCH_DURATION = 0.537
 #QBER_THRESHOLD = 0.085
 MAX_UPDATE_NUM = 1100 # ~ 10 minutes
 
-def qber_cost_func(qber: float, desired_qber: float = 0.05, amplitude: float = 8.5, exponent: float = 1.5) -> float:
+DESIRED_QBER = Process.config.qcrypto.polarization_compensation.target_qber
+LOSS_COEFFICIENT = Process.config.qcrypto.polarization_compensation.loss_coefficient
+LOSS_EXPONENT = Process.config.qcrypto.polarization_compensation.loss_exponent
+
+def qber_cost_func(
+        qber: float,
+        desired_qber: float = DESIRED_QBER,
+        amplitude: float = LOSS_COEFFICIENT,
+        exponent: float = LOSS_EXPONENT,
+    ) -> float:
+    """Returns a measure of distance to desired QBER.
+
+    Used in polarization compensation to tune the search range of the LCVRs.
+
+    Note:
+        This is not formally a metric since triangle inequality not satisfied.
+    """
     return amplitude * (max(qber,desired_qber)-desired_qber)**exponent
 
 def get_current_epoch():
@@ -98,7 +115,7 @@ class PolComp(object):
         self.set_voltage = [self.LCR_params.V1, self.LCR_params.V2,
                             self.LCR_params.V3, self.LCR_params.V4]
         self._load_lut()
-        
+
         # Apply parameters
         self._reset()
         self._set_voltage()
@@ -155,7 +172,7 @@ class PolComp(object):
         self.retardances = actual_ret.copy()
         self._set_voltage()
         return
-    
+
     def _calculate_voltages(self, retardances: list):
         assert(len(retardances)==4)
         ind = 0
@@ -163,7 +180,7 @@ class PolComp(object):
         voltage_ret  = [0]*4
         for retardance in retardances:
             voltage_ret[ind], actual_ret[ind] = self.voltage_lookup(retardance,ind)
-            ind += 1 
+            ind += 1
         return voltage_ret, actual_ret
 
     def _calculate_retardances(self):
@@ -172,7 +189,7 @@ class PolComp(object):
             self.retardances[ind] = self.retardance_lookup(volt,ind)
             ind +=1
         logger.debug(f'self.retardances : {self.retardances}')
-        return 
+        return
 
     def _set_voltage(self):
         self.lcr.V1 = self.set_voltage[0]
@@ -215,12 +232,12 @@ class PolComp(object):
 
     def do_walks(self, lcvr_idx: int = 0):
         """Performs walking in the LCVR space.
-        Generates an array (nested list) of LCVR settings 
+        Generates an array (nested list) of LCVR settings
         and the corresponding epoch.
         [[*voltages1, epoch1],
          [*voltages2, epoch2],
          ...
-        ] 
+        ]
         """
         self.walks_array = []
         voltage_list = []
@@ -259,7 +276,7 @@ class PolComp(object):
             self.next_id = 0
             self.first_pass = False
         #return walks_array
-                    
+
     def find_qber_from_epoch(self, epoch_path):
         diagnosis = service_T3(epoch_path)
         # Pull relevant qber value
@@ -299,7 +316,7 @@ class PolComp(object):
                 self._last_qber = qber_min
         self._voltage_list = []
         self.last_voltage_list = self.set_voltage.copy() # for update qber later on
-        
+
         logger.debug(f'Minimum QBER {qber_min} at {self.set_voltage}')
         self._set_voltage()
         self._calculate_retardances()
@@ -333,15 +350,15 @@ class PolComp(object):
 
     def send_epoch(self, epoch_path: str = None):
         """Receives the epoch from controller and performs
-           polarization compensation. Only done in 
+           polarization compensation. Only done in
            SERVICE mode.
            The function name makes more sense from the
            controller side. This script is actually
            receiving the epoch.
         """
-        
+
         epoch = epoch_path.split('/')[-1]
-        
+
         if self.walks_array:
             self.process_qber(self.find_qber_from_epoch(epoch_path), epoch)
         else:
@@ -363,7 +380,7 @@ class PolComp(object):
         min_idx = len(retdiffVector[retdiffVector > 0]) - 1
         voltage_raw = self.LUT[id].volt_V[min_idx] + (retdiffVector[min_idx] / self.LUT[id].grad_V[min_idx])
         voltage = float(round(voltage_raw,3))
-        
+
         if voltage > VOLT_MAX:
             voltage = self.LUT[id].volt_V[-1]
             actual_ret = self.LUT[id].ret_V[-1]
@@ -372,7 +389,7 @@ class PolComp(object):
             actual_ret = self.LUT[id].ret_V[0]
         else:
             actual_ret = retardance
-        
+
         return voltage, actual_ret
         # The index that is closest to the target retardance is chosen
         # by looking only at the positive differences between the target
@@ -381,7 +398,7 @@ class PolComp(object):
 
     def retardance_lookup(self, volt: float, id: int = 3 ) -> float:
         """For a given voltage value, get the retardance in radians
-        
+
         Args:
             Voltage: Voltage in Volts.
             id: Column index of LookUpTab (LUT) to pull data from.
@@ -486,7 +503,7 @@ class PolComp(object):
                 self.set_voltage = self.last_voltage_list.copy()
                 self.retardances = self.last_retardances.copy()
                 self.lcvr_narrow_down(self._last_qber)
-                
+
             self.next_epoch = get_current_epoch()
             logger.debug(f'Next epoch set to "{hex(self.next_epoch)[2:]}".')
             self._last_qber= qber_mean
@@ -509,7 +526,7 @@ class PolComp(object):
         self._set_voltage()
         self._calculate_retardances()
         logger.debug(f'Kicked to new voltage.')
-	
+
     def lcvr_narrow_down(self,  curr_qber: float):
         ret_range = qber_cost_func(curr_qber)
         delta_phis = [0]*4
@@ -564,8 +581,8 @@ class PolComp(object):
             elif i < VOLT_MIN:
                 value[i] = VOLT_MIN
                 raise ValueError("Set value subceded Min volt of " + {VOLT_MIN})
-        self._voltage = value  
-    
+        self._voltage = value
+
     @property
     def last_qber(self) -> float:
         return self._last_qber
