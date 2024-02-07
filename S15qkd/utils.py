@@ -35,7 +35,7 @@ class Process:
 
     Functionality repeated across all processes are abstracted away
     into the class to reduce code duplication.
-    
+
     Note:
         The singleton pattern is avoided to prevent difficulties with:
         (1) global states (a singleton is effectively a global),
@@ -139,7 +139,7 @@ class Process:
             path = Path(Process.config.data_root) / stdout
             stdout = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT)
             is_stdout_fd = True
-        
+
         if isinstance(stderr, PipesQKD):
             stderr = os.open(stderr, os.O_WRONLY)
             # stderr = os.open(stderr, os.O_WRONLY | os.O_NONBLOCK) TODO
@@ -169,7 +169,7 @@ class Process:
             stdin=stdin,
             stdout=stdout, stderr=stderr,  # file descriptors are inherited
         )
-        logger.debug(f"Started: {' '.join(map(str, command))}")
+        logger.debug(f"Started: {' '.join(map(str, command))}, as {self.process}")
 
         # Close file descriptors
         if is_stdout_fd: os.close(stdout)
@@ -185,7 +185,7 @@ class Process:
         if callback_restart:
             self._expect_running = True
             self.monitor(callback_restart,self.stop_event)
-    
+
     def stop(self, timeout=3):
         if self.process is None:
             return
@@ -203,11 +203,11 @@ class Process:
             # gathering them all up to avoid any orphaned zombie processes.
             procs = self.process.children(recursive=True)  # stop process tree
             procs.append(self.process)  # stop process itself as well
-            
+
             # Attempt graceful terminate
             for p in procs:
                 p.terminate()
-                
+
             # Wait on terminated processes and kill processes that are still alive
             gone, alive = psutil.wait_procs(
                 procs,
@@ -267,7 +267,7 @@ class Process:
 
     def is_running(self):
         return self.process and self.process.poll() is None
-    
+
     # Helper
     def read(self, pipe, callback, name='', wait=0.02, persist=False):
         """TODO
@@ -275,7 +275,7 @@ class Process:
         If opening any pipes from the same parent thread, ensure that
         the process itself has been started first. The opened pipe
         is designed to terminate automatically together with the process.
-        
+
         Notably, some processes cannot start if the pipe is not already there, e.g.
         chopper, splicer. If persist set to True, a single-valued boolean
         container (list) will be provided to signal termination.
@@ -300,7 +300,7 @@ class Process:
 
                 # TODO
                 # pipe = os.fdopen(fd, 'rb', 0)
-            
+
             # Run callback on pipe until termination instruction
             with pipe:
                 if name:
@@ -338,14 +338,14 @@ class Process:
         thread.start()
         self._internal_threads.append(thread)
         return thread
-    
+
     @staticmethod
     def write(target, message: str, name=''):
         """Write line to pipe."""
         # Create pipe if is not already open for reading
         if not isinstance(target, io.IOBase):
             return Process.write_file(target, message, name)
-        
+
         # Target itself should be open and writable
         assert target.writable()
         result = target.write(f'{message}\n'.encode())
@@ -364,10 +364,10 @@ class Process:
 
     def monitor(self, callback_restart, stop_event):
         """Restarts keygen if process terminates without a wait/stop trigger.
-        
+
         Polls performed every 1 second.
         """
-        
+
         def monitor_daemon():
             time.sleep(2)
             while self._expect_running and not stop_event.is_set():
@@ -376,7 +376,7 @@ class Process:
                     callback_restart()
                 time.sleep(2)
             logger.debug(f"Terminated process monitor for '{self.program}' ('{self.process}')")
-    
+
         logger.debug(f"Starting process monitor for '{self.program}' ('{self.process}')")
         thread = threading.Thread(target=monitor_daemon)
         ThreadName = "md_" + thread.name.split('-')[-1] + '-' + str(self.program).split('/')[-1]
@@ -480,7 +480,7 @@ def read_T4_header(file_name: str):
 def service_T3(file_name: str) -> Optional[ServiceT3]:
     decode = [-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1] # translate valid bit values to 4 array index
     er_coinc_id = [0, 5, 10, 15] #VV, ADAD, HH, DD
-    gd_coinc_id = [2, 7, 8, 13] #VH, ADD, HV, DAD 
+    gd_coinc_id = [2, 7, 8, 13] #VH, ADD, HV, DAD
     body = []
     headt3 = read_T3_header(file_name)
     header_info_size = 16
@@ -505,7 +505,7 @@ def service_T3(file_name: str) -> Optional[ServiceT3]:
     if total_words*4 != (len(body) + header_info_size):
         logger.error(f'stream 3 size inconsistency')
     for i in range(headt3.length_entry):
-        b = decode[body[i] & 0xf] # Bob 
+        b = decode[body[i] & 0xf] # Bob
         a = decode[(body[i]>>4) & 0xf] # Alice
         if a < 0:
             service.garbage[0] += 1
