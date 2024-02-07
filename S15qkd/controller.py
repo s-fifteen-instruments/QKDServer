@@ -57,7 +57,7 @@ from .qkd_globals import logger, QKDProtocol, QKDEngineState, FoldersQKD
 
 class Controller:
     """
-    
+
     Note:
         Avoid using QKDEngineState for status checking - there is always a risk
         of it being out-of-sync with actual running processes. This should only
@@ -66,7 +66,7 @@ class Controller:
 
     def __init__(self):
         """
-        
+
         Configuration currently held by Process, but may transit into a
         more appropriately named class. Avoid loading configuration here,
         to ensure single source of truth.
@@ -80,7 +80,12 @@ class Controller:
         #   Long-term: Subclass 'authd' as a Process, to use the same logging
         #     mechanisms.
         self.authd = Process("python3 /root/code/QKDServer/S15qkd/authd.py")
-        self.readevents = Readevents(dir_qcrypto / 'readevents')
+
+        # Raise readevents process priority if capability added
+        readevents_prog = dir_qcrypto / 'readevents'
+        if Process.config.ENVIRONMENT.raise_readevents_priority:
+            readevents_prog = f"nice --adjustment=-20 {readevents_prog}"
+        self.readevents = Readevents(readevents_prog)
         self.transferd = Transferd(dir_qcrypto / 'transferd')
         self.chopper = Chopper(dir_qcrypto / 'chopper')
         self.chopper2 = Chopper2(dir_qcrypto / 'chopper2')
@@ -177,10 +182,10 @@ class Controller:
         self._sig_long: Optional[int] = None
         self._sig_short: Optional[int] = None
         self.transferd._first_received_epoch = None # Reset this value if not restarting/resetting transferd
-    
+
     def _establish_connection(self):
         """Establish classical communication channel via transferd.
-        
+
         No actual communication is performed, only connecting to socket.
         """
         # Responsibility for upkeeping connection should lie with 'transferd'
@@ -188,7 +193,7 @@ class Controller:
         self._await_reply = 0
         if self.transferd.is_running():
             return
-        
+
         # MSGIN / MSGOUT pipes need to be ready prior to communication
         # TODO(Justin): Check if method below fails if pipes already initialized.
         self.transferd.start(
@@ -196,7 +201,7 @@ class Controller:
             self.readevents.measure_local_count_rate_system,
             self.restart_protocol,
         )
-        
+
         # Verify connection status, timeout 10s
         num_checks = 10
         while not self.transferd.is_connected():
@@ -206,7 +211,7 @@ class Controller:
                 break
         else:
             self.qkd_engine_state = QKDEngineState.ONLY_COMMUNICATION
-    
+
     def _clean_orphaned_qcrypto(self):
         qkd_globals.kill_existing_qcrypto_processes()
         qkd_globals.kill_process_by_cmdline('authd.py')
@@ -224,7 +229,7 @@ class Controller:
 
     def requires_transferd(f):
         """Decorator to start transferd if not already running.
-        
+
         Applicable to all instance methods.
         """
         def helper(self, *args, **kwargs):
@@ -234,7 +239,7 @@ class Controller:
                     logger.warning("transferd failed to establish connection.")
             return f(self, *args, **kwargs)
         return helper
-        
+
 
 
     # MAIN CONTROL METHODS
@@ -252,7 +257,7 @@ class Controller:
     # TODO(Justin): Rename to 'stop' and update callback in QKD_status.py
     def stop_key_gen(self, inform_remote: bool = True):
         """Stops all processes locally and (best effort) remotely.
-        
+
         Args:
             inform_remote: Whether stop command triggered locally.
         """
@@ -270,7 +275,7 @@ class Controller:
 
         # Reset variables
         self._reset()
-        
+
         # TODO(Justin): Refactor error correction and pipe creation
         self.clear_comms()
 
@@ -286,16 +291,16 @@ class Controller:
 
     def start_service_mode(self):
         """Restarts service mode.
-        
+
         Typically the starting point.
         """
         # Ensure all services are stopped
         self.stop_key_gen()
-        
+
         # Initiate symmetry negotiation
         # self._negotiate_symmetry()
         # time.sleep(0.4)
-        
+
         # Set symmetry
         self._set_symmetry()
 
@@ -305,25 +310,25 @@ class Controller:
 
     def start_key_generation(self):
         """Restarts key generation mode.
-        
+
         Typically this will be automatically called after SERVICE mode finishes
         polarization compensation - avoid calling this method directly, unless
         the polarization compensation already has known correction values.
         """
         # Ensure all services are stopped
         self.stop_key_gen()
-        
+
         # Initiate symmetry negotiation
         #self._negotiate_symmetry()
         #time.sleep(0.8)
-        
+
         # Initiate BBM92 mode
         self.send("st1")
         self._expect_reply(timeout=10)
 
     def restart_protocol(self):
         """Restarts respective SERVICE/KEYGEN mode.
-        
+
         Useful as convenience function + process monitor restarting.
         """
         if self._qkd_protocol == QKDProtocol.SERVICE:
@@ -367,7 +372,7 @@ class Controller:
             thread.start()
             logger.debug(f'do walk started')
         else:
-            None    
+            None
 # CONTROL METHODS
 
     @requires_transferd
@@ -476,7 +481,7 @@ class Controller:
                 # Reflect message back to high_count_side
                 self.transferd.send(prepend_if_service("st1"))
                 return
-            
+
             if qkd_protocol == QKDProtocol.BBM92:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
             self.transferd.send(prepend_if_service("st2"))
@@ -491,7 +496,7 @@ class Controller:
             if not low_count_side:
                 logger.error(f"High count side should not have received: {code}")
                 return
-            
+
             # Old comment: Provision to send signals to timestamps. Not used currently.
             if qkd_protocol == QKDProtocol.BBM92:
                 qkd_globals.FoldersQKD.remove_stale_comm_files()
@@ -511,12 +516,12 @@ class Controller:
             # Important: 'st3' message is delayed so that both chopper and chopper2 can
             # generate sufficient initial epochs first.
             # TODO(Justin): Check if this assumption is really necessary.
-                
+
         if seq == "st3":
             if low_count_side:
                 logger.error(f"Low count side should not have received: {code}")
                 return
-            
+
             # try-except used here to short-circuit errors -> restart
             try:
                 start_epoch, periods = self._retrieve_epoch_overlap()
@@ -557,7 +562,7 @@ class Controller:
         for now.
         """
         low_count_side = self.transferd.low_count_side
-        if low_count_side:  
+        if low_count_side:
             self.send('st_to_serv')
             self.splicer.stop()
             self.chopper.stop()
@@ -575,7 +580,7 @@ class Controller:
             )
         else:
             # Assume called from (errc) low count side. Only need to restart costream with elapsed time difference and new epoch
-            
+
             # Get current time difference before stopping costream
             try:
                 td = int(self._time_diff) - int(self.costream.latest_deltat)
@@ -679,7 +684,7 @@ class Controller:
         low_count_side = self.transferd.low_count_side
         if self.do_polcom:
             self.send('serv_to_st')
-        if low_count_side:  
+        if low_count_side:
             self.splicer.stop()
             self.chopper.stop()
             self.clear_comms()
@@ -695,7 +700,7 @@ class Controller:
             )
         else:
             # Assume called from polcom (High) side. Only need to restart costream with elapsed time difference and new epoch
-            
+
             # Get current time difference before stopping costream
             try:
                 td = int(self._time_diff) - int(self.costream.latest_deltat)
@@ -770,7 +775,7 @@ class Controller:
 
         The usable periods is the number of overlapping epoch files.
         Different implementations are possible, with the following notes:
-        
+
             - The first epoch files are potentially underfilled.
             - To account for latency and mismatch in epoch collection start times,
               an additional 2 epoch duration buffer is provided.
@@ -790,7 +795,7 @@ class Controller:
                 else:
                     logger.error("No data generated/received within {timeout_seconds}s")
                 raise RuntimeError  # TODO(Justin): Subclass this...?
-        
+
         # Find usable epoch periods
         remote_epoch = int(self.transferd.first_received_epoch, 16)
         local_epoch = int(self.chopper2.first_epoch, 16)
@@ -801,7 +806,7 @@ class Controller:
         else:
             start_epoch = self.chopper2.first_epoch
             usable_periods = target_num_epochs
-        
+
         # Ignore the first potentially underfilled epoch, as per legacy code
         start_epoch = hex(int(start_epoch,16)+1)[2:]
         usable_periods -= extra
@@ -857,7 +862,7 @@ class Controller:
     @property
     def sig_long(self) -> Optional[int]:
         return self._sig_long
-    
+
     @property
     def sig_short(self) -> Optional[int]:
         return self._sig_short
