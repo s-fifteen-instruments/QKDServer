@@ -406,10 +406,12 @@ class Controller:
     @requires_transferd
     def _set_symmetry(self):
         """Sets Symmetry through pol_com status"""
+        polcomp_is_lowcount = \
+            Process.config.ENVIRONMENT.polarization_compensation_is_low_count
         if self.do_polcom:
-            self.transferd._low_count_side = False
+            self.transferd._low_count_side = polcomp_is_lowcount
         else:
-            self.transferd._low_count_side = True
+            self.transferd._low_count_side = not polcomp_is_lowcount
         self.transferd._negotiating = SymmetryNegotiationState.FINISHED
 
     @requires_transferd

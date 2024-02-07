@@ -54,6 +54,7 @@
 
   "ENVIRONMENT": {
     "secrets_root": "/root/keys/authd",
-    "raise_readevents_priority": true
+    "raise_readevents_priority": true,
+    "polarization_compensation_is_low_count": false
   }
 }
