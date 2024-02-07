@@ -11,7 +11,6 @@
   "local_authd_ip": "localhost",
   "data_root": "/tmp/cryptostuff",
   "program_root": "bin/remotecrypto",
-  "pfind_root": "/root/code/fpfind/src/fpfind",
   "identity": "",
   "remote_coincidence_window": 6,
   "tracking_window": 30,
@@ -51,5 +50,10 @@
     "V2": 2.0,
     "V3": 2.0,
     "V4": 2.0
+  },
+
+  "ENVIRONMENT": {
+    "secrets_root": "/root/keys/authd",
+    "raise_readevents_priority": true
   }
 }
