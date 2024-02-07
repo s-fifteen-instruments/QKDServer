@@ -1,4 +1,4 @@
-default: all
+default: restart
 
 ###############
 #  CONSTANTS  #
