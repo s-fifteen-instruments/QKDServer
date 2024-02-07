@@ -76,22 +76,42 @@ restart: stop qkd log
 log:
 	docker logs -f qkd
 
-savelog:
-	mkdir -p logs
-	docker logs qkd > logs/$(timestamp)_qkdlog_$(host) 2>&1
+# Note that Docker logs will truncate. The following logs are saved:
+#   1. QKDServer logs emitted to Docker logs (as failsafe)
+#   2. /root/code/QKDServer/Settings_WebClient/logs for full QKDServer logs
+#   3. /tmp/cryptostuff for qcrypto component logs
+savelog save-logs: pull-logs backup-logs
+pull-logs:
+	mkdir -p logs/$(timestamp)
+	docker logs qkd >logs/$(timestamp)/qkdlog_$(host) 2>&1
+	docker cp qkd:/root/code/QKDServer/Settings_WebClient/logs logs/$(timestamp)/qkdlogs_$(host)
+	docker cp qkd:/tmp/cryptostuff logs/$(timestamp)/cryptostuff_$(host)
+# Compress logs before sending ('gzip' as fallback if 'pigz' does not exist)
+backup-logs:
+	rm -f logs/$(timestamp)_qkdlog_$(host).tar.gz
+	tar -I pigz -cf logs/$(timestamp)_qkdlog_$(host).tar.gz -C logs $(timestamp) || \
+		{ tar -czf logs/$(timestamp)_qkdlog_$(host).tar.gz -C logs $(timestamp); }
+	rm -rf logs/$(timestamp)
+	@echo "Logs successfully archived: 'logs/$(timestamp)_qkdlog_$(host).tar.gz'"
+
+# Enter shell in QKDServer container
 exec:
 	docker exec -w /root/code/QKDServer/Settings_WebClient -it qkd /bin/bash
 
+# Sleep needed here, for some Docker cleanup happening in the background.
 stop:
 	-docker stop qkd
-	sleep 7
+	-docker rm qkd && sleep 7
 
+# In the event QKDServer terminates abruptly, e.g. power failure, do not remove
+# the container nor automatically restart, so that logs can still be retrieved
+# via 'make savelog'.
 qkd: generate-config verify-dependencies
 	$(sudo_flag) docker run \
 		--volume $(qkdserver_root)/S15qkd:/root/code/QKDServer/S15qkd \
 		--volume $(qkdserver_root)/$(CONFIG_FILE):/root/code/QKDServer/Settings_WebClient/qkd_engine_config.json \
 		--volume $(secrets_root):/root/keys/authd \
 		--volume epochs:/epoch_files \
-		--name qkd --rm -dit \
+		--name qkd -dit \
 		$(sys_nice_flag) $(ioboard_devs) $(serial_devs) \
 		--device-cgroup-rule='a *:* rwm' -p 4855:4855 -p 8000:8000 -p 55555:55555 s-fifteen/qkdserver:qkd
