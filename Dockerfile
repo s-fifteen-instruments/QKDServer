@@ -31,7 +31,10 @@ ENV HOME=/root
 # Build qcrypto and qsim
 
 # Install necessary packages
+# Consider using Docker v23+ to obtain support for BuildKit,
+# which will cache build stages
 RUN \
+    # --mount=type=cache,target=/var/cache/apt \
     apt update \
     && apt install -y \
 # For compiling, includes gcc
@@ -54,7 +57,9 @@ RUN \
     mkdir -p ${HOME}/code \
     && cd ${HOME}/code \
     && git clone --depth 1 https://github.com/s-fifteen-instruments/qcrypto.git \
+# Compile qcrypto and allow increased rates for high-count side
     && cd ${HOME}/code/qcrypto/remotecrypto \
+    && make allow-increased-rates \
     && make CC=${CC} \
     && cd ../errorcorrection \
     && make CC=${CC} \
