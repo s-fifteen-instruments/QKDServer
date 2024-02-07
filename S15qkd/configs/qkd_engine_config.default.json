@@ -55,7 +55,8 @@
   "qcrypto": {
     "readevents": {
       "use_ttl_trigger": false,
-      "use_fast_mode": false
+      "use_fast_mode": false,
+      "use_blinding_countermeasure": true
     }
   },
   "ENVIRONMENT": {
