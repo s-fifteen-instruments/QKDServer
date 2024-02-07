@@ -52,6 +52,12 @@
     "V4": 2.0
   },
 
+  "qcrypto": {
+    "readevents": {
+      "use_ttl_trigger": false,
+      "use_fast_mode": false
+    }
+  },
   "ENVIRONMENT": {
     "secrets_root": "/root/keys/authd",
     "raise_readevents_priority": true,

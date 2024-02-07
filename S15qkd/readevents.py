@@ -15,8 +15,35 @@ class Readevents(Process):
         super().__init__(process)
         self.blinded = False
 
+    def generate_base_args(self):
+        """Returns token list for running readevents with subprocess."""
+        # Detector skew in units of 1/256 nsec
+        det1corr = Process.config.local_detector_skew_correction.det1corr
+        det2corr = Process.config.local_detector_skew_correction.det2corr
+        det3corr = Process.config.local_detector_skew_correction.det3corr
+        det4corr = Process.config.local_detector_skew_correction.det4corr
+
+        args = [
+            '-a', 1,  # always output as binary events
+            '-X',     # legacy mode, for compatibility with qcrypto
+            '-A',     # absolute time
+            '-D', f'{det1corr},{det2corr},{det3corr},{det4corr}',
+        ]
+
+        # Fast mode
+        use_fast_mode = Process.config.qcrypto.readevents.use_fast_mode
+        if use_fast_mode:
+            args += ["-f"]
+
+        # Check if reading TTL instead of NIM
+        use_ttl_trigger = Process.config.qcrypto.readevents.use_ttl_trigger
+        if use_ttl_trigger:
+            args += ["-t", 2032]
+
+        return args
+
     def start(
-            self, 
+            self,
             callback_restart=None,    # to restart keygen
         ):
         try:
@@ -25,26 +52,14 @@ class Readevents(Process):
             print(msg)
             callback_restart()
 
-        det1corr = Process.config.local_detector_skew_correction.det1corr
-        det2corr = Process.config.local_detector_skew_correction.det2corr
-        det3corr = Process.config.local_detector_skew_correction.det3corr
-        det4corr = Process.config.local_detector_skew_correction.det4corr
-        args = [
-            '-a', 1,  # outmode 1
-            '-X',
-            '-A',     # absolute time
-            '-s',     # short mode, 49 bits timing info in 1/8 nsec
-            # Detector skew in units of 1/256 nsec
-            '-D', f'{det1corr},{det2corr},{det3corr},{det4corr}',
-        ]
+        args = self.generate_base_args()
+        args += ["-s"]  # short mode, 49 bits timing info in 1/8 nsec
 
         # Flush readevents
         super().start(args + ['-q1'])  # With proper termination with sigterm, this should not be necessary anymore.
         self.wait()
 
         # Persist readevents
-        # TODO(Justin): Check default default directory
-        #               and pipe O_APPEND.
         super().start(args, stdout=PipesQKD.RAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
 
     def start_sb(
@@ -62,19 +77,10 @@ class Readevents(Process):
             callback_restart()
 
         self._callback_stop = callback_stop
-        det1corr = Process.config.local_detector_skew_correction.det1corr
-        det2corr = Process.config.local_detector_skew_correction.det2corr
-        det3corr = Process.config.local_detector_skew_correction.det3corr
-        det4corr = Process.config.local_detector_skew_correction.det4corr
-        args = [
-            '-a', 1,  # outmode 1
-            '-X',
-            '-A',     # absolute time
-            #'-s',     # short mode, blind bit lost in short mode
-            # Detector skew in units of 1/256 nsec
-            '-D', f'{det1corr},{det2corr},{det3corr},{det4corr}',
-            '-b', f'{blindmode},{level1},{level2}',
-        ]
+
+        args = self.generate_base_args()
+        args += ['-b', f'{blindmode},{level1},{level2}']
+        # Short mode not enabled - blind bit will be lost
 
         # Flush readevents
         super().start(args + ['-q1'])  # With proper termination with sigterm, this should not be necessary anymore.
@@ -95,8 +101,6 @@ class Readevents(Process):
         self.gr.start(args_getrate2, stdin = PipesQKD.SBIN, stdout=PipesQKD.SB )
 
         # Persist readevents
-        # TODO(Justin): Check default default directory
-        #               and pipe O_APPEND.
         super().start(args, stdout=PipesQKD.TEEIN, stderr="readeventserror", callback_restart=callback_restart)
 
         self.i = 0
@@ -143,7 +147,7 @@ class Readevents(Process):
 
     def measure_local_count_rate_system(self):
         """Measure local photon count rate through shell. Done to solve process not terminated nicely for >160000 count rate per epoch.
-           Don't need to handle pipes, but harder to recover if things don't work.""" 
+           Don't need to handle pipes, but harder to recover if things don't work."""
         try:
             assert not self.is_running()
         except AssertionError as msg:
@@ -165,7 +169,7 @@ class Readevents(Process):
         counts = int(proc.read().rstrip('\n'))
         proc.close()
 
-        return counts 
+        return counts
 
     def measure_local_count_rate(self):
         """Measure local photon count rate."""
