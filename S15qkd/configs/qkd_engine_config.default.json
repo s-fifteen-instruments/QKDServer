@@ -53,6 +53,9 @@
   },
 
   "qcrypto": {
+    "general": {
+      "use_frequency_correction": false
+    },
     "readevents": {
       "use_ttl_trigger": false,
       "use_fast_mode": false,

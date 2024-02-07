@@ -344,13 +344,37 @@ class Controller:
         time.sleep(2) # at least 2 seconds needed for the monitors to end.
         self.restart_protocol()
 
-    def callback_epoch(self, msg):
-        """ Only send epochs to polarization compensation in servicemode
-         and if LCVR exist"""
+    def send_epoch_notification(self, epoch, dt=None):
+        """Disseminate coincidence results to readevents/polcom.
+
+        Coincidence results include the raw keys after coincidence matching,
+        and other coincidence statistics such as peak timing drift.
+        Main candidates are 'readevents' reading timing difference for
+        frequency compensation, and 'polcom' reading QBER for polarization
+        compensation.
+
+        This function is solely used as a callback to pass to costream
+        and splicer.
+
+        Args:
+            epoch: Current epoch name.
+            dt: Peak timing drift, in units of ns.
+
+        Note:
+            Previously termed 'callback_epoch', though not as intuitive.
+        """
+
+        # Send epochs to readevents
+        use_frequency_correction = Process.config.qcrypto.general.use_frequency_correction
+        high_count_side = not self.transferd.low_count_side
+        if use_frequency_correction and high_count_side:
+            self.readevents.send_epoch(epoch, data)
+
+        # Only send epochs to polarization compensation in servicemode
+        # and if LCVR exist
         if self._qkd_protocol == QKDProtocol.SERVICE and self.do_polcom:
-            self.polcom.send_epoch(msg)
-        else:
-            None
+            epoch_path = FoldersQKD.RAWKEYS + '/' + epoch
+            self.polcom.send_epoch(epoch_path)
 
     def recompensate_service(self):
         """Convenience function"""
@@ -490,6 +514,9 @@ class Controller:
             self.chopper2.start(self.restart_protocol, self.reset_timestamp)
             if Process.config.qcrypto.readevents.use_blinding_countermeasure:
                 self.readevents.start_sb(self.restart_protocol, self.stop_key_gen)
+            elif Process.config.qcrypto.general.use_frequency_correction:
+                self.readevents.start(self.restart_protocol)  # not yet implemented
+                # self.readevents.start_fc(self.restart_protocol)
             else:
                 self.readevents.start(self.restart_protocol)
             self.pol_com_walk()
@@ -508,13 +535,16 @@ class Controller:
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             if Process.config.qcrypto.readevents.use_blinding_countermeasure:
                 self.readevents.start_sb(self.restart_protocol, self.stop_key_gen)
+            elif Process.config.qcrypto.general.use_frequency_correction:
+                self.readevents.start(self.restart_protocol)  # not yet implemented
+                # self.readevents.start_fc(self.restart_protocol)
             else:
                 self.readevents.start(self.restart_protocol)
             self.pol_com_walk()
             self.splicer.start(
                 qkd_protocol,
                 lambda msg: self.errc.ec_queue.put(msg),
-                self.callback_epoch,
+                self.send_epoch_notification,
                 self.restart_protocol,
             )
 
@@ -547,7 +577,7 @@ class Controller:
                 td,
                 start_epoch,
                 qkd_protocol,
-                self.callback_epoch,
+                self.send_epoch_notification,
                 self.restart_protocol,
             )
         if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
@@ -581,7 +611,7 @@ class Controller:
             self.splicer.start(
                 qkd_protocol,
                 lambda msg: self.errc.ec_queue.put(msg),
-                self.callback_epoch,
+                self.send_epoch_notification,
                 self.restart_protocol,
             )
         else:
@@ -611,7 +641,7 @@ class Controller:
                 td,
                 start_epoch,
                 qkd_protocol,
-                self.callback_epoch,
+                self.send_epoch_notification,
                 self.restart_protocol,
             )
             self._first_epoch = start_epoch # Refresh first epoch and time_diff
@@ -701,7 +731,7 @@ class Controller:
             self.splicer.start(
                 qkd_protocol,
                 lambda msg: self.errc.ec_queue.put(msg),
-                self.callback_epoch,
+                self.send_epoch_notification,
                 self.restart_protocol,
             )
         else:
