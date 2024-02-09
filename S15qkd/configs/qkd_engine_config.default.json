@@ -61,7 +61,9 @@
     "pfind": {
       "number_of_epochs": 4,
       "coarse_resolution": 32,
-      "fine_resolution": 2
+      "fine_resolution": 4,
+      "frequency_search": false,
+      "frequency_threshold": 50e-9
     },
     "polarization_compensation": {
       "target_qber": 0.05,

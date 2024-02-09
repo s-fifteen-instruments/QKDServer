@@ -113,7 +113,7 @@ class Readevents(Process):
         args = self.generate_base_args() + ["-s"]
         super().start(args + ['-q1'])  # flush
         self.wait()
-        super().start(args, stdout=PipesQKD.RAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
+        super().start(args, stdout=PipesQKD.FRAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
 
     def commit_freqcorr(self, freq: float):
         """Commits frequency correction to 'freqcd'.

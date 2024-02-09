@@ -91,7 +91,10 @@ class Controller:
         self.chopper2 = Chopper2(dir_qcrypto / 'chopper2')
         self.costream = Costream(dir_qcrypto / 'costream')
         self.splicer = Splicer(dir_qcrypto / 'splicer')
-        self.pfind = Pfind(dir_qcrypto / 'pfind')
+        if Process.config.qcrypto.pfind.frequency_search:
+            self.pfind = Pfind("fpfind")
+        else:
+            self.pfind = Pfind(dir_qcrypto / 'pfind')
         self.errc = ErrorCorr(dir_qcrypto / 'errcd')
 
         self._clean_orphaned_qcrypto()
@@ -560,19 +563,43 @@ class Controller:
             try:
                 start_epoch, periods = self._retrieve_epoch_overlap()
                 logger.debug(f"{start_epoch} {periods} {hex(int(start_epoch, 16) + periods)}")
-                td, sl, ss = self.pfind.measure_time_diff(start_epoch, periods)
+                if Process.config.qcrypto.pfind.frequency_search:
+                    (
+                        self._freq_diff,
+                        self._time_diff,
+                    ) = self.pfind.measure_time_freq_diff(start_epoch, periods)
+                    self._sig_long = 0
+                    self._sig_short = 0
+                else:
+                    (
+                        self._time_diff,
+                        self._sig_long,
+                        self._sig_short,
+                    ) = self.pfind.measure_time_diff(start_epoch, periods)
+                    self._freq_diff = 0
             except RuntimeError:
                 self.restart_protocol()
                 return
 
             # These variables should only be set here.
             self._first_epoch = start_epoch
-            self._time_diff = int(td)
-            self._sig_long = sl
-            self._sig_short = ss
+
+           # If frequency difference exceeds threshold, restart with call to freqcd
+            logger.info(
+                f"Time difference: {self._time_diff}, freq difference: {self._freq_diff} "
+                f"({round(self._freq_diff*1e9)} ppb)"
+            )
+            threshold = Process.config.qcrypto.pfind.frequency_threshold
+            if abs(self._freq_diff) > threshold:
+                # TODO: Restart everything from chopper onwards + signal to other side
+                # Easier to have freqcd service already up, and frequency correct from there
+                self.readevents.update_freqcorr(self._freq_diff)
+                logger.info("Restarting QKD software...")
+                self.restart_protocol()
+                return
 
             self.costream.start(
-                td,
+                self._time_diff,
                 start_epoch,
                 qkd_protocol,
                 self.send_epoch_notification,
@@ -758,7 +785,7 @@ class Controller:
                 td,
                 start_epoch,
                 qkd_protocol,
-                None,
+                self.send_epoch_notification,
                 self.restart_protocol,
             )
             self._first_epoch = start_epoch # Refresh first epoch and time_diff
