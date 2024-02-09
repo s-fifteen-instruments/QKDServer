@@ -12,11 +12,11 @@ class Pfind(Process):
             '-d', FoldersQKD.RECEIVEFILES,
             '-D', FoldersQKD.T1FILES,
             '-e', f'0x{first_epoch}',
-            '-n', use_periods,
+            '-n', Process.config.qcrypto.pfind.number_of_epochs,
             '-V', 1,
             '-q', Process.config.FFT_buffer_order,
-            '-R', 128,
-            '-r', 2,
+            '-R', Process.config.qcrypto.pfind.coarse_resolution,
+            '-r', Process.config.qcrypto.pfind.fine_resolution,
         ]
         super().start(args, stdout=subprocess.PIPE, stderr="pfinderror")
         self.wait()
@@ -25,7 +25,7 @@ class Pfind(Process):
         if len(output) == 0:
             logger.error("pfind did not return anything")
             raise RuntimeError  # TODO: Subclass this.
-        
+
         result = output.split()
         logger.info(f'Pfind result: {result}')
         return list(map(float, result))

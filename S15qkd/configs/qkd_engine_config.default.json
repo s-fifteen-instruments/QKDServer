@@ -58,6 +58,11 @@
       "use_fast_mode": false,
       "use_blinding_countermeasure": true
     },
+    "pfind": {
+      "number_of_epochs": 4,
+      "coarse_resolution": 32,
+      "fine_resolution": 2
+    },
     "polarization_compensation": {
       "target_qber": 0.05,
       "loss_exponent": 1.5,
