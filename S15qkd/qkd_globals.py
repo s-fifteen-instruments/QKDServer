@@ -72,7 +72,7 @@ else:
 
 # Logging
 class MyTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
-    ''' 
+    '''
     copied from https://stackoverflow.com/questions/338450/timedrotatingfilehandler-changing-file-name
     '''
     timestamp_format = "%Y%m%d_%H%M%S"
@@ -164,26 +164,28 @@ def kill_process(my_process):
 
 
 class PipesQKD(str, Enum):
-    MSGIN = f'/tmp/cryptostuff' + '/msgin'
-    MSGOUT = f'/tmp/cryptostuff' + '/msgout'
-    RAWEVENTS = f'/tmp/cryptostuff' + '/rawevents'
-    T1LOG = f'/tmp/cryptostuff' + '/t1logpipe'
-    T2LOG = f'/tmp/cryptostuff' + '/t2logpipe'
-    CMD = f'/tmp/cryptostuff' + '/cmdpipe'
-    GENLOG = f'/tmp/cryptostuff' + '/genlog'
-    TRANSFERLOG = f'/tmp/cryptostuff' + '/transferlog'
-    SPLICER = f'/tmp/cryptostuff' + '/splicepipe'
-    PRESPLICER = f'/tmp/cryptostuff' + '/presplicepipe'
-    CNTLOG = f'/tmp/cryptostuff' + '/cntlogpipe'
-    ECCMD = f'/tmp/cryptostuff' + '/eccmdpipe'
-    ECS =f'/tmp/cryptostuff' + '/ecspipe'
-    ECR = f'/tmp/cryptostuff' + '/ecrpipe'
-    ECNOTE = f'/tmp/cryptostuff' + '/ecnotepipe'
-    ECQUERY = f'/tmp/cryptostuff' + '/ecquery'
-    ECRESP = f'/tmp/cryptostuff' + '/ecresp'
-    SB = f'/tmp/cryptostuff' + '/SB'
-    TEEIN = f'/tmp/cryptostuff' + '/TEEIN'
-    SBIN = f'/tmp/cryptostuff' + '/SBIN'
+    MSGIN = data_root + '/msgin'
+    MSGOUT = data_root + '/msgout'
+    RAWEVENTS = data_root + '/rawevents'
+    T1LOG = data_root + '/t1logpipe'
+    T2LOG = data_root + '/t2logpipe'
+    CMD = data_root + '/cmdpipe'
+    GENLOG = data_root + '/genlog'
+    TRANSFERLOG = data_root + '/transferlog'
+    SPLICER = data_root + '/splicepipe'
+    PRESPLICER = data_root + '/presplicepipe'
+    CNTLOG = data_root + '/cntlogpipe'
+    ECCMD = data_root + '/eccmdpipe'
+    ECS = data_root + '/ecspipe'
+    ECR = data_root + '/ecrpipe'
+    ECNOTE = data_root + '/ecnotepipe'
+    ECQUERY = data_root + '/ecquery'
+    ECRESP = data_root + '/ecresp'
+    SB = data_root + '/SB'
+    TEEIN = data_root + '/TEEIN'
+    SBIN = data_root + '/SBIN'
+    FRAWEVENTS = data_root + '/frawevents'  # freq corrected raw events
+    FREQIN = data_root + '/freqin'  # pass freq correction to readevents.freqcd
 
     # NB: FoldersQKD.prepare_folders *must* be called prior to
     #     pipe initialization, which is done so in controller.start_communication
@@ -191,7 +193,7 @@ class PipesQKD(str, Enum):
 
     @classmethod
     def prepare_pipes(cls):
-        os.makedirs('/tmp/cryptostuff', exist_ok=True)
+        os.makedirs(data_root, exist_ok=True)
         for pipe in cls:
             if os.path.exists(pipe):
                 if stat.S_ISFIFO(os.stat(pipe).st_mode):
@@ -225,13 +227,13 @@ class PipesQKD(str, Enum):
 
     def __str__(self):
         """Allows implicit conversion to value.
-        
+
         See mixin effect on str(v) vs f'{v}' [1].
         In particular, subclassing as class(str,Enum) allows certain
         libraries (e.g. os, f-strings), to interpret the enum member
         as a string directly, while the __str__ method allows implicit
         conversion of the enum to a string.
-        
+
         [1]: https://docs.python.org/3/library/enum.html#others
         """
         return self.value
@@ -301,7 +303,7 @@ class QKDEngineState(Enum):
     ONLY_COMMUNICATION = auto()
     OFF = auto()
     # TRANSITIONING_TO_KEY_GENERATION = auto()
-    
+
 
 logger = logging.getLogger("QKD logger")
 logger.setLevel(logging.DEBUG)

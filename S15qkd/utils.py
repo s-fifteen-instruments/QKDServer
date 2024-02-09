@@ -533,3 +533,5 @@ def get_current_epoch():
     Hex value of epoch can be checked with 'hex(get_current_epoch())[2:]'.
     """
     return time.time_ns() >> 29
+
+Process.load_config()

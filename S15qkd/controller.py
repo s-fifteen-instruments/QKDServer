@@ -365,10 +365,10 @@ class Controller:
         """
 
         # Send epochs to readevents
-        use_frequency_correction = Process.config.qcrypto.general.use_frequency_correction
+        use_frequency_correction = Process.config.qcrypto.frequency_correction.enable
         high_count_side = not self.transferd.low_count_side
         if use_frequency_correction and high_count_side:
-            self.readevents.send_epoch(epoch, data)
+            self.readevents.send_epoch(epoch, dt)
 
         # Only send epochs to polarization compensation in servicemode
         # and if LCVR exist
@@ -514,9 +514,8 @@ class Controller:
             self.chopper2.start(self.restart_protocol, self.reset_timestamp)
             if Process.config.qcrypto.readevents.use_blinding_countermeasure:
                 self.readevents.start_sb(self.restart_protocol, self.stop_key_gen)
-            elif Process.config.qcrypto.general.use_frequency_correction:
-                self.readevents.start(self.restart_protocol)  # not yet implemented
-                # self.readevents.start_fc(self.restart_protocol)
+            elif Process.config.qcrypto.frequency_correction.enable:
+                self.readevents.start_fc(self.restart_protocol)
             else:
                 self.readevents.start(self.restart_protocol)
             self.pol_com_walk()
@@ -535,9 +534,8 @@ class Controller:
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             if Process.config.qcrypto.readevents.use_blinding_countermeasure:
                 self.readevents.start_sb(self.restart_protocol, self.stop_key_gen)
-            elif Process.config.qcrypto.general.use_frequency_correction:
-                self.readevents.start(self.restart_protocol)  # not yet implemented
-                # self.readevents.start_fc(self.restart_protocol)
+            elif Process.config.qcrypto.frequency_correction.enable:
+                self.readevents.start_fc(self.restart_protocol)
             else:
                 self.readevents.start(self.restart_protocol)
             self.pol_com_walk()
