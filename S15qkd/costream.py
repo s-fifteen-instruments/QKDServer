@@ -130,7 +130,7 @@ class Costream(Process):
             return
 
         if self._callback_notify:
-            self._callback_notify(self._latest_outepoch, self._latest_deltat)
+            self._callback_notify(self._latest_outepoch, int(self._latest_deltat))
 
     '''Move polarization compensation to controller
         # If in SERVICE mode, mark as SERVICE mode in QKD engine
