@@ -36,6 +36,7 @@ __email__ = 'info@s-fifteen.com'
 __status__ = 'dev'
 
 from asyncio import QueueEmpty
+from collections import deque
 from xmlrpc.client import Boolean
 import numpy as np
 import math
@@ -60,6 +61,7 @@ MAX_UPDATE_NUM = 1100 # ~ 10 minutes
 DESIRED_QBER = Process.config.qcrypto.polarization_compensation.target_qber
 LOSS_COEFFICIENT = Process.config.qcrypto.polarization_compensation.loss_coefficient
 LOSS_EXPONENT = Process.config.qcrypto.polarization_compensation.loss_exponent
+QBER_HISTLEN = Process.config.qcrypto.polarization_compensation.qber_history_length
 
 def qber_cost_func(
         qber: float,
@@ -135,6 +137,7 @@ class PolComp(object):
         self.S4_list = []
         self.counter = 0
         self._last_qber = 1
+        self._last_qbers = deque(maxlen=QBER_HISTLEN)
         self.qber_counter = 0
         self.qber_current = 1
         self.averaging_n = 2000
@@ -327,6 +330,8 @@ class PolComp(object):
             self.last_voltage_list = self.set_voltage.copy()
             self.last_retardances = self.retardances.copy()
             self._last_qber= qber_min
+            # Flush QBER history with lowest QBER value
+            self._last_qbers.extend([qber_min]*QBER_HISTLEN)
             self.qber_counter=0
             self._callback()
             logger.info(f'BBM92 called')
@@ -435,17 +440,38 @@ class PolComp(object):
         return return_val
 
     def update_QBER_secure(self, qber: float, epoch:str = None):
+        """Feedback for polarization compensation algorithm.
+
+        Typically called from error correction module, in order to update
+        the QBER obtained after error correction. In order to avoid
+        latching onto a low QBER borne from statistical fluctuations, a
+        sliding mean of historical QBER is used. This history will be
+        flushed with the lowest measured QBER to allow initial attempts to
+        improve the QBER.
+        """
         if not self.epoch_passed(epoch):
-            return # start a
-        if qber < self._last_qber:
+            return  # polcomp results not present in this epoch
+
+        # Use current settings as new reference, if current QBER is lower
+        target_qber = np.mean(self._last_qbers)
+        voltages = list(map(lambda v: round(v,3), self.set_voltage.copy()))
+        logger.debug("Current QBER %.3f, target QBER %.3f, voltages %s", qber, target_qber, voltages)
+        if qber < target_qber:
             self.last_voltage_list = self.set_voltage.copy()
             self.last_retardances = self.retardances.copy()
             self.lcvr_narrow_down2(qber)
             self._last_qber= qber
+            # Flush QBER history with lowest value and retry
+            self._last_qbers.extend([qber]*QBER_HISTLEN)
+
         else:
+            # Update new target
+            self._last_qbers.append(qber)
+            target_qber = np.mean(self._last_qbers)
+
             self.set_voltage = self.last_voltage_list.copy()
             self.retardances = self.last_retardances.copy()
-            self.lcvr_narrow_down2(self._last_qber)
+            self.lcvr_narrow_down2(target_qber)
         self.next_epoch = get_current_epoch()
         logger.debug(f'Next epoch set to "{hex(self.next_epoch)[2:]}".')
 
@@ -540,7 +566,7 @@ class PolComp(object):
             phis[i] = self.retardances[i] + delta_phis[i]
         phis = self.bound_retardance(phis)
         volt_ret,phi_ret = self._calculate_voltages(phis)
-        logger.debug(f'qber {curr_qber:.3f}, ret_range {ret_range}, old_voltage {self.set_voltage}, new_voltage {volt_ret}')
+        logger.debug(f'qber {curr_qber:.3f}, ret_range {ret_range:.6f}, old_voltage {self.set_voltage}, new_voltage {volt_ret}')
         for i in lcvr_to_adjust:
             self.set_voltage[i] = volt_ret[i]
             self.retardances[i] = phi_ret[i]
@@ -561,7 +587,7 @@ class PolComp(object):
             phis[i] = self.retardances[i] + delta_phis[i]
         phis = self.bound_retardance(phis)
         volt_ret,phi_ret = self._calculate_voltages(phis)
-        logger.debug(f'qber {curr_qber:.3f}, ret_range {ret_range}, old_voltage {self.set_voltage}, new_voltage {volt_ret}')
+        logger.debug(f'qber {curr_qber:.3f}, ret_range {ret_range:.6f}, old_voltage {self.set_voltage}, new_voltage {volt_ret}')
         for i in lcvr_to_adjust:
             self.set_voltage[i] = volt_ret[i]
             self.retardances[i] = phi_ret[i]

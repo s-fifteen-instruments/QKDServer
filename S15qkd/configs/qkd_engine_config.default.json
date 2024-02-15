@@ -67,7 +67,8 @@
     "polarization_compensation": {
       "target_qber": 0.05,
       "loss_exponent": 1.5,
-      "loss_coefficient": 8.5
+      "loss_coefficient": 8.5,
+      "qber_history_length": 5
     },
     "frequency_correction": {
       "enable": false,
