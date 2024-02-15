@@ -9,6 +9,8 @@ IOBOARD_ROOT=/dev/ioboards
 CONFIG_FILE=S15qkd/qkd_engine_config.json
 DEFAULT_CONFIG_FILE=S15qkd/configs/qkd_engine_config.default.json
 USER_CONFIG_FILE=S15qkd/configs/qkd_engine_config.local.json
+# Only for Debian-based and RHEL 7+
+TZ=$(shell timedatectl | grep "zone" | awk '{print $$3}')
 
 qkdserver_root=$(shell pwd)
 serial_devs=$(shell \
@@ -108,6 +110,7 @@ stop:
 # via 'make savelog'.
 qkd: generate-config verify-dependencies
 	$(sudo_flag) docker run \
+		--volume $(qkdserver_root)/entrypoint.sh:/root/code/QKDServer/entrypoint.sh \
 		--volume $(qkdserver_root)/S15qkd:/root/code/QKDServer/S15qkd \
 		--volume $(qkdserver_root)/$(CONFIG_FILE):/root/code/QKDServer/Settings_WebClient/qkd_engine_config.json \
 		--volume $(secrets_root):/root/keys/authd \
