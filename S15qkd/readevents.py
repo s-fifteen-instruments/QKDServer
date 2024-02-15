@@ -177,6 +177,7 @@ class Readevents(Process):
         # Ignore first few epochs to allow freqcorr to propagate
         history = self._dt_history[self._ignore:]  # make a copy
         epochs, dts = list(zip(*history))
+        logger.debug("Triggering active frequency correction, with measurements: %s", dts)
 
         # Calculate averaged frequency difference
         dt_early = np.mean(dts[:self._average])

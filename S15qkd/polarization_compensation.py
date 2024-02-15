@@ -540,7 +540,7 @@ class PolComp(object):
             phis[i] = self.retardances[i] + delta_phis[i]
         phis = self.bound_retardance(phis)
         volt_ret,phi_ret = self._calculate_voltages(phis)
-        logger.debug(f'old voltage {self.set_voltage}, new_voltage {volt_ret}')
+        logger.debug(f'qber {curr_qber:.3f}, ret_range {ret_range}, old_voltage {self.set_voltage}, new_voltage {volt_ret}')
         for i in lcvr_to_adjust:
             self.set_voltage[i] = volt_ret[i]
             self.retardances[i] = phi_ret[i]
@@ -561,6 +561,7 @@ class PolComp(object):
             phis[i] = self.retardances[i] + delta_phis[i]
         phis = self.bound_retardance(phis)
         volt_ret,phi_ret = self._calculate_voltages(phis)
+        logger.debug(f'qber {curr_qber:.3f}, ret_range {ret_range}, old_voltage {self.set_voltage}, new_voltage {volt_ret}')
         for i in lcvr_to_adjust:
             self.set_voltage[i] = volt_ret[i]
             self.retardances[i] = phi_ret[i]
