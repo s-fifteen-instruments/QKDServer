@@ -589,14 +589,9 @@ class Controller:
                 f"Time difference: {self._time_diff}, freq difference: {self._freq_diff} "
                 f"({round(self._freq_diff*1e9)} ppb)"
             )
-            threshold = Process.config.qcrypto.pfind.frequency_threshold
-            if abs(self._freq_diff) > threshold:
-                # TODO: Restart everything from chopper onwards + signal to other side
-                # Easier to have freqcd service already up, and frequency correct from there
+            # Try to latch anyway
+            if self._freq_diff != 0:
                 self.readevents.update_freqcorr(self._freq_diff)
-                logger.info("Restarting QKD software...")
-                self.restart_protocol()
-                return
 
             self.costream.start(
                 self._time_diff,
