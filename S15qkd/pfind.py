@@ -41,6 +41,8 @@ class Pfind(Process):
             '-R', Process.config.qcrypto.pfind.coarse_resolution,
             '-r', Process.config.qcrypto.pfind.fine_resolution,
             '-s', 5,
+            '--freq-threshold', 10,
+            '--convergence-rate', 0.1,
             '-P',
             '--precomp-stop', 1e-6,
             '-V', 0b1001,
