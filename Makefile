@@ -27,7 +27,9 @@ ioboard_devs=$(shell \
 		done\
 	fi\
 )
-timestamp=$(shell date +%Y%m%d_%H%M%S)
+# Timestamp has minute-resolution in order to easily match logs with other nodes
+timestamp=$(shell date +%Y%m%d_%H%M00)
+datestamp=$(shell date +%Y%m%d)
 host=$(shell hostname)
 
 
@@ -79,21 +81,19 @@ log:
 	docker logs -f qkd
 
 # Note that Docker logs will truncate. The following logs are saved:
-#   1. QKDServer logs emitted to Docker logs (as failsafe)
-#   2. /root/code/QKDServer/Settings_WebClient/logs for full QKDServer logs
-#   3. /tmp/cryptostuff for qcrypto component logs
+#   1. /root/code/QKDServer/Settings_WebClient/logs for full QKDServer logs
+#   2. /tmp/cryptostuff for qcrypto component logs
 savelog save-logs: pull-logs backup-logs
 pull-logs:
-	mkdir -p logs/$(timestamp)
-	docker logs qkd >logs/$(timestamp)/qkdlog_$(host) 2>&1
-	docker cp qkd:/root/code/QKDServer/Settings_WebClient/logs logs/$(timestamp)/qkdlogs_$(host)
-	docker cp qkd:/tmp/cryptostuff logs/$(timestamp)/cryptostuff_$(host)
+	mkdir -p logs/$(datestamp)
+	docker cp qkd:/root/code/QKDServer/Settings_WebClient/logs logs/$(datestamp)/qkdlogs_$(host)
+	docker cp qkd:/tmp/cryptostuff logs/$(datestamp)/cryptostuff_$(host)
 # Compress logs before sending ('gzip' as fallback if 'pigz' does not exist)
 backup-logs:
 	rm -f logs/$(timestamp)_qkdlog_$(host).tar.gz
-	tar -I pigz -cf logs/$(timestamp)_qkdlog_$(host).tar.gz -C logs $(timestamp) || \
-		{ tar -czf logs/$(timestamp)_qkdlog_$(host).tar.gz -C logs $(timestamp); }
-	rm -rf logs/$(timestamp)
+	tar -I pigz -cf logs/$(timestamp)_qkdlog_$(host).tar.gz -C logs $(datestamp) || \
+		{ tar -czf logs/$(timestamp)_qkdlog_$(host).tar.gz -C logs $(datestamp); }
+	rm -rf logs/$(datestamp)
 	@echo "Logs successfully archived: 'logs/$(timestamp)_qkdlog_$(host).tar.gz'"
 
 # Enter shell in QKDServer container
