@@ -5,18 +5,49 @@ import subprocess
 import os
 import numpy as np
 
+from fpfind.lib import parse_epochs as eparser
+
 from .utils import Process
 from . import qkd_globals
-from .qkd_globals import logger, PipesQKD
+from .qkd_globals import logger, PipesQKD, EPOCH_DURATION
 
 class Readevents(Process):
 
     def __init__(self, process):
         super().__init__(process)
         self.blinded = False
+        # Frequency correction value for freqcd
+        self.freqcorr = Process.config.qcrypto.frequency_correction.initial_correction
+
+    def generate_base_args(self):
+        """Returns token list for running readevents with subprocess."""
+        # Detector skew in units of 1/256 nsec
+        det1corr = Process.config.local_detector_skew_correction.det1corr
+        det2corr = Process.config.local_detector_skew_correction.det2corr
+        det3corr = Process.config.local_detector_skew_correction.det3corr
+        det4corr = Process.config.local_detector_skew_correction.det4corr
+
+        args = [
+            '-a', 1,  # always output as binary events
+            '-X',     # legacy mode, for compatibility with qcrypto
+            '-A',     # absolute time
+            '-D', f'{det1corr},{det2corr},{det3corr},{det4corr}',
+        ]
+
+        # Fast mode
+        use_fast_mode = Process.config.qcrypto.readevents.use_fast_mode
+        if use_fast_mode:
+            args += ["-f"]
+
+        # Check if reading TTL instead of NIM
+        use_ttl_trigger = Process.config.qcrypto.readevents.use_ttl_trigger
+        if use_ttl_trigger:
+            args += ["-t", 2032]
+
+        return args
 
     def start(
-            self, 
+            self,
             callback_restart=None,    # to restart keygen
         ):
         try:
@@ -25,27 +56,147 @@ class Readevents(Process):
             print(msg)
             callback_restart()
 
-        det1corr = Process.config.local_detector_skew_correction.det1corr
-        det2corr = Process.config.local_detector_skew_correction.det2corr
-        det3corr = Process.config.local_detector_skew_correction.det3corr
-        det4corr = Process.config.local_detector_skew_correction.det4corr
-        args = [
-            '-a', 1,  # outmode 1
-            '-X',
-            '-A',     # absolute time
-            '-s',     # short mode, 49 bits timing info in 1/8 nsec
-            # Detector skew in units of 1/256 nsec
-            '-D', f'{det1corr},{det2corr},{det3corr},{det4corr}',
-        ]
+        args = self.generate_base_args()
+        args += ["-s"]  # short mode, 49 bits timing info in 1/8 nsec
 
         # Flush readevents
         super().start(args + ['-q1'])  # With proper termination with sigterm, this should not be necessary anymore.
         self.wait()
 
         # Persist readevents
-        # TODO(Justin): Check default default directory
-        #               and pipe O_APPEND.
         super().start(args, stdout=PipesQKD.RAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
+
+    def start_fc(
+            self,
+            callback_restart=None,
+        ):
+        """Starts readevents together with frequency correction.
+
+        'freqcd' is injected here instead of a separate process to minimize
+        external changes to architecture, i.e. 'chopper' still only ever sees
+        one RAWEVENTS pipe coming out from 'readevents', regardless of whether
+        'freqcd' is enabled.
+        """
+        try:
+            assert not self.is_running()
+        except AssertionError as msg:
+            print(msg)
+            callback_restart()
+
+        # Start freqcd first
+        args_freqcd = [
+            '-i', PipesQKD.FRAWEVENTS,
+            '-o', PipesQKD.RAWEVENTS,
+            '-x',
+            '-f', int(round(self.freqcorr * 2**34)),
+            '-F', PipesQKD.FREQIN,
+        ]
+        self._dt_history = []  # maintain an array of historical dt values
+        self._ignore = Process.config.qcrypto.frequency_correction.ignore_first_epochs
+        self._average = Process.config.qcrypto.frequency_correction.averaging_length
+        self._separation = Process.config.qcrypto.frequency_correction.separation_length
+        self._cap = Process.config.qcrypto.frequency_correction.limit_correction
+
+        # TODO(2024-02-08):
+        #   Type-checking should be performed during config import,
+        #   according to some schema.
+        assert isinstance(self._ignore, int) and self._ignore > 0
+        assert isinstance(self._average, int) and self._average > 0
+        assert isinstance(self._separation, int) and self._separation > 0
+        assert isinstance(self._cap, float)
+        self._required = self._ignore + self._average + self._separation
+
+        self.freqcd = Process('freqcd')
+        self.freqcd.start(args_freqcd, callback_restart=callback_restart)
+
+        # Setup readevents as usual
+        args = self.generate_base_args() + ["-s"]
+        super().start(args + ['-q1'])  # flush
+        self.wait()
+        super().start(args, stdout=PipesQKD.FRAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
+
+    def commit_freqcorr(self, freq: float):
+        """Commits frequency correction to 'freqcd'.
+
+        Magnitude of 'freq' should not be larger than 2^-13.
+
+        Args:
+            freq: Frequency correction value, in absolute units.
+        """
+        assert abs(freq) < 2**-13  # maximum range, see fpfind#6
+        self.freqcorr = freq
+
+        # Convert to 2**-34 units before writing
+        freq_u34 = int(round(freq * 2**34))
+        Process.write(PipesQKD.FREQIN, str(freq_u34), "FREQIN")
+
+    def update_freqcorr(self, freq: float):
+        """Updates frequency correction value relative to previous.
+
+        Args:
+            freq: Frequency correction value, in absolute units.
+        """
+        old_freq = self.freqcorr
+        new_freq = (1 + old_freq) * (1 + freq) - 1
+        logger.debug(
+            "freq update, curr: %5.1f ppb, new: %5.1f ppb",
+            old_freq*1e9, new_freq*1e9,
+        )
+        self.commit_freqcorr(new_freq)
+
+    def send_epoch(self, epoch, dt):
+        """Receives epoch information from costream to calculate clock skew.
+
+        This function accumulates the dt values, and performs some degree of
+        averaging (low-pass) to smoothen the frequency correction adjustment.
+
+        Note:
+            Assuming a bimodal clock skew, the algorithm used should not be a
+            sliding mean, since the coincidence matching requires an accurate
+            frequency compensation value. We instead collect a set of samples,
+            then calculate the frequency difference.
+
+            Race condition may be possible - no guarantees on the continuity
+            of epochs. This is resolved with continuity check during every
+            function call.
+        """
+        # Verify epochs are contiguous
+        # Needed because costream may terminate prematurely, and no calls to
+        # flush the dt history is made, resulting in large time gaps.
+        if len(self._dt_history) > 0:
+            # self._dt_history format: [(epoch:str, dt:float),...]
+            prev_epoch = self._dt_history[-1][0]
+            if eparser.epoch2int(prev_epoch) + 1 != eparser.epoch2int(epoch):
+                self._dt_history.clear()
+
+        # Collect epochs
+        self._dt_history.append((epoch, dt))
+        if len(self._dt_history) < self._required:
+            return
+
+        # Ignore first few epochs to allow freqcorr to propagate
+        history = self._dt_history[self._ignore:]  # make a copy
+        epochs, dts = list(zip(*history))
+        logger.debug("Triggering active frequency correction, with measurements: %s", dts)
+
+        # Calculate averaged frequency difference
+        dt_early = np.mean(dts[:self._average])
+        dt_late = np.mean(dts[-self._average:])
+        dt_change = (dt_late - dt_early) * (1e-9 / 8)  # convert 1/8ns -> 1s units
+        df = dt_change / (self._separation * EPOCH_DURATION)
+        df_toapply = 1/(1 + df) - 1
+        self._dt_history.clear()  # restart collection
+
+        # Cap correction if positive value supplied
+        df_applied = df_toapply
+        if self._cap > 0:
+            df_applied = max(-self._cap, min(self._cap, df_toapply))
+
+        logger.debug(
+            "freq log, epoch: %s, freqcorr: %5.1f ppb, capped: %.1f ppb",
+            epochs[-1], df_toapply*1e9, df_applied*1e9,
+        )
+        self.update_freqcorr(df_applied)
 
     def start_sb(
             self,
@@ -62,19 +213,10 @@ class Readevents(Process):
             callback_restart()
 
         self._callback_stop = callback_stop
-        det1corr = Process.config.local_detector_skew_correction.det1corr
-        det2corr = Process.config.local_detector_skew_correction.det2corr
-        det3corr = Process.config.local_detector_skew_correction.det3corr
-        det4corr = Process.config.local_detector_skew_correction.det4corr
-        args = [
-            '-a', 1,  # outmode 1
-            '-X',
-            '-A',     # absolute time
-            #'-s',     # short mode, blind bit lost in short mode
-            # Detector skew in units of 1/256 nsec
-            '-D', f'{det1corr},{det2corr},{det3corr},{det4corr}',
-            '-b', f'{blindmode},{level1},{level2}',
-        ]
+
+        args = self.generate_base_args()
+        args += ['-b', f'{blindmode},{level1},{level2}']
+        # Short mode not enabled - blind bit will be lost
 
         # Flush readevents
         super().start(args + ['-q1'])  # With proper termination with sigterm, this should not be necessary anymore.
@@ -95,8 +237,6 @@ class Readevents(Process):
         self.gr.start(args_getrate2, stdin = PipesQKD.SBIN, stdout=PipesQKD.SB )
 
         # Persist readevents
-        # TODO(Justin): Check default default directory
-        #               and pipe O_APPEND.
         super().start(args, stdout=PipesQKD.TEEIN, stderr="readeventserror", callback_restart=callback_restart)
 
         self.i = 0
@@ -143,7 +283,7 @@ class Readevents(Process):
 
     def measure_local_count_rate_system(self):
         """Measure local photon count rate through shell. Done to solve process not terminated nicely for >160000 count rate per epoch.
-           Don't need to handle pipes, but harder to recover if things don't work.""" 
+           Don't need to handle pipes, but harder to recover if things don't work."""
         try:
             assert not self.is_running()
         except AssertionError as msg:
@@ -165,7 +305,7 @@ class Readevents(Process):
         counts = int(proc.read().rstrip('\n'))
         proc.close()
 
-        return counts 
+        return counts
 
     def measure_local_count_rate(self):
         """Measure local photon count rate."""
@@ -215,18 +355,14 @@ class Readevents(Process):
         self.empty_seed_pipes()
         if self.process is None:
             return
-        try:
-            self.t
-            self.gr
-        except AttributeError:
-            pass
-        else:
+        if hasattr(self, "t") and hasattr(self, "gr"):
             self.t.stop()
             self.gr.stop()
             self.empty_seed_pipes()
-        finally:
-            logger.debug('Stopping readevents')
-            super().stop()
+        if hasattr(self, "freqcd"):
+            self.freqcd.stop()
+        logger.debug('Stopping readevents')
+        super().stop()
         return
 
     def empty_seed_pipes(self):

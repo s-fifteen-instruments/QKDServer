@@ -1,5 +1,11 @@
 #!/bin/sh
 
+# Set timezone
+TZ="Asia/Singapore"
+echo ${TZ} > /etc/timezone
+rm -rf /etc/localtime
+ln -s /usr/share/zoneinfo/${TZ} /etc/localtime
+
 # Propagate local qcrypto changes (see Makefile regarding code injection), e.g.
 # cd /root/code/qcrypto/remotecrypto \
 #        && apk add gcc build-base clang \

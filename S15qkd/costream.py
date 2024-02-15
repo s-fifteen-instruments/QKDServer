@@ -53,7 +53,7 @@ class Costream(Process):
             time_difference: int,
             begin_epoch: str,
             qkd_protocol,
-            callback_pol_comp_epoch = None,  # callback to pass to polarization controller
+            callback_notify = None,  # pass information about epoch back to Controller
             callback_restart = None,  # allow costream to force keygen restart,
         ):
         assert not self.is_running()
@@ -63,7 +63,7 @@ class Costream(Process):
         self._qkd_protocol = qkd_protocol
 
         # Polarization compensation
-        self._pol_compensator = callback_pol_comp_epoch
+        self._callback_notify = callback_notify
         self._pairs_over_accidentals_avg = 10
         self._callback_restart = callback_restart
 
@@ -91,7 +91,7 @@ class Costream(Process):
         ]
         logger.info(f'costream starts with the following arguments: {args}')
         super().start(args, stderr="costreamerror", callback_restart=callback_restart)
-        
+
         self.read(PipesQKD.GENLOG, self.digest_genlog, 'GENLOG', persist=True)
 
 
@@ -129,10 +129,8 @@ class Costream(Process):
             self._callback_restart()
             return
 
-        if self._pol_compensator:
-            epoch = self._latest_outepoch
-            epoch_path = FoldersQKD.RAWKEYS + '/' + epoch
-            self._pol_compensator(epoch_path)
+        if self._callback_notify:
+            self._callback_notify(self._latest_outepoch, int(self._latest_deltat))
 
     '''Move polarization compensation to controller
         # If in SERVICE mode, mark as SERVICE mode in QKD engine
@@ -148,7 +146,7 @@ class Costream(Process):
             # Perform polarization compensation while still in SERVICE mode
             if self._polarization_compensator and pairs_over_accidentals > 2.5:
             #    self._polarization_compensator.send_diagnosis(
-            #            diagnosis, epoch = message[:8] 
+            #            diagnosis, epoch = message[:8]
             #            )
                 self._polarization_compensator.update_QBER(
                      diagnosis.quantum_bit_error, epoch=message,
@@ -161,11 +159,11 @@ class Costream(Process):
     @property
     def latest_coincidences(self):
         return self._latest_coincidences
-    
+
     @property
     def latest_accidentals(self):
         return self._latest_accidentals
-    
+
     @property
     def latest_deltat(self):
         return self._latest_deltat
@@ -173,19 +171,19 @@ class Costream(Process):
     @property
     def initial_time_difference(self):
         return self._initial_time_difference
-    
+
     @property
     def latest_compress(self):
         return self._latest_compress
-    
+
     @property
     def latest_sentevents(self):
         return self._latest_sentevents
-    
+
     @property
     def latest_rawevents(self):
         return self._latest_rawevents
-    
+
     @property
     def latest_outepoch(self):
         return self._latest_outepoch

@@ -34,24 +34,24 @@ from .utils import Process, read_T3_header, HeadT3, read_T4_header, HeadT4
 from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD, QKDEngineState
 
 class Splicer(Process):
-        
+
     def start(
             self,
             qkd_protocol,
             callback_ecqueue = None,  # message passing of epoch to error correction
-            callback_pol_comp_epoch = None,  # callback to pass to polarization controller
+            callback_notify = None,  # callback to pass to polarization controller
             callback_restart = None,    # to restart keygen
         ):
         """
 
-        Starts the splicer process and attaches a thread digesting 
+        Starts the splicer process and attaches a thread digesting
         the splice pipe and the genlog.
         """
         assert not self.is_running()
 
 
         self._qkd_protocol = qkd_protocol
-        self._pol_compensator = callback_pol_comp_epoch
+        self._callback_notify = callback_notify
         self._callback_ecqueue = callback_ecqueue
         self._callback_restart = callback_restart
         self._latest_message_time = time.time()
@@ -83,10 +83,8 @@ class Splicer(Process):
             logger.debug(f'Add {message} to error correction queue')
             self._callback_ecqueue(message)
 
-        if self._pol_compensator:
-            epoch = message
-            epoch_path = FoldersQKD.RAWKEYS + '/' + epoch
-            self._pol_compensator(epoch_path)
+        if self._callback_notify:
+            self._callback_notify(message)
 
     def send_splice_inpipe(self, pipe):
         headt3 = HeadT3(0,0,0,0) # tag,epoch(int),length_entry,bits_per_entry

@@ -14,6 +14,7 @@
 # Small footnote for apk del if nested in different RUN context
 # https://stackoverflow.com/questions/46221063/what-is-build-deps-for-apk-add-virtual-command#comment86443214_46221063
 
+# python:3.9.17-slim image has some incompatibility issues with docker-compose
 FROM python:3.9.16-slim
 LABEL Author="Mathias Seidler"
 
@@ -30,7 +31,10 @@ ENV HOME=/root
 # Build qcrypto and qsim
 
 # Install necessary packages
+# Consider using Docker v23+ to obtain support for BuildKit,
+# which will cache build stages
 RUN \
+    # --mount=type=cache,target=/var/cache/apt \
     apt update \
     && apt install -y \
 # For compiling, includes gcc
@@ -42,7 +46,9 @@ RUN \
 # For pkill
         procps \
     && pip install -U pip setuptools wheel \
-    && pip install git+https://github.com/s-fifteen-instruments/pyS15.git \
+    && pip install git+https://github.com/s-fifteen-instruments/pyS15.git@beb98508a05bfc8d1b5382f7a45ffd66d1fc6817 \
+# Add fpfind + freqcd routines
+    && pip install git+https://github.com/s-fifteen-instruments/fpfind.git@v1.2024.4 \
 # Fix missing pyximport dependency in pyS15
     && pip install Cython
 
@@ -50,18 +56,20 @@ RUN \
 RUN \
     mkdir -p ${HOME}/code \
     && cd ${HOME}/code \
-    && git clone https://github.com/s-fifteen-instruments/qcrypto.git qcrypto \
+    && git clone --depth 1 https://github.com/s-fifteen-instruments/qcrypto.git \
+# Compile qcrypto and allow increased rates for high-count side
     && cd ${HOME}/code/qcrypto/remotecrypto \
+    && make allow-increased-rates \
     && make CC=${CC} \
     && cd ../errorcorrection \
     && make CC=${CC} \
     && cd ../timestamp7 \
     && make CC=${CC}
-    
+
 # Install the python qcrypto wrapper
 RUN \
     cd ${HOME}/code \
-    && git clone --branch master https://github.com/s-fifteen-instruments/QKDServer.git QKDServer \
+    && git clone --branch master --depth 1 https://github.com/s-fifteen-instruments/QKDServer.git \
     && cd ${HOME}/code/QKDServer \
     && pip install -e .\
     && cd ${HOME}/code/QKDServer/Settings_WebClient \
@@ -71,3 +79,4 @@ RUN \
 RUN \
     pip install ipython gunicorn
 
+ENTRYPOINT ["/root/code/QKDServer/entrypoint.sh"]
