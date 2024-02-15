@@ -370,7 +370,7 @@ class Controller:
         # Send epochs to readevents
         use_frequency_correction = Process.config.qcrypto.frequency_correction.enable
         high_count_side = not self.transferd.low_count_side
-        if use_frequency_correction and high_count_side:
+        if use_frequency_correction and high_count_side and dt is not None:
             self.readevents.send_epoch(epoch, dt)
 
         # Only send epochs to polarization compensation in servicemode
@@ -593,11 +593,24 @@ class Controller:
             if self._freq_diff != 0:
                 self.readevents.update_freqcorr(self._freq_diff)
 
+            # Frequency drifts calculated for events generated while
+            # fpfind is running will not be applied to the events that
+            # follow immediately, resulting in overcompensation. We avoid this
+            # by monkey patching to disable epoch feedback to freqcd until
+            # the current epoch has been reached (with some epoch ignoring
+            # buffer already implemented in readevents.send_epoch).
+            # TODO(2024-02-15): Formalize this in an actual method instead.
+            freqcd_epoch = get_current_epoch()
+            def _send_epoch_notification(epoch, dt):
+                if int(epoch, 16) < freqcd_epoch:
+                    dt = None  # disable freqcd feedback
+                return self.send_epoch_notification(epoch, dt)
+
             self.costream.start(
                 self._time_diff,
                 start_epoch,
                 qkd_protocol,
-                self.send_epoch_notification,
+                _send_epoch_notification,
                 self.restart_protocol,
             )
         if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
