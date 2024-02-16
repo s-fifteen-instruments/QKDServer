@@ -79,6 +79,12 @@ restart: stop qkd log
 
 log:
 	docker logs -f qkd
+log-freq:
+	docker logs -f qkd | grep -P "(digest_genlog|BBM92|freqcorr|fpfind|freq difference)"
+log-qber:
+	docker logs -f qkd | grep -P "(minimum_qber|BBM92|target QBER|Avg\(qber\))"
+log-keys:
+	docker logs -f qkd | grep -P "(ecnotepipe_digest|Undigested)"
 
 # Note that Docker logs will truncate. The following logs are saved:
 #   1. /root/code/QKDServer/Settings_WebClient/logs for full QKDServer logs
