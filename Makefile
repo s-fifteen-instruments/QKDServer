@@ -77,8 +77,6 @@ build:
 	docker build --network host -t s-fifteen/qkdserver:qkd2 .
 
 restart: stop qkd log
-load-module:
-	-sudo insmod /home/bob/programs/usbtmst4/driver/usbtmst4.ko
 
 log:
 	docker logs -f qkd
@@ -127,7 +125,7 @@ keygen-start:
 # In the event QKDServer terminates abruptly, e.g. power failure, do not remove
 # the container nor automatically restart, so that logs can still be retrieved
 # via 'make savelog'.
-qkd: generate-config verify-dependencies load-module
+qkd: generate-config verify-dependencies
 	$(sudo_flag) docker run \
 		--volume $(qkdserver_root)/entrypoint.sh:/root/code/QKDServer/entrypoint.sh \
 		--volume $(qkdserver_root)/S15qkd:/root/code/QKDServer/S15qkd \
