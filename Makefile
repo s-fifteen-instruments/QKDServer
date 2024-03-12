@@ -85,6 +85,8 @@ log-qber:
 	docker logs -f qkd | grep -P "(minimum_qber|BBM92|target QBER|Avg\(qber\))"
 log-keys:
 	docker logs -f qkd | grep -P "(ecnotepipe_digest|Undigested)"
+log-finalkeys:
+	docker logs -f qkd | grep -P "(\[ecnote\])"
 
 # Note that Docker logs will truncate. The following logs are saved:
 #   1. /root/code/QKDServer/Settings_WebClient/logs for full QKDServer logs
@@ -110,6 +112,14 @@ exec:
 stop:
 	-docker stop qkd
 	-docker rm qkd && sleep 7
+
+# Start, stop and status of keygen (whether keys are being generated)
+keygen-status:
+	curl -I http://localhost:8000/status_keygen
+keygen-start:
+	curl -I http://localhost:8000/start_keygen
+keygen-start:
+	curl -I http://localhost:8000/stop_keygen
 
 # In the event QKDServer terminates abruptly, e.g. power failure, do not remove
 # the container nor automatically restart, so that logs can still be retrieved
