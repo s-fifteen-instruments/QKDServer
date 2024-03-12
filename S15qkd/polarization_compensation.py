@@ -44,7 +44,7 @@ import time
 from typing import Tuple, NamedTuple, Any
 from dataclasses import dataclass
 
-from S15lib.instruments import LCRDriver
+from S15lib.instruments.lcr_driver import LCRDriver, MockLCRDriver
 from .utils import HeadT1, ServiceT3, service_T3
 from . import qkd_globals
 from .qkd_globals import logger, FoldersQKD
@@ -614,3 +614,114 @@ class PolComp(object):
     def last_qber(self) -> float:
         return self._last_qber
 
+
+class MockPolComp:
+    """Enumerates interface exposed to Controller.
+
+    Does no actual polarization compensation, but instead monitors and writes out
+    to file at 'QBER_READOUT_PATH' for external service to handle.
+    """
+
+    QBER_READOUT_PATH = "mockpolcomp_qber_epoch.txt"
+
+    def __init__(self, lcr_path, callback_service_to_BBM92=None):
+        self.lcr = MockLCRDriver(lcr_path)
+        self._callback = callback_service_to_BBM92
+        self.set_voltage = [0, 0, 0, 0]
+        self.last_voltage_list = self.set_voltage.copy()
+        self._last_qber = 1
+        self.averaging_n = 2000
+        self.qber_counter = 0
+        self.qber_list = []
+        self.qber_threshold = qkd_globals.config['QBER_threshold']
+
+    def _set_voltage(self):
+        """Commits voltages."""
+        (
+            self.lcr.V1,
+            self.lcr.V2,
+            self.lcr.V3,
+            self.lcr.V4,
+        ) = self.set_voltage
+
+    def send_epoch(self, epoch_path):
+        """Responsible for extracting QBER and calling SERVICE->BBM92.
+
+        SERVICE mode only.
+        """
+        epoch = epoch_path.split('/')[-1]
+        self.update_QBER_from_diagnosis(
+            self.find_diagnosis_from_epoch(epoch_path),
+            self.qber_threshold,
+            epoch,
+        )
+
+    def update_QBER_secure(self, qber, epoch):
+        """
+        BBM92 mode only.
+        """
+        self._last_qber = qber
+        self._write_qber_epoch(qber, epoch)
+
+    def do_walks(self):
+        pass
+
+    @property
+    def last_qber(self) -> float:
+        return self._last_qber
+
+
+    #==========  AUXILIARY  ==========
+
+    def _write_qber_epoch(self, qber, epoch):
+        with open(self.QBER_READOUT_PATH, "w") as f:
+            f.write(f"{qber} {epoch}")
+
+    def find_diagnosis_from_epoch(self, epoch_path):
+        diagnosis = service_T3(epoch_path)
+        return diagnosis
+
+    def find_qber_from_epoch(self, epoch_path):
+        return self.find_diagnosis_from_epoch(epoch_path).qber
+
+    def update_QBER_from_diagnosis(self, diagnosis, qber_threshold: float = 0.085, epoch: str = None):
+        self.qber_counter += 1
+        if self.qber_counter < 10: # in case pfind finds a bad match, we don't want to change the lcvr voltage too early
+            return
+
+        self.qber_list.append(diagnosis)
+        total_bits = sum([d.okcount for d in self.qber_list])
+        logger.info("Accumulating bits for QBER calculation: %d / %d", total_bits, self.averaging_n)
+        if total_bits >= self.averaging_n:
+
+            # Compute QBER from set of diagnosis in each epoch
+            matrices = np.array([d.coinc_matrix for d in self.qber_list])
+            coinc_matrix = np.sum(matrices, axis=0)
+            er_coin = sum(coinc_matrix[[0, 5, 10, 15]])  # VV, AA, HH, DD
+            gd_coin = sum(coinc_matrix[[2, 7, 8, 13]])  # VH, AD, HV, DA
+            if er_coin + gd_coin == 0:
+                qber_mean = 1.0
+            else:
+                qber_mean = round(er_coin / (er_coin + gd_coin), 3)
+
+            self.qber_list.clear()
+            logger.info(
+                f'Avg(qber): {qber_mean:.2f} of the last {total_bits} bits.')
+
+            qber = qber_mean
+            self._last_qber = qber
+            self._write_qber_epoch(qber, epoch)
+
+            if qber_mean > 0.3:
+                self.averaging_n = 400
+            if qber_mean < 0.3:
+                self.averaging_n = 800
+            if qber_mean < 0.15:
+                self.averaging_n = 1000
+            if qber_mean < 0.12:
+                self.averaging_n = 4000
+            if qber_mean < qber_threshold:
+                #self._callback()
+                #self.qber_counter=0
+                #logger.info(f'BBM92 called')
+                return

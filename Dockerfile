@@ -51,6 +51,8 @@ RUN \
     && pip install git+https://github.com/s-fifteen-instruments/fpfind.git@v1.2024.4 \
 # Fix missing pyximport dependency in pyS15
     && pip install Cython
+# Add support for communication over Thorlabs apt protocol
+    && pip install thorlabs_apt_protocol
 
 # Install qcrypto
 RUN \
