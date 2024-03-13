@@ -114,11 +114,13 @@ stop:
 	-docker rm qkd && sleep 7
 
 # Start, stop and status of keygen (whether keys are being generated)
+qkd-status:
+	curl -I http://localhost:8000/status_qkd
 keygen-status:
 	curl -I http://localhost:8000/status_keygen
 keygen-start:
 	curl -I http://localhost:8000/start_keygen
-keygen-start:
+keygen-stop:
 	curl -I http://localhost:8000/stop_keygen
 
 # In the event QKDServer terminates abruptly, e.g. power failure, do not remove

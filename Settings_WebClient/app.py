@@ -29,6 +29,12 @@ def keygen_status():
         ret = ""
     return ret, status_code
 
+@app.server.route("/status_qkd")
+def status_qkd():
+    status = qkd_ctrl.get_process_states()
+    is_running = status['costream'] or status['splicer']
+    return "", 200 if is_running else 404
+
 @app.server.route("/set_conn/<conn_id>")
 def set_connection(conn_id):
     qkd_ctrl.reload_configuration(conn_id)
