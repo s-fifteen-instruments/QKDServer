@@ -108,6 +108,7 @@ class Readevents(Process):
     def start_fc(
             self,
             callback_restart=None,
+            callback_stop=None,       # to stop when blinded
         ):
         """Starts readevents together with frequency correction.
 
@@ -152,7 +153,32 @@ class Readevents(Process):
         args = self.generate_base_args() + ["-s"]
         super().start(args + ['-q1'])  # flush
         self.wait()
-        super().start(args, stdout=PipesQKD.FRAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
+
+        if use_blinding_countermeasure:
+            self._callback_stop = callback_stop
+
+            args_tee = [
+                    f'{PipesQKD.FRAWEVENTS}',
+            ]
+            self.t = Process('tee')
+            self.t.start(args_tee,stdin=PipesQKD.TEEIN, stdout=PipesQKD.SBIN)
+
+            args_getrate2 = [
+                    '-n0',
+                    '-s',
+                    '-b',
+            ]
+            self.gr = Process(pathlib.Path(Process.config.program_root) / 'getrate2')
+            self.gr.start(args_getrate2, stdin = PipesQKD.SBIN, stdout=PipesQKD.SB )
+
+            # Persist readevents
+            super().start(args, stdout=PipesQKD.TEEIN, stderr="readeventserror", callback_restart=callback_restart)
+
+            self.sb = []
+            self.tt_counts = []
+            self.read(PipesQKD.SB,self.self_seed_monitor, 'SB', persist=True)
+        else:
+            super().start(args, stdout=PipesQKD.FRAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
 
     def commit_freqcorr(self, freq: float):
         """Commits frequency correction to 'freqcd'.
