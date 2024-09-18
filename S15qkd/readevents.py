@@ -45,16 +45,16 @@ class Readevents(Process):
             args += ["-t", 2032]
 
         # Set self blinding parameters
-        use_blinding_countermeasure = Process.config.qcrypto.use_blinding_countermeasure
-        if use_blinding_countermeasure:
-            test_mode = Process.config.qcrypto.blinding_parameters.test_mode
-            density = Process.config.qcrypto.blinding_parameters.density
-            timebase = Process.config.qcrypto.blinding_parameters.timebase
-            level1 = Process.config.qcrypto.blinding_parameters.level1
-            level2 = Process.config.qcrypto.blinding_parameters.level2
-            self.mon_ave = Process.config.qcrypto.blinding_parameters.monitor_ave
-            self.mon_lower_thresh = Process.config.qcrypto.blinding_parameters.monitor_lower_thresh
-            self.mon_higher_thresh = Process.config.qcrypto.blinding_parameters.monitor_higher_thresh
+        self.use_blinding_countermeasure = Process.config.qcrypto.readevents.use_blinding_countermeasure
+        if self.use_blinding_countermeasure:
+            test_mode = Process.config.qcrypto.readevents.blinding_parameters.test_mode
+            density = Process.config.qcrypto.readevents.blinding_parameters.density
+            timebase = Process.config.qcrypto.readevents.blinding_parameters.timebase
+            level1 = Process.config.qcrypto.readevents.blinding_parameters.level1
+            level2 = Process.config.qcrypto.readevents.blinding_parameters.level2
+            self.mon_ave = Process.config.qcrypto.readevents.blinding_parameters.monitor_ave
+            self.mon_lower_thresh = Process.config.qcrypto.readevents.blinding_parameters.monitor_lower_thresh
+            self.mon_higher_thresh = Process.config.qcrypto.readevents.blinding_parameters.monitor_higher_thresh
             blindmode = timebase * (1<<5) + density * (1<<2) + test_mode
             args += ["-b", f'{blindmode},{level1},{level2}']
 
@@ -78,7 +78,7 @@ class Readevents(Process):
         super().start(args + ['-q1'])  # With proper termination with sigterm, this should not be necessary anymore.
         self.wait()
 
-        if use_blinding_countermeasure:
+        if self.use_blinding_countermeasure:
             self._callback_stop = callback_stop
 
             args_tee = [
@@ -154,7 +154,7 @@ class Readevents(Process):
         super().start(args + ['-q1'])  # flush
         self.wait()
 
-        if use_blinding_countermeasure:
+        if self.use_blinding_countermeasure:
             self._callback_stop = callback_stop
 
             args_tee = [
