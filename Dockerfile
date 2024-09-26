@@ -60,6 +60,7 @@ RUN \
 # Compile qcrypto and allow increased rates for high-count side
     && cd ${HOME}/code/qcrypto/remotecrypto \
     && make allow-increased-rates \
+    && sed -i "s/return -emsg(63)/emsg(63)/" transferd.c \
     && make CC=${CC} \
     && cd ../errorcorrection \
     && make CC=${CC} \
