@@ -94,7 +94,7 @@ class Splicer(Process):
             return
         if self.is_running():
             qkd_protocol = self._qkd_protocol
-            logger.debug(f'Epoch = {message}')
+            #logger.debug(f'Epoch = {message}')
             epoch = message
             t4_epoch_path = FoldersQKD.RECEIVEFILES + '/' + epoch
             t3_epoch_path = FoldersQKD.T3FILES + '/' + epoch
@@ -108,7 +108,7 @@ class Splicer(Process):
                 basebit4 = 4
             if headt3.bits_per_entry == basebit3 and headt4.base_bits == basebit4:
                 Process.write(PipesQKD.SPLICER, epoch)
-                logger.debug(f'Sent epoch name {epoch} to splicer.')
+                #logger.debug(f'Sent epoch name {epoch} to splicer.')
             else:
                 logger.debug(f'Base bits not proper yet. Protocol: {qkd_protocol}, T3 basebits: {headt3.bits_per_entry} T4 basebits: {headt4.base_bits}')
 
@@ -116,7 +116,7 @@ class Splicer(Process):
         timeout_seconds = 200
         while not stop_event.is_set() and self.is_running():
             if time.time() - self._latest_message_time > timeout_seconds:
-                logger.debug(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
+                logger.info(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
                 self._callback_restart()
                 return
             time.sleep(timeout_seconds)
