@@ -577,8 +577,8 @@ class PolComp(object):
         ret_range = qber_cost_func(curr_qber)
         delta_phis = [0]*4
         phis = [0]*4
-        lcvr_to_adjust = [2, 3] # only adjust these lcvr in n-D search
-        lcvr_to_fix = [0, 1] # keep these lcvr phase fixed
+        lcvr_to_adjust = [1, 2, 3] # only adjust these lcvr in n-D search
+        lcvr_to_fix = [0] # keep these lcvr phase fixed
         logger.debug(f'Phis began with {phis},self.retardances {self.retardances}, delta_phis {delta_phis},voltage {self.set_voltage}')
         for i in lcvr_to_fix:
             phis[i] = self.retardances[i]
