@@ -44,11 +44,26 @@ class Readevents(Process):
         if use_ttl_trigger:
             args += ["-t", 2032]
 
+        # Set self blinding parameters
+        self.use_blinding_countermeasure = Process.config.qcrypto.readevents.use_blinding_countermeasure
+        if self.use_blinding_countermeasure:
+            test_mode = Process.config.qcrypto.readevents.blinding_parameters.test_mode
+            density = Process.config.qcrypto.readevents.blinding_parameters.density
+            timebase = Process.config.qcrypto.readevents.blinding_parameters.timebase
+            level1 = Process.config.qcrypto.readevents.blinding_parameters.level1
+            level2 = Process.config.qcrypto.readevents.blinding_parameters.level2
+            self.mon_ave = Process.config.qcrypto.readevents.blinding_parameters.monitor_ave
+            self.mon_lower_thresh = Process.config.qcrypto.readevents.blinding_parameters.monitor_lower_thresh
+            self.mon_higher_thresh = Process.config.qcrypto.readevents.blinding_parameters.monitor_higher_thresh
+            blindmode = timebase * (1<<5) + density * (1<<2) + test_mode
+            args += ["-b", f'{blindmode},{level1},{level2}']
+
         return args
 
     def start(
             self,
             callback_restart=None,    # to restart keygen
+            callback_stop=None,       # to stop when blinded
         ):
         try:
             assert not self.is_running()
@@ -63,12 +78,37 @@ class Readevents(Process):
         super().start(args + ['-q1'])  # With proper termination with sigterm, this should not be necessary anymore.
         self.wait()
 
-        # Persist readevents
-        super().start(args, stdout=PipesQKD.RAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
+        if self.use_blinding_countermeasure:
+            self._callback_stop = callback_stop
+
+            args_tee = [
+                    f'{PipesQKD.RAWEVENTS}',
+            ]
+            self.t = Process('tee')
+            self.t.start(args_tee,stdin=PipesQKD.TEEIN, stdout=PipesQKD.SBIN)
+
+            args_getrate2 = [
+                    '-n0',
+                    '-s',
+                    '-b',
+            ]
+            self.gr = Process(pathlib.Path(Process.config.program_root) / 'getrate2')
+            self.gr.start(args_getrate2, stdin = PipesQKD.SBIN, stdout=PipesQKD.SB )
+
+            # Persist readevents
+            super().start(args, stdout=PipesQKD.TEEIN, stderr="readeventserror", callback_restart=callback_restart)
+
+            self.sb = []
+            self.tt_counts = []
+            self.read(PipesQKD.SB,self.self_seed_monitor, 'SB', persist=True)
+        else:
+            # Persist readevents
+            super().start(args, stdout=PipesQKD.RAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
 
     def start_fc(
             self,
             callback_restart=None,
+            callback_stop=None,       # to stop when blinded
         ):
         """Starts readevents together with frequency correction.
 
@@ -113,7 +153,32 @@ class Readevents(Process):
         args = self.generate_base_args() + ["-s"]
         super().start(args + ['-q1'])  # flush
         self.wait()
-        super().start(args, stdout=PipesQKD.FRAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
+
+        if self.use_blinding_countermeasure:
+            self._callback_stop = callback_stop
+
+            args_tee = [
+                    f'{PipesQKD.FRAWEVENTS}',
+            ]
+            self.t = Process('tee')
+            self.t.start(args_tee,stdin=PipesQKD.TEEIN, stdout=PipesQKD.SBIN)
+
+            args_getrate2 = [
+                    '-n0',
+                    '-s',
+                    '-b',
+            ]
+            self.gr = Process(pathlib.Path(Process.config.program_root) / 'getrate2')
+            self.gr.start(args_getrate2, stdin = PipesQKD.SBIN, stdout=PipesQKD.SB )
+
+            # Persist readevents
+            super().start(args, stdout=PipesQKD.TEEIN, stderr="readeventserror", callback_restart=callback_restart)
+
+            self.sb = []
+            self.tt_counts = []
+            self.read(PipesQKD.SB,self.self_seed_monitor, 'SB', persist=True)
+        else:
+            super().start(args, stdout=PipesQKD.FRAWEVENTS, stderr="readeventserror", callback_restart=callback_restart)
 
     def commit_freqcorr(self, freq: float):
         """Commits frequency correction to 'freqcd'.
@@ -198,60 +263,13 @@ class Readevents(Process):
         )
         self.update_freqcorr(df_applied)
 
-    def start_sb(
-            self,
-            callback_restart=None,
-            callback_stop=None,
-            blindmode=241,
-            level1=1080,
-            level2=0,
-        ):
-        try:
-            assert not self.is_running()
-        except AssertionError as msg:
-            print(msg)
-            callback_restart()
-
-        self._callback_stop = callback_stop
-
-        args = self.generate_base_args()
-        args += ['-b', f'{blindmode},{level1},{level2}']
-        # Short mode not enabled - blind bit will be lost
-
-        # Flush readevents
-        super().start(args + ['-q1'])  # With proper termination with sigterm, this should not be necessary anymore.
-        self.wait()
-
-        args_tee = [
-                f'{PipesQKD.RAWEVENTS}',
-        ]
-        self.t = Process('tee')
-        self.t.start(args_tee,stdin=PipesQKD.TEEIN, stdout=PipesQKD.SBIN)
-
-        args_getrate2 = [
-                '-n0',
-                '-s',
-                '-b',
-        ]
-        self.gr = Process(pathlib.Path(Process.config.program_root) / 'getrate2')
-        self.gr.start(args_getrate2, stdin = PipesQKD.SBIN, stdout=PipesQKD.SB )
-
-        # Persist readevents
-        super().start(args, stdout=PipesQKD.TEEIN, stderr="readeventserror", callback_restart=callback_restart)
-
-        self.i = 0
-        self.sb = []
-        self.tt_counts = []
-        self.read(PipesQKD.SB,self.self_seed_monitor, 'SB', persist=True)
-
     def self_seed_monitor(self, pipe):
         """
         Monitors the Self-seeding count rate pipe. Averages over n readings and flags when count rates crosses threshold, indicating a blinded detector.
         """
-        n_ave = 5
-
-        lower_th = 500
-        higher_th = 90000
+        n_ave = self.mon_ave
+        lower_th = self.mon_lower_thresh
+        higher_th = self.mon_higher_thresh
 
         counts = pipe.readline().rstrip('\n').lstrip('\x00')
         if len(counts) == 0:

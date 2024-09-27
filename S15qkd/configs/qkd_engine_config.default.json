@@ -56,7 +56,17 @@
     "readevents": {
       "use_ttl_trigger": false,
       "use_fast_mode": false,
-      "use_blinding_countermeasure": true
+      "use_blinding_countermeasure": true,
+      "blinding_parameters": {
+        "test_mode": 1,
+        "density": 3,
+        "timebase": 4,
+        "level1": 880,
+        "level2": 0,
+        "monitor_ave": 5,
+        "monitor_lower_thresh": 300,
+        "monitor_higher_thresh": 60000
+      }
     },
     "pfind": {
       "number_of_epochs": 4,

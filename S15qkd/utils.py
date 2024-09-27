@@ -255,6 +255,8 @@ class Process:
                     self._internal_threads.remove(thread)
         except RuntimeError as msg:
             logger.debug(f"{thread} Thread closed. {msg}")
+        except ValueError as msg:
+            logger.debug(f"{thread} not in list. {msg}")
 
 
         self.process = None
