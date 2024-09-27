@@ -84,7 +84,7 @@ class Controller:
         # Raise readevents process priority if capability added
         readevents_prog = dir_qcrypto / 'readevents'
         if Process.config.ENVIRONMENT.raise_readevents_priority:
-            readevents_prog = f"nice --adjustment=-20 {readevents_prog}"
+            readevents_prog = f"nice --adjustment=-10 {readevents_prog}"
         self.readevents = Readevents(readevents_prog)
         self.transferd = Transferd(dir_qcrypto / 'transferd')
         self.chopper = Chopper(dir_qcrypto / 'chopper')
@@ -716,19 +716,19 @@ class Controller:
 
         if (pathlib.Path(FoldersQKD.RECEIVEFILES + '/' + epoch).is_file() and
                  pathlib.Path(FoldersQKD.T1FILES + '/' + epoch).is_file()):
-            logger.debug("Found {epoch} in first try")
+            logger.debug(f"Found {epoch} in first try")
             return epoch
         else:
             time.sleep(0.5)
             if (pathlib.Path(FoldersQKD.RECEIVEFILES + '/' + epoch).is_file() and
                     pathlib.Path(FoldersQKD.T1FILES + '/' + epoch).is_file()):
-                logger.debug("Found {epoch} in second try")
+                logger.debug(f"Found {epoch} in second try")
                 return epoch
             else:
                 epoch = f"{int(epoch,16)+1:x}"
                 if (pathlib.Path(FoldersQKD.RECEIVEFILES + '/' + epoch).is_file() and
                         pathlib.Path(FoldersQKD.T1FILES + '/' + epoch).is_file()):
-                    logger.debug("Found {epoch} in last try")
+                    logger.debug(f"Found {epoch} in last try")
                     return epoch
 
         return epoch
