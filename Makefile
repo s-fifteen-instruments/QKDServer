@@ -46,7 +46,8 @@ sudo_flag=$(shell if [ "$(enable_sys_nice)" = "true" ]; then echo -n "sudo "; fi
 secrets_root=$(shell jq '.ENVIRONMENT.secrets_root' $(CONFIG_FILE))
 
 # Docker build string
-docker_image_ls=$(shell docker image ls | grep "s-fifteen/qkdserver")
+docker_image_ls=$(shell docker image ls | grep "s-fifteen/qkdserver:qkd")
+docker_image_staging_ls=$(shell docker image ls | grep "s-fifteen/qkdserver:staging")
 
 # Check existence of dependencies to properly evaluate this Makefile
 verify-dependencies: verify-jq verify-config verify-build
@@ -73,7 +74,13 @@ all: stop qkd
 build-fresh:
 	docker build --network host --no-cache -t s-fifteen/qkdserver:qkd .
 build:
-	docker build --network host -t s-fifteen/qkdserver:qkd .
+	if [ "$(docker_image_staging_ls)" = "" ]; then { \
+		docker build --network host -t s-fifteen/qkdserver:qkd -f Dockerfile.staging .; \
+	} else { \
+		docker build --network host -t s-fifteen/qkdserver:qkd .; \
+	}; fi
+build-staging:
+	docker build --network host --no-cache -t s-fifteen/qkdserver:qkd-staging .
 
 restart: stop qkd log
 
