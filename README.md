@@ -24,6 +24,14 @@ It ties together the quantum channel and the classical channel and generates enc
 | `local_detector_skew_correction` | Signed integers | Timing corrections between detectors (mitigates timing side channel attacks), in units of 1/8 ns. Tied to `readevents` command line arguments. |
 | `do_polarization_compensation` | Boolean | Enables polarization compensation. Polarization LCVR kit should be available. Only up to one side should have `true` set. Typically on high-count side (e.g. QKD node with source co-located). |
 | `LCR_polarization_compensator_path` | Path | Points to polarization compensation driver board, typically `/dev/serial/by-id/...`. Typically on low-count side (remote QKD node). |
+| `test_mode` | Integer (0-3) | Enables the self-testing pulses. 0: No pulses applied. 1: Self-seeding. 2: Not-implemented yet. |
+| `density` | Integer (0-7) | Density of the self-testing events. 0: 2^-6, 1: 2^-7 ... 7: 2^-13 |
+| `timebase` | Integer (0-7) | Timebase of pulses in self-seeding events. 0: 2^6 ns 1: 2^7 ns ...  7: 8192 ns |
+| `level1` | Integer | Current used in countermeasure for self-testing method 1. DAC units of 0-4095 |
+| `level2` | Integer | Current used in countermeasure for self-testing method 2.|
+| `monitor_ave` | Integer | Number of epochs to average over in self-seed  monitor. |
+| `monitor_lower_thresh` | Integer | Minimum self-seeding events expected in an epoch. |
+| `monitor_higher_thresh` | Integer | Miniumum total unseeded events expected in an epoch. |
 
 3. Run `make generate-config` to deploy the corresponding configuration.
 
