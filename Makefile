@@ -46,7 +46,8 @@ sudo_flag=$(shell if [ "$(enable_sys_nice)" = "true" ]; then echo -n "sudo "; fi
 secrets_root=$(shell jq '.ENVIRONMENT.secrets_root' $(CONFIG_FILE))
 
 # Docker build string
-docker_image_ls=$(shell docker image ls | grep "s-fifteen/qkdserver")
+image_qkd_exists=$(shell docker inspect --type=image "s-fifteen/qkdserver:qkd" >/dev/null && echo "y" || echo "n")
+image_qkd_staging_exists=$(shell docker inspect --type=image "s-fifteen/qkdserver:qkd-staging" >/dev/null && echo "y" || echo "n")
 
 # Check existence of dependencies to properly evaluate this Makefile
 verify-dependencies: verify-jq verify-config verify-build
@@ -55,7 +56,7 @@ verify-jq:
 verify-config:
 	@test -f "$(CONFIG_FILE)" || { echo "No configuration file found  (hint: run 'make generate-config')"; exit 1; }
 verify-build:
-	@if [ "$(docker_image_ls)" = "" ]; then { echo "QKD image has not been built  (hint: run 'make build')"; exit 1; }; fi
+	@if [ "$(image_qkd_exists)" = "n" ]; then { echo "QKD image has not been built  (hint: run 'make build')"; exit 1; }; fi
 generate-config: verify-jq
 	@test -f "$(USER_CONFIG_FILE)" || { echo "User configuration file missing: '$(USER_CONFIG_FILE)'  (hint: see README for setup instructions)"; exit 1; }
 	@jq -s '.[0]*.[1]' \
@@ -73,7 +74,13 @@ all: stop qkd
 build-fresh:
 	docker build --network host --no-cache -t s-fifteen/qkdserver:qkd .
 build:
-	docker build --network host -t s-fifteen/qkdserver:qkd .
+	if [ "$(image_qkd_staging_exists)" = "y" ]; then { \
+		docker build --network host -t s-fifteen/qkdserver:qkd -f Dockerfile.staging .; \
+	} else { \
+		docker build --network host -t s-fifteen/qkdserver:qkd .; \
+	}; fi
+build-staging:
+	docker build --network host --no-cache -t s-fifteen/qkdserver:qkd-staging .
 
 restart: stop qkd log
 
