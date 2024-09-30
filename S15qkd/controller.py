@@ -45,7 +45,7 @@ from .costream import Costream
 from .splicer import Splicer
 from .readevents import Readevents
 from .pfind import Pfind
-from .utils import Process, read_T2_header, HeadT2, get_current_epoch
+from .utils import Process, read_T2_header, HeadT2, get_current_epoch, epoch_after
 from .error_correction import ErrorCorr
 from .polarization_compensation import PolComp
 
@@ -661,7 +661,7 @@ class Controller:
                 return
             remaining_secure_epochs = (int(start_epoch,16)-1) - td_epoch
             if remaining_secure_epochs > 3: # big enough to need tracking
-                next_secure_epoch, diff_n = self._epochs_or_next_exist(str(hex(td_epoch+1))[2:])
+                next_secure_epoch, diff_n = self._epochs_or_next_exist(hex(td_epoch+1)[2:])
                 qkd_protocol = QKDProtocol.BBM92
                 td -=self.costream.latest_drift_rate * diff_n
                 self.costream.start(
@@ -725,7 +725,7 @@ class Controller:
                 logger.debug(f"Found {epoch} in second try")
                 return epoch
             else:
-                epoch = f"{int(epoch,16)+1:x}"
+                epoch = epoch_after(epoch)
                 if (pathlib.Path(FoldersQKD.RECEIVEFILES + '/' + epoch).is_file() and
                         pathlib.Path(FoldersQKD.T1FILES + '/' + epoch).is_file()):
                     logger.debug(f"Found {epoch} in last try")
@@ -803,7 +803,7 @@ class Controller:
                 return
             remaining_service_epochs = (int(start_epoch,16)-1) - td_epoch
             if remaining_service_epochs > 3:
-                next_service_epoch, diff_n = self._epochs_or_next_exist(str(hex(td_epoch+1))[2:])
+                next_service_epoch, diff_n = self._epochs_or_next_exist(hex(td_epoch+1)[2:])
                 qkd_protocol = QKDProtocol.SERVICE
                 td -= self.costream.latest_drift_rate * diff_n # drift in n epochs
                 # Process remaining epochs from end of service epoch to before secure epoch
@@ -937,7 +937,7 @@ class Controller:
                 pathlib.Path(FoldersQKD.T1FILES + '/' + epoch).is_file()):
                 return epoch, diff_n
             time.sleep(0.5)
-            epoch = f"{int(epoch,16)+1:x}"
+            epoch = epoch_after(epoch)
             diff_n += 1
 
         logger.debug("No epoch found after 5 increments")

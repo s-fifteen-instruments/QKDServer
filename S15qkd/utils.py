@@ -526,7 +526,7 @@ def service_T3(file_name: str) -> Optional[ServiceT3]:
     service.qber = float(round(er_coin /(er_coin + gd_coin),3)) #ignore garbage
     return service
 
-def epoch_after(epoch: str, added: int) -> str:
+def epoch_after(epoch: str, added: int = 1) -> str:
     return hex(int(epoch,16) + added)[2:]
 
 def get_current_epoch():
