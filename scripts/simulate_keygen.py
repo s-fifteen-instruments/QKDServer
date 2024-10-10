@@ -104,17 +104,20 @@ def main(args):
             geniter = itertools.count()
             if args.single:
                 geniter = [0]
+            elif args.double:
+                geniter = [0, 1]
 
             # Start loop
             start_time = time.time()
             for num_elapsed_files in geniter:
 
                 # Wait for next epoch
-                end_time = start_time + num_elapsed_files * file_duration
-                curr_time = time.time()
-                while curr_time < end_time:
-                    time.sleep(end_time - curr_time + EPOCH_DURATION)  # within next duration
+                if not args.single and not args.double:
+                    end_time = start_time + num_elapsed_files * file_duration
                     curr_time = time.time()
+                    while curr_time < end_time:
+                        time.sleep(end_time - curr_time + EPOCH_DURATION)  # within next duration
+                        curr_time = time.time()
 
                 # Time to spit out some bits
                 epoch = eparser.int2epoch(curr_epochint)
@@ -238,6 +241,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--single", action="store_true",
         help="Generate only for one epoch and exit")
+    parser.add_argument(
+        "--double", action="store_true",
+        help="Generate only for two epochs and exit")
 
     # Arguments
     if len(sys.argv) > 1:
