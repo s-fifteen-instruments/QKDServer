@@ -967,7 +967,7 @@ class Controller:
     def get_status_info(self):
         return {
             'connection_status': Process.config.target_hostname if self.transferd.communication_status else '',
-            'state': self.qkd_engine_state,  # TODO(Justin): Possible to replace protocol?
+            'state': self.qkd_engine_state.name,  # returns name of Enumerate for simpler processing via JSON and clients.
             'last_received_epoch': self.transferd.last_received_epoch,
             'init_time_diff': self._time_diff,
             'sig_long': self._sig_long,

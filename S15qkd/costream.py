@@ -152,6 +152,16 @@ class Costream(Process):
             time.sleep(timeout_seconds)
         return
 
+    def _no_message_monitor(self, stop_event):
+        timeout_seconds = 200
+        while not stop_event.is_set() and self.is_running():
+            if time.time() - self._latest_message_time > timeout_seconds:
+                logger.info(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
+                self._callback_restart()
+                return
+            time.sleep(timeout_seconds)
+        return
+
     # Coding defensively... ensure these properties are not
     # modified outside class.
 
