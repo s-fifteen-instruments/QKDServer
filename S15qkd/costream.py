@@ -27,6 +27,7 @@ SOFTWARE.
 """
 
 import pathlib
+import time
 
 from .utils import Process
 from .qkd_globals import logger, QKDProtocol, PipesQKD, FoldersQKD
@@ -67,6 +68,7 @@ class Costream(Process):
         self._callback_notify = callback_notify
         self._pairs_over_accidentals_avg = 10
         self._callback_restart = callback_restart
+        self._latest_message_time = time.time()
 
         args = [
             '-d', FoldersQKD.RECEIVEFILES,
@@ -95,7 +97,7 @@ class Costream(Process):
         super().start(args, stderr="costreamerror", callback_restart=callback_restart)
 
         self.read(PipesQKD.GENLOG, self.digest_genlog, 'GENLOG', persist=True)
-
+        super().start_thread_method(self._no_message_monitor)
 
     def digest_genlog(self, pipe):
         """Digests the genlog pipe written by costream."""
@@ -104,6 +106,7 @@ class Costream(Process):
         if len(message) == 0:
             return
 
+        self._latest_message_time = time.time()
         logger.debug(message)
         self._previous_latest_outepoch = self._latest_outepoch
         self._previous_latest_deltat = self._latest_deltat
@@ -136,26 +139,18 @@ class Costream(Process):
         if self._callback_notify:
             self._callback_notify(self._latest_outepoch, int(self._latest_deltat))
 
-    '''Move polarization compensation to controller
-        # If in SERVICE mode, mark as SERVICE mode in QKD engine
-        if self._qkd_protocol == QKDProtocol.SERVICE:
-            logger.debug(message)
-            diagnosis = RawKeyDiagnosis(
-                pathlib.Path(FoldersQKD.RAWKEYS) / message
-            )
-            logger.debug(
-                f'Service mode, QBER: {diagnosis.quantum_bit_error}, Epoch: {self._latest_outepoch}'
-            )
 
-            # Perform polarization compensation while still in SERVICE mode
-            if self._polarization_compensator and pairs_over_accidentals > 2.5:
-            #    self._polarization_compensator.send_diagnosis(
-            #            diagnosis, epoch = message[:8]
-            #            )
-                self._polarization_compensator.update_QBER(
-                     diagnosis.quantum_bit_error, epoch=message,
-                )
-    '''
+    def _no_message_monitor(self, stop_event):
+        """ Monitor restarts the engine if costream is started and receives no updates in timeout seconds.
+        """
+        timeout_seconds = 200
+        while not stop_event.is_set() and self.is_running():
+            if time.time() - self._latest_message_time > timeout_seconds:
+                logger.info(f"Timed out for '{self.program}' received no messages in {timeout_seconds}")
+                self._callback_restart()
+                return
+            time.sleep(timeout_seconds)
+        return
 
     # Coding defensively... ensure these properties are not
     # modified outside class.
