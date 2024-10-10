@@ -55,6 +55,7 @@ class Costream(Process):
             qkd_protocol,
             callback_notify = None,  # pass information about epoch back to Controller
             callback_restart = None,  # allow costream to force keygen restart,
+            epochnum = 0, # default (0) converts forever
         ):
         assert not self.is_running()
 
@@ -88,6 +89,7 @@ class Costream(Process):
             '-R', 5,
             Process.config.costream_histo_option,
             '-h', Process.config.costream_histo_number,
+            '-q', f'{epochnum}',
         ]
         logger.info(f'costream starts with the following arguments: {args}')
         super().start(args, stderr="costreamerror", callback_restart=callback_restart)
@@ -103,6 +105,8 @@ class Costream(Process):
             return
 
         logger.debug(message)
+        self._previous_latest_outepoch = self._latest_outepoch
+        self._previous_latest_deltat = self._latest_deltat
         (
             self._latest_outepoch,
             self._latest_rawevents,
@@ -187,3 +191,12 @@ class Costream(Process):
     @property
     def latest_outepoch(self):
         return self._latest_outepoch
+
+    @property
+    def latest_drift_rate(self):
+        try:
+            delta_epoch = int(self._latest_outepoch,16) - int(self._previous_latest_outepoch,16)
+            delta_deltat = int(self._latest_deltat) - int(self._previous_latest_deltat)
+            return int(delta_deltat/delta_epoch)
+        except TypeError:
+            return 0

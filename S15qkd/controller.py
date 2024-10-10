@@ -45,7 +45,7 @@ from .costream import Costream
 from .splicer import Splicer
 from .readevents import Readevents
 from .pfind import Pfind
-from .utils import Process, read_T2_header, HeadT2, get_current_epoch
+from .utils import Process, read_T2_header, HeadT2, get_current_epoch, epoch_after
 from .error_correction import ErrorCorr
 from .polarization_compensation import PolComp
 
@@ -84,7 +84,7 @@ class Controller:
         # Raise readevents process priority if capability added
         readevents_prog = dir_qcrypto / 'readevents'
         if Process.config.ENVIRONMENT.raise_readevents_priority:
-            readevents_prog = f"nice --adjustment=-20 {readevents_prog}"
+            readevents_prog = f"nice --adjustment=-10 {readevents_prog}"
         self.readevents = Readevents(readevents_prog)
         self.transferd = Transferd(dir_qcrypto / 'transferd')
         self.chopper = Chopper(dir_qcrypto / 'chopper')
@@ -634,7 +634,7 @@ class Controller:
             self.clear_comms()
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
-            time.sleep(1.9) # to allow chopper and splicer to end gracefully
+            time.sleep(0.6) # to allow chopper and splicer to end gracefully
             self.errc.empty()
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
@@ -649,23 +649,45 @@ class Controller:
             # Get current time difference before stopping costream
             try:
                 td = int(self._time_diff) - int(self.costream.latest_deltat)
+                td_epoch = int(self.costream.latest_outepoch,16)
             except TypeError:
                 self.restart_protocol()
             last_secure_epoch = self.transferd.last_received_epoch
-            #
             self.costream.stop()
-            self.clear_comms()
-            qkd_protocol = QKDProtocol.SERVICE
-            self._qkd_protocol = qkd_protocol
-            logger.debug(f'SERVICE protocol set')
-            last_secure_epoch = self.transferd.last_received_epoch
             try:
                 start_epoch = self._retrieve_service_remote_epoch(hex(get_current_epoch())[2:])
             except RuntimeError:
                 self.restart_protocol()
                 return
+            remaining_secure_epochs = (int(start_epoch,16)-1) - td_epoch
+            if remaining_secure_epochs > 3: # big enough to need tracking
+                next_secure_epoch, diff_n = self._epochs_or_next_exist(hex(td_epoch+1)[2:])
+                qkd_protocol = QKDProtocol.BBM92
+                td -=self.costream.latest_drift_rate * diff_n
+                self.costream.start(
+                    td,
+                    next_secure_epoch,
+                    qkd_protocol,
+                    None,
+                    None,
+                    remaining_secure_epochs,
+                )
+                time.sleep(7)
+                try:
+                    td = int(self._time_diff) - int(self.costream.latest_deltat)
+                    td_epoch = int(self.costream.latest_outepoch,16)
+                except TypeError:
+                    self.restart_protocol()
+                self.costream.stop()
+            qkd_globals.PipesQKD.drain_all_pipes()
+            qkd_protocol = QKDProtocol.SERVICE
+            self._qkd_protocol = qkd_protocol
+            logger.debug(f'SERVICE protocol set')
+            last_secure_epoch = self.transferd.last_received_epoch
             logger.debug(f'Retrieve_service is {start_epoch}')
             start_epoch = self._epochs_exist(start_epoch)
+            td_epoch_diff = int(start_epoch,16) - td_epoch
+            td -= self.costream.latest_drift_rate * td_epoch_diff
             self.costream.start(
                 td,
                 start_epoch,
@@ -694,19 +716,19 @@ class Controller:
 
         if (pathlib.Path(FoldersQKD.RECEIVEFILES + '/' + epoch).is_file() and
                  pathlib.Path(FoldersQKD.T1FILES + '/' + epoch).is_file()):
-            logger.debug("Found {epoch} in first try")
+            logger.debug(f"Found {epoch} in first try")
             return epoch
         else:
             time.sleep(0.5)
             if (pathlib.Path(FoldersQKD.RECEIVEFILES + '/' + epoch).is_file() and
                     pathlib.Path(FoldersQKD.T1FILES + '/' + epoch).is_file()):
-                logger.debug("Found {epoch} in second try")
+                logger.debug(f"Found {epoch} in second try")
                 return epoch
             else:
-                epoch = f"{int(epoch,16)+1:x}"
+                epoch = epoch_after(epoch)
                 if (pathlib.Path(FoldersQKD.RECEIVEFILES + '/' + epoch).is_file() and
                         pathlib.Path(FoldersQKD.T1FILES + '/' + epoch).is_file()):
-                    logger.debug("Found {epoch} in last try")
+                    logger.debug(f"Found {epoch} in last try")
                     return epoch
 
         return epoch
@@ -755,7 +777,7 @@ class Controller:
             self.clear_comms()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
-            time.sleep(1.9) # to allow chopper and splicer to end gracefully
+            time.sleep(0.6) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
                 qkd_protocol,
@@ -769,22 +791,47 @@ class Controller:
             # Get current time difference before stopping costream
             try:
                 td = int(self._time_diff) - int(self.costream.latest_deltat)
+                td_epoch = int(self.costream.latest_outepoch,16)
             except TypeError:
                 self.restart_protocol()
             last_service_epoch = self.transferd.last_received_epoch
-            #
             self.costream.stop()
-            self.clear_comms()
-            qkd_protocol = QKDProtocol.BBM92
-            self._qkd_protocol = qkd_protocol
-            logger.debug(f'BBM92 protocol set')
             try:
                 start_epoch = self._retrieve_secure_remote_epoch(hex(get_current_epoch())[2:])
             except RuntimeError:
                 self.restart_protocol()
                 return
+            remaining_service_epochs = (int(start_epoch,16)-1) - td_epoch
+            if remaining_service_epochs > 3:
+                next_service_epoch, diff_n = self._epochs_or_next_exist(hex(td_epoch+1)[2:])
+                qkd_protocol = QKDProtocol.SERVICE
+                td -= self.costream.latest_drift_rate * diff_n # drift in n epochs
+                # Process remaining epochs from end of service epoch to before secure epoch
+                self.costream.start(
+                    td,
+                    next_service_epoch,
+                    qkd_protocol,
+                    None,
+                    None,
+                    remaining_service_epochs,
+                )
+                time.sleep(7) # enough time to process the remaining service epochs
+                # Get new time difference before stopping costream again
+                try:
+                    td -= int(self.costream.latest_deltat)
+                    td_epoch = int(self.costream.latest_outepoch,16)
+                except TypeError:
+                    self.restart_protocol()
+                self.costream.stop()
+            #self.clear_comms() # This deletes all current epochs which we don't want
+            qkd_globals.PipesQKD.drain_all_pipes() # This reads all pipes
+            qkd_protocol = QKDProtocol.BBM92
+            self._qkd_protocol = qkd_protocol
+            logger.debug(f'BBM92 protocol set')
             logger.debug(f'Retrieve_secure is {start_epoch}')
             start_epoch = self._epochs_exist(start_epoch)
+            td_epoch_diff = int(start_epoch,16) - td_epoch
+            td -= self.costream.latest_drift_rate * td_epoch_diff
             self.costream.start(
                 td,
                 start_epoch,
@@ -876,6 +923,26 @@ class Controller:
         start_epoch = hex(int(start_epoch,16)+1)[2:]
         usable_periods -= extra
         return start_epoch, usable_periods
+
+    def _epochs_or_next_exist(self, epoch: str):
+        """Check that epoch exist in both receivedfiles and t1 folders.
+        If epoch is 1s past current time/epoch, skip and check for next one
+        """
+        diff_n = 1
+        timeout_seconds = (5) * qkd_globals.EPOCH_DURATION
+        end_time = time.time() + timeout_seconds
+
+        while time.time() < end_time:
+            if (pathlib.Path(FoldersQKD.RECEIVEFILES + '/' + epoch).is_file() and
+                pathlib.Path(FoldersQKD.T1FILES + '/' + epoch).is_file()):
+                return epoch, diff_n
+            time.sleep(0.5)
+            epoch = epoch_after(epoch)
+            diff_n += 1
+
+        logger.debug("No epoch found after 5 increments")
+        return epoch, diff_n
+
 
     def get_process_states(self):
         return {
