@@ -249,6 +249,7 @@ class Controller:
     def restart_transferd(self):
         """ Stops and restarts tranferd"""
         self.stop_key_gen(inform_remote=False)
+        self.qkd_engine_state = QKDEngineState.ONLY_COMMUNICATION
         self.transferd.stop()
         self.qkd_engine_state = QKDEngineState.OFF
         self.clear_comms()
@@ -482,6 +483,7 @@ class Controller:
         # Handle stopping of all processes
         if code == "stop":
             self.stop_key_gen(inform_remote=False)
+            self.qkd_engine_state = QKDEngineState.ONLY_COMMUNICATION
             return
 
         # Do not set this as a global variable!
@@ -559,6 +561,7 @@ class Controller:
             try:
                 start_epoch, periods = self._retrieve_epoch_overlap()
                 logger.debug(f"{start_epoch} {periods} {hex(int(start_epoch, 16) + periods)}")
+                self.qkd_engine_state = QKDEngineState.PEAK_FINDING
                 if Process.config.qcrypto.pfind.frequency_search:
                     (
                         self._freq_diff,
@@ -610,6 +613,7 @@ class Controller:
                 self.restart_protocol,
             )
         if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
+            self.qkd_engine_state = QKDEngineState.KEY_GENERATION
             if not self.errc.is_running():
                 self.errc.start(
                     qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
@@ -617,6 +621,9 @@ class Controller:
                     self.recompensate_service, # protocol for exceeding qber_limit
                     self.drift_secure_comp,
                     )
+        else:
+            self.qkd_engine_state = QKDEngineState.SERVICE_MODE
+
     @requires_transferd
     def BBM92_to_service(self):
         """Stops the programs which needs protocol, namely
@@ -958,7 +965,7 @@ class Controller:
     def get_status_info(self):
         return {
             'connection_status': Process.config.target_hostname if self.transferd.communication_status else '',
-            'state': self.qkd_engine_state,  # TODO(Justin): Possible to replace protocol?
+            'state': self.qkd_engine_state.name,  # returns name of Enumerate for simpler processing via JSON and clients.
             'last_received_epoch': self.transferd.last_received_epoch,
             'init_time_diff': self._time_diff,
             'sig_long': self._sig_long,
