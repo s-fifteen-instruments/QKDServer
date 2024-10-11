@@ -51,7 +51,7 @@ from .polarization_compensation import PolComp
 
 # Own modules
 from . import qkd_globals
-from .qkd_globals import logger, QKDProtocol, QKDEngineState, FoldersQKD
+from .qkd_globals import logger, QKDProtocol, QKDEngineState, FoldersQKD, det_info
 
 # TODO(Justin): Rename 'program_root' in config.
 
@@ -963,6 +963,9 @@ class Controller:
         }
 
     def get_status_info(self):
+        #det_info = ('total','v','-','h','+') #moved to qkd_globals
+        det_cts = self.chopper.det_counts if low_count_side else self.chopper2.det_counts
+        local_counts = {det_info[i] : det_cts[i] for i, _ in enumerate(det_cts)}
         return {
             'connection_status': Process.config.target_hostname if self.transferd.communication_status else '',
             'state': self.qkd_engine_state.name,  # returns name of Enumerate for simpler processing via JSON and clients.
@@ -983,6 +986,7 @@ class Controller:
                 'v4' : self.polcom.set_voltage[3],
                 } if self.do_polcom else 0 ,
             'freq_diff_info' : self.freq_diff if not self.pfind.is_running() else (float(self.freq_diff) + self.pfind.current_freq_diff),
+            'local_counts' : local_counts,
 
         }
 
