@@ -8,7 +8,6 @@ RUN \
     && curl -OL "https://github.com/s-fifteen-instruments/pyS15/raw/master/S15lib/g2lib/Makefile" \
     && make
 COPY ./ /root/code/QKDServer
-RUN cd /root/code/QKDServer && pip install -e .
 
 # Use a temporary entrypoint to keep container running, for debugging
 #ENTRYPOINT ["bash"]

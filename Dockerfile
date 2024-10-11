@@ -48,7 +48,7 @@ RUN \
     && pip install -U pip setuptools wheel \
     && pip install git+https://github.com/s-fifteen-instruments/pyS15.git@beb98508a05bfc8d1b5382f7a45ffd66d1fc6817 \
 # Add fpfind + freqcd routines
-    && pip install git+https://github.com/s-fifteen-instruments/fpfind.git@v1.2024.4 \
+    && pip install git+https://github.com/s-fifteen-instruments/fpfind.git@v1.2024.13 \
 # Fix missing pyximport dependency in pyS15
     && pip install Cython \
 # Add support for communication over Thorlabs apt protocol
