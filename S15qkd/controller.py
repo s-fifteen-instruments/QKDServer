@@ -964,6 +964,7 @@ class Controller:
 
     def get_status_info(self):
         #det_info = ('total','v','-','h','+') #moved to qkd_globals
+        low_count_side = self.transferd.low_count_side
         det_cts = self.chopper.det_counts if low_count_side else self.chopper2.det_counts
         local_counts = {det_info[i] : det_cts[i] for i, _ in enumerate(det_cts)}
         return {
@@ -974,7 +975,7 @@ class Controller:
             'sig_long': self._sig_long,
             'sig_short': self._sig_short,
             'tracked_time_diff': self.costream.latest_deltat,
-            'symmetry': self.transferd.low_count_side,
+            'symmetry': low_count_side,
             'coincidences': self.costream.latest_coincidences,
             'accidentals': self.costream.latest_accidentals,
             'protocol': self._qkd_protocol,
