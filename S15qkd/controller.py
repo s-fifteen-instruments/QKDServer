@@ -976,6 +976,14 @@ class Controller:
             'accidentals': self.costream.latest_accidentals,
             'protocol': self._qkd_protocol,
             'last_qber': self.polcom.last_qber if self.do_polcom and self._qkd_protocol is QKDProtocol.SERVICE  else '',
+            'lvcr_voltages' : {
+                'v1' : self.polcom.set_voltage[0],
+                'v2' : self.polcom.set_voltage[1],
+                'v3' : self.polcom.set_voltage[2],
+                'v4' : self.polcom.set_voltage[3],
+                } if self.do_polcom else 0 ,
+            'freq_diff_info' : self.freq_diff if not self.pfind.is_running() else (float(self.freq_diff) + self.pfind.current_freq_diff),
+
         }
 
     def get_error_corr_info(self):
@@ -990,6 +998,13 @@ class Controller:
             'total_ec_key_bits': self.errc.total_ec_key_bits,
             'init_QBER': self.errc.init_QBER_info,
         }
+
+    @property
+    def freq_diff(self):
+        try:
+            return self._freq_diff
+        except AttributeError:
+            return 0
 
     def clear_comms(self):
         qkd_globals.PipesQKD.drain_all_pipes() # This reads all pipes
