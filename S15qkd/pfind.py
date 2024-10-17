@@ -41,10 +41,10 @@ class Pfind(Process):
             '-R', Process.config.qcrypto.pfind.coarse_resolution,
             '-r', Process.config.qcrypto.pfind.fine_resolution,
             '-s', 5,
-            '--freq-threshold', 8,
+            '--freq-threshold', 10,
             '--convergence-rate', 0.1,
             '-P',
-            '--precomp-stop', 6e-6,
+            '--precomp-stop', 1e-6,
             '-V', 0b1001,
             '-vvv',
         ]
@@ -60,3 +60,18 @@ class Pfind(Process):
         logger.info(f'Fpfind result: {result}')
         fd, td = list(map(float, result))
         return fd, td
+
+    @property
+    def current_freq_diff(self):
+        if self.is_running():
+            try:
+                with open('fpfinderror', 'r') as f:
+                    dat = f.read()
+                dat_lines = dat.split('\n')
+                final_line = [i for i in dat_lines if 'Applied initial' in i][-1]
+                freq_comp = final_line.split()[6] # position of value in log
+                return float(freq_comp) * 1e-6
+            except:
+                return 0
+        else:
+            return 0

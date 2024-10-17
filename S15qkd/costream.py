@@ -139,7 +139,6 @@ class Costream(Process):
         if self._callback_notify:
             self._callback_notify(self._latest_outepoch, int(self._latest_deltat))
 
-
     def _no_message_monitor(self, stop_event):
         """ Monitor restarts the engine if costream is started and receives no updates in timeout seconds.
         """
@@ -153,6 +152,8 @@ class Costream(Process):
         return
 
     def _no_message_monitor(self, stop_event):
+        """ Monitor restarts the engine if costream is started and receives no updates in timeout seconds.
+        """
         timeout_seconds = 200
         while not stop_event.is_set() and self.is_running():
             if time.time() - self._latest_message_time > timeout_seconds:
