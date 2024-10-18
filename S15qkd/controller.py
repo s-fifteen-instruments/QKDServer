@@ -577,6 +577,7 @@ class Controller:
                     ) = self.pfind.measure_time_diff(start_epoch, periods)
                     self._freq_diff = 0
             except RuntimeError:
+                self.qkd_engine_state = QKDEngineState.ONLY_COMMUNICATION
                 self.restart_protocol()
                 return
 
@@ -641,6 +642,7 @@ class Controller:
             self.clear_comms()
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
+            self.qkd_engine_state = QKDEngineState.SERVICE_MODE
             time.sleep(0.6) # to allow chopper and splicer to end gracefully
             self.errc.empty()
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
@@ -689,6 +691,7 @@ class Controller:
             qkd_globals.PipesQKD.drain_all_pipes()
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
+            self.qkd_engine_state = QKDEngineState.SERVICE_MODE
             logger.debug(f'SERVICE protocol set')
             last_secure_epoch = self.transferd.last_received_epoch
             logger.debug(f'Retrieve_service is {start_epoch}')
@@ -784,6 +787,7 @@ class Controller:
             self.clear_comms()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
+            self.qkd_engine_state = QKDEngineState.KEY_GENERATION
             time.sleep(0.6) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
@@ -834,6 +838,7 @@ class Controller:
             qkd_globals.PipesQKD.drain_all_pipes() # This reads all pipes
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
+            self.qkd_engine_state = QKDEngineState.KEY_GENERATION
             logger.debug(f'BBM92 protocol set')
             logger.debug(f'Retrieve_secure is {start_epoch}')
             start_epoch = self._epochs_exist(start_epoch)
@@ -952,8 +957,11 @@ class Controller:
 
 
     def get_process_states(self):
+        transferd_stat = self.transferd.is_running()
+        if not transferd_stat:
+            self.qkd_engine_state = QKDEngineState.OFF
         return {
-            'transferd': self.transferd.is_running(),
+            'transferd': transferd_stat,
             'readevents': self.readevents.is_running(),
             'chopper': self.chopper.is_running(),
             'chopper2': self.chopper2.is_running(),
