@@ -47,7 +47,7 @@ from .readevents import Readevents
 from .pfind import Pfind
 from .utils import Process, read_T2_header, HeadT2, get_current_epoch, epoch_after
 from .error_correction import ErrorCorr
-from .polarization_compensation import PolComp
+from .polarization_compensation import PolComp, MockPolComp, PaddlePolComp
 
 # Own modules
 from . import qkd_globals
