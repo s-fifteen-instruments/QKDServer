@@ -143,7 +143,7 @@ class Readevents(Process):
         assert isinstance(self._ignore, int) and self._ignore > 0
         assert isinstance(self._average, int) and self._average > 0
         assert isinstance(self._separation, int) and self._separation > 0
-        assert isinstance(self._cap, float)
+        assert isinstance(self._cap, (int, float))  # allow zeros
         self._required = self._ignore + self._average + self._separation
 
         self.freqcd = Process('freqcd')
