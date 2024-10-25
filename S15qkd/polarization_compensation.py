@@ -128,6 +128,27 @@ class PolComp(object):
         self.qber_threshold_2 = self.qber_threshold + 0.10 # threshold to go from do_walks(1-D walk) to update QBER (n-D walk)
         logger.debug(f'pol com initialized')
 
+    def save_config(self):
+        """Writes current LCVR voltages to configuration of current connection."""
+        curr_conn = Process.config.remote_connection_id
+        Process.config.connections.__dict__[curr_conn].LCR_volt_info = SimpleNamespace()
+        Process.config.connections.__dict__[curr_conn].LCR_volt_info.V1 = self.lcr.V1
+        Process.config.connections.__dict__[curr_conn].LCR_volt_info.V2 = self.lcr.V2
+        Process.config.connections.__dict__[curr_conn].LCR_volt_info.V3 = self.lcr.V3
+        Process.config.connections.__dict__[curr_conn].LCR_volt_info.V4 = self.lcr.V4
+        logger.debug(f"Current Polarization is: {self.lcr.V1}, {self.lcr.V2}, {self.lcr.V3}, {self.lcr.V4}. Config saved")
+
+    def load_config(self):
+        """Loads LCVR voltages from configuration of current connection."""
+        config = Process.config
+        self.set_voltage = [
+            config.LCR_volt_info.V1,
+            config.LCR_volt_info.V2,
+            config.LCR_volt_info.V3,
+            config.LCR_volt_info.V4,
+        ]
+        self._set_voltage()
+        self.last_voltage_list = self.set_voltage.copy()
 
     def _reset(self):
         self.qber_list = []
@@ -232,6 +253,12 @@ class PolComp(object):
         if epoch1_int <= epochint:
             return False
         return True
+
+    def start_walk(self):
+        """Triggers initial strategy of searching for rough minima."""
+        thread = threading.Thread(target=self.do_walks) # defaults to lcvr_idx=0
+        thread.start()
+        logger.debug(f'do walk started')
 
     def do_walks(self, lcvr_idx: int = 0):
         """Performs walking in the LCVR space.
@@ -353,7 +380,7 @@ class PolComp(object):
         if qber > self.qber_current:
             return
 
-    def send_epoch(self, epoch_path: str = None):
+    def send_epoch(self, epoch: str = None):
         """Receives the epoch from controller and performs
            polarization compensation. Only done in
            SERVICE mode.
@@ -361,9 +388,7 @@ class PolComp(object):
            controller side. This script is actually
            receiving the epoch.
         """
-
-        epoch = epoch_path.split('/')[-1]
-
+        epoch_path = FoldersQKD.RAWKEYS + '/' + epoch
         if self.walks_array:
             self.process_qber(self.find_qber_from_epoch(epoch_path), epoch)
         else:
