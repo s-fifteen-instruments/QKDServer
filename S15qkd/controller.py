@@ -137,29 +137,17 @@ class Controller:
         self.restart_authd()
         self.restart_transferd()  # restart to force out of inconsistent state
 
-    def update_config(self):
-        curr_conn = Process.config.remote_connection_id
-        if self.polcom:
-            Process.config.connections.__dict__[curr_conn].LCR_volt_info = SimpleNamespace()
-            Process.config.connections.__dict__[curr_conn].LCR_volt_info.V1 = self.polcom.lcr.V1
-            Process.config.connections.__dict__[curr_conn].LCR_volt_info.V2 = self.polcom.lcr.V2
-            Process.config.connections.__dict__[curr_conn].LCR_volt_info.V3 = self.polcom.lcr.V3
-            Process.config.connections.__dict__[curr_conn].LCR_volt_info.V4 = self.polcom.lcr.V4
-            logger.debug(f"Current Polarization is: {self.polcom.lcr.V1}, {self.polcom.lcr.V2}, {self.polcom.lcr.V3}, {self.polcom.lcr.V4}. Config saved")
-
     def reload_configuration(self, conn_id: Optional[str] = None):
-        self.update_config()
+        if self.polcom:
+            self.polcom.save_config()
+
         Process.save_config()
         Process.load_config(conn_id=conn_id)
         logger.debug(f"New config {Process.config}")
         self.restart_authd()
         self.transferd.stop()  # stop transferd to force out of inconsistent state
-
-        config = Process.config
         if self.polcom:
-            self.polcom.set_voltage = [config.LCR_volt_info.V1, config.LCR_volt_info.V2, config.LCR_volt_info.V3, config.LCR_volt_info.V4]
-            self.polcom._set_voltage()
-            self.polcom.last_voltage_list = self.polcom.set_voltage.copy()
+            self.polcom.load_config()
 
         if Process.config.do_polarization_compensation:
             self.do_polcom = True
@@ -376,8 +364,7 @@ class Controller:
         # Only send epochs to polarization compensation in servicemode
         # and if LCVR exist
         if self._qkd_protocol == QKDProtocol.SERVICE and self.do_polcom:
-            epoch_path = FoldersQKD.RAWKEYS + '/' + epoch
-            self.polcom.send_epoch(epoch_path)
+            self.polcom.send_epoch(epoch)
 
     def recompensate_service(self):
         """Convenience function"""
@@ -387,7 +374,7 @@ class Controller:
             None
 
     def drift_secure_comp(self,qber,epoch):
-        """Convenience function"""
+        """Notifies polcom of new measured QBER at epoch."""
         if self.do_polcom:
             self.polcom.update_QBER_secure(qber,epoch)
         else:
@@ -395,12 +382,9 @@ class Controller:
 
     def pol_com_walk(self):
         if self._qkd_protocol == QKDProtocol.SERVICE and self.do_polcom:
-            thread = threading.Thread(target=self.polcom.do_walks) # defaults to lcvr_idx=0
-            thread.start()
-            logger.debug(f'do walk started')
-        else:
-            None
-# CONTROL METHODS
+            self.polcom.start_walk()
+
+    # CONTROL METHODS
 
     @requires_transferd
     def send(self, message: str):
