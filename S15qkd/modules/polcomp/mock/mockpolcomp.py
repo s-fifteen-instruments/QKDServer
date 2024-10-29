@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """Provides the MockPolComp class."""
 
-import fpfind.lib.parse_epochs as parser
+import time
+
 from S15qkd import qkd_globals
 from S15qkd.modules.polcomp.qber_estimator import QberEstimator
+
 
 class MockPolComp:
     """Enumerates interface exposed to Controller."""
 
-    def __init__(self, lcr_path, callback_service_to_BBM92=None):  # Controller.__init__()
+    def __init__(
+        self, lcr_path, callback_service_to_BBM92=None
+    ):  # Controller.__init__()
         self._callback = callback_service_to_BBM92
         self.estimator = QberEstimator()
         self.qber = self.estimator.qber
-        self.qber_threshold = qkd_globals.config['QBER_threshold']
+        self.qber_threshold = qkd_globals.config["QBER_threshold"]
 
     def send_epoch(self, epoch):  # Controller.send_epoch_notification()
         """Process notification of epoch provided by costream/splicer.
@@ -43,6 +47,7 @@ class MockPolComp:
     def last_qber(self) -> float:  # Controller.get_status_info()
         return self.qber
 
+
 class ProxyPolComp(MockPolComp):
     """Proxies the QBER information to a writable file, for handling by other interfaces."""
 
@@ -68,9 +73,10 @@ class ProxyPolComp(MockPolComp):
         qber = float(qber)
         return qber, epoch
 
-    def _read_qber_after(epoch):
+    def _read_qber_after(self, epoch):
         """Monitors and returns the QBER after specified epoch."""
         from fpfind.lib import parse_epochs as parser
+
         epochint = parser.epoch2int(epoch)
         while True:
             qber, _epoch = self._read_qber()

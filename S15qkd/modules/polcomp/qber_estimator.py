@@ -25,7 +25,7 @@ class QberEstimator:
         self.diagnoses = []
 
     def handle_epoch(self, epoch) -> float:
-        epoch_path = FoldersQKD.RAWKEYS + '/' + epoch
+        epoch_path = FoldersQKD.RAWKEYS + "/" + epoch
         return self.handle_epoch_path(epoch_path)
 
     def handle_epoch_path(self, epoch_path) -> float:
@@ -49,7 +49,9 @@ class QberEstimator:
         coinc_matrix = np.sum(matrices, axis=0)
         er_coin = sum(coinc_matrix[[0, 5, 10, 15]])  # VV, AA, HH, DD
         gd_coin = sum(coinc_matrix[[2, 7, 8, 13]])  # VH, AD, HV, DA
-        qber = round(er_coin / (er_coin + gd_coin), 3) if er_coin + gd_coin != 0 else 1.0
+        qber = (
+            round(er_coin / (er_coin + gd_coin), 3) if er_coin + gd_coin != 0 else 1.0
+        )
         logger.info(f"Avg(qber): {qber:.2f} of the last {self.accumulated_bits} bits.")
         return qber
 
@@ -58,7 +60,7 @@ class QberEstimator:
             return 4000
         if qber < 0.15:
             return 1000
-        if qber < 0.3:
+        if qber < 0.30:
             return 800
         else:
             return 400

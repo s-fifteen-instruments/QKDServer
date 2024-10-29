@@ -15,13 +15,13 @@ Changelog:
     2024-10-17 Justin: Standardize conventions
 """
 
-import math
 import numpy as np
 import serial
 import time
 import warnings
 
 import thorlabs_apt_protocol as _apt
+
 
 class ThorlabsMPC320:
     """Wrapper for APT commands relevant to MPC320."""
@@ -84,7 +84,7 @@ class ThorlabsMPC320:
         self.offset = [989, 989, 989]
 
         # Required initialization as per APT protocol
-        #self.w(_apt.hw_no_flash_programming(dest=0x50,source=0x01))
+        # self.w(_apt.hw_no_flash_programming(dest=0x50,source=0x01))
 
         # Initialize device defaults, defined below in 'Parameters'
         self.params_velocity = {}
@@ -121,7 +121,8 @@ class ThorlabsMPC320:
         """Requests motor to go to home based on homing parameters."""
         self.w(apt.mot_move_home(chan_ident=self._channel))
         if self.blocking:
-            while self.is_moving(): pass
+            while self.is_moving():
+                pass
 
     def stop(self, abrupt=False):
         """Stops motor movement."""
@@ -138,7 +139,9 @@ class ThorlabsMPC320:
             raise TypeError(f"Channel supplied is not an integer: '{v}'")
         num_channels = len(self.CHANNELS)
         if not 0 <= v < num_channels:
-            raise ValueError(f"Channel supplied is not one of {set(range(num_channels))}")
+            raise ValueError(
+                f"Channel supplied is not one of {set(range(num_channels))}"
+            )
         self._channel = self.CHANNELS[v]
 
     @property
@@ -152,7 +155,8 @@ class ThorlabsMPC320:
         angle = self.validate_angle(angle)
         self.goto(self._channel, self.deg2pos(angle))
         if self.blocking:
-            while self.is_moving(): pass
+            while self.is_moving():
+                pass
 
     @property
     def angles(self) -> list:
@@ -195,7 +199,9 @@ class ThorlabsMPC320:
         start = self.validate_angle(start)
         end = self.validate_angle(end)
         scan_step = max(scan_step, self.min_step)
-        scan_angles = np.arange(start, end, scan_step)  # TODO: Floating point errors will occur
+        scan_angles = np.arange(
+            start, end, scan_step
+        )  # TODO: Floating point errors will occur
 
         # Mainloop
         for angle in scan_angles:
@@ -206,7 +212,6 @@ class ThorlabsMPC320:
             if channel is not None:
                 self.channel = _channel
             yield angle
-
 
     ########################
     #   HELPER FUNCTIONS   #
@@ -257,7 +262,7 @@ class ThorlabsMPC320:
                 "Multiple messages received:",
                 *responses,
             ]
-            #warnings.warn("\n  * ".join(warning))
+            warnings.warn("\n  * ".join(warning))
 
         return responses[-1]
 
@@ -281,7 +286,7 @@ class ThorlabsMPC320:
 
         # Get smallest rotation
         diff = target - curr
-        if abs(diff) > self.steps_per_revolution/2:
+        if abs(diff) > self.steps_per_revolution / 2:
             if diff > 0:
                 return diff - self.steps_per_revolution
             else:
@@ -360,9 +365,9 @@ class ThorlabsMPC320:
 
     @staticmethod
     def validate_3tuple(obj, t=None):
-        if hasattr(obj, "__len__"):  # object is already a tuple, TODO: improve this check
+        if hasattr(obj, "__len__"):  # object is already a tuple
             if len(obj) != 3:
-                raise ValueError(f"Tuple needs to be of length 3.")
+                raise ValueError("Tuple needs to be of length 3.")
             if t is not None and not all([isinstance(v, t) for v in obj]):
                 raise ValueError(f"Tuple is not of type '{t}': '{obj}'")
             obj = tuple(obj)
@@ -374,8 +379,7 @@ class ThorlabsMPC320:
 
     @staticmethod
     def extract(message, *fields):
-        return { key: getattr(message, key) for key in fields }
-
+        return {key: getattr(message, key) for key in fields}
 
     ##################
     #   PARAMETERS   #
@@ -387,8 +391,9 @@ class ThorlabsMPC320:
     def params(self):
         """Returns parameters used for device
 
-            >>> motor.params_velocity = {"velocity": 15}
-            >>> motor.params_velocity
+        Usage:
+            >>> motor.params = {"velocity": 15}
+            >>> motor.params
             {
                 "velocity": 15, # newly set
                 "home_position": 685,
@@ -399,7 +404,12 @@ class ThorlabsMPC320:
         """
         data = self.rw(apt.pol_req_params())
         return self.extract(
-            data, "velocity", "home_position", "jog_step1", "jog_step2","jog_step3",
+            data,
+            "velocity",
+            "home_position",
+            "jog_step1",
+            "jog_step2",
+            "jog_step3",
         )
 
     @params.setter
@@ -430,8 +440,11 @@ class ThorlabsMPC320:
         data = self.rw(apt.mot_req_limswitchparams())
         return self.extract(
             data,
-            "cw_hardlimit", "ccw_hardlimit",
-            "cw_softlimit", "ccw_softlimit", "soft_limit_mode",
+            "cw_hardlimit",
+            "ccw_hardlimit",
+            "cw_softlimit",
+            "ccw_softlimit",
+            "soft_limit_mode",
         )
 
     @params_limswitch.setter
@@ -445,6 +458,7 @@ class ThorlabsMPC320:
             **value,  # override by value
         }
         return self.w(apt.mot_set_limswitchparams(**settings))
+
 
 class Apt:
     """
@@ -478,33 +492,14 @@ class Apt:
         def f(*args, **kwargs):
             target = getattr(_apt, name)
             return target(*curry, *args, **kwargs)
+
         return f
+
 
 apt = Apt()  # required
 
-# Quick tests
 if __name__ == "__main__":
     port = "/dev/serial/by-id/usb-Thorlabs_Polarization_Controller_38418404-if00-port0"
-
-    # Connect to motor
     motor = ThorlabsMPC320(port, homed=True)
-    motor.identify()                  # blinks LED
+    motor.identify()  # blinks LED
     print("Serial:", motor.identity)  # prints identity information
-
-    # Perform rotations
-    #motor.stop(1)              # stop any existing rotations
-    #motor.home(1)              # go to home, non-blocking
-    #while motor.is_moving():  # wait until homing completed
-        #pass
-
-    # Perform blocking rotations
-    #motor.blocking = True
-    #motor.home(2)              # go to home, blocking
-    #motor.angle = 45          # go to 45 degree position
-    #motor.angle += 45         # go to 90 degree position
-
-    # Perform continuous jog
-    #motor.spin(clockwise=True)  # turn clockwise perpetually, non-blocking
-    #time.sleep(3)
-    #print(motor.angle)          # motor angle after 3 seconds
-    #motor.stop()
