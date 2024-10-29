@@ -46,11 +46,10 @@ from typing import Tuple, NamedTuple, Any
 from dataclasses import dataclass
 
 from S15lib.instruments.lcr_driver import LCRDriver, MockLCRDriver
-from .utils import HeadT1, ServiceT3, service_T3
-from . import qkd_globals
-from .qkd_globals import logger, FoldersQKD
-from .utils import Process
-from .qber_estimator import QberEstimator
+from S15qkd import qkd_globals
+from S15qkd.qkd_globals import logger, FoldersQKD
+from S15qkd.modules.polcomp.qber_estimator import QberEstimator
+from S15qkd.utils import HeadT1, ServiceT3, service_T3, Process
 
 VOLT_MIN = 0.9
 VOLT_MAX = 5.5
