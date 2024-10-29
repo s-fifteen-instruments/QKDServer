@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from .utils import service_T3
-from .qkd_globals import logger, FoldersQKD
+from S15qkd.utils import service_T3
+from S15qkd.qkd_globals import logger, FoldersQKD
 
 
 class QberEstimator:

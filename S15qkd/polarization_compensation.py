@@ -45,10 +45,9 @@ import threading
 from typing import Tuple, NamedTuple, Any
 from dataclasses import dataclass
 
-from S15lib.instruments.lcr_driver import LCRDriver, MockLCRDriver
+from S15lib.instruments.lcr_driver import LCRDriver
 from S15qkd import qkd_globals
 from S15qkd.qkd_globals import logger, FoldersQKD
-from S15qkd.modules.polcomp.qber_estimator import QberEstimator
 from S15qkd.utils import HeadT1, ServiceT3, service_T3, Process
 
 VOLT_MIN = 0.9
@@ -640,73 +639,3 @@ class PolComp(object):
     @property
     def last_qber(self) -> float:
         return self._last_qber
-
-
-class MockPolComp:
-    """Enumerates interface exposed to Controller."""
-
-    READOUT_FILE = "/tmp/cryptostuff/mockpolcomp_qber_epoch.txt"
-
-    def __init__(self, lcr_path, callback_service_to_BBM92=None):  # Controller.__init__()
-        self._callback = callback_service_to_BBM92
-        self.estimator = QberEstimator()
-        self.qber = self.estimator.qber
-        self.qber_threshold = qkd_globals.config['QBER_threshold']
-
-    def send_epoch(self, epoch):  # Controller.send_epoch_notification()
-        """Process notification of epoch provided by costream/splicer.
-
-        Responsible for extracting QBER and calling SERVICE->BBM92.
-        """
-        self.qber = self.estimator.handle_epoch(epoch)
-        self._write_qber(self.qber, epoch)
-        if self.qber < self.qber_threshold:
-            self._callback()
-
-    def update_QBER_secure(self, qber, epoch):  # Controller.drift_secure_comp()
-        """Process notification of QBER @ epoch provided by error correction.
-
-        Direct counterpart to PolComp.send_epoch().
-        """
-        self.qber = qber
-        self._write_qber(qber, epoch)
-
-    def start_walk(self):  # Controller.pol_com_walk()
-        pass
-
-    def save_config(self):  # Controller.reload_configuration()
-        pass
-
-    def load_config(self):  # Controller.reload_configuration()
-        pass
-
-    @property
-    def last_qber(self) -> float:  # Controller.get_status_info()
-        return self.qber
-
-    def _write_qber(self, qber, epoch):
-        """Writes QBER and corresponding epoch to temporary file for message passing."""
-        with open(MockPolComp.READOUT_FILE, "w") as f:
-            f.write(f"{qber} {epoch}")
-
-    def _read_qber(self):
-        with open(MockPolComp.READOUT_FILE) as f:
-            data = f.read()
-        qber, epoch = data.strip().split(" ")
-        qber = float(qber)
-        return qber, epoch
-
-    def _read_qber_after(epoch):
-        """Monitors and returns the QBER after specified epoch."""
-        from fpfind.lib import parse_epochs as parser
-        epochint = parser.epoch2int(epoch)
-        while True:
-            qber, _epoch = self._read_qber()
-            _epochint = parser.epoch2int(_epoch)
-            if _epochint > epochint:
-                return qber
-            time.sleep(0.5)  # wait for next epoch
-
-
-class PaddlePolComp(MockPolComp):
-    pass
