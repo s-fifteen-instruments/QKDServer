@@ -33,7 +33,7 @@ class ThorlabsMPC320:
     STEPS_PER_REVOLUTION = 1370
     MIN_STEP = FULL_REV / STEPS_PER_REVOLUTION
 
-    def __init__(self, port, blocking=True, homed=False):
+    def __init__(self, port, blocking=True, homed=False, suppress_errors=False):
         """Creates the motor instance.
 
         If blocking is set to 'True', both homing and moving
@@ -55,6 +55,7 @@ class ThorlabsMPC320:
             >>> motor.angles
             (4.59, 48.15, 93.07)
         """
+        self.suppress_errors = suppress_errors
         self._com = serial.Serial(
             port=port,
             baudrate=115200,
@@ -122,6 +123,7 @@ class ThorlabsMPC320:
         self.w(apt.mot_move_home(chan_ident=self._channel))
         if self.blocking:
             while self.is_moving():
+                time.sleep(0.1)
                 pass
 
     def stop(self, abrupt=False):
@@ -156,6 +158,7 @@ class ThorlabsMPC320:
         self.goto(self._channel, self.deg2pos(angle))
         if self.blocking:
             while self.is_moving():
+                time.sleep(0.1)
                 pass
 
     @property
@@ -251,20 +254,25 @@ class ThorlabsMPC320:
         resp = list(self.reader)
 
         # Filter status update responses
-        status = ["mot_move_completed", "mot_move_stopped", "mot_move_homed"]
+        status = [
+            "mot_move_completed",
+            "mot_move_stopped",
+            "mot_move_homed",
+        ]
         responses = [m for m in resp if m.msg not in status]
         if not responses:
+            if self.suppress_errors:
+                warnings.warn("No reply from motor.")
+                return
             raise ValueError("No reply from motor.")
-            return
 
-        if len(responses) > 1:
+        if len(responses) > 1 and not self.suppress_errors:
             warning = [
                 "Multiple messages received:",
                 *responses,
             ]
-            warnings.warn("\n  * ".join(warning))
-
-        return responses[-1]
+            warnings.warn("\n  * ".join(map(str, warning)))
+        return responses[-1]  # ignore all but the last message
 
     def rw(self, command: bytes) -> list:
         """Writes and reads motor controller."""
