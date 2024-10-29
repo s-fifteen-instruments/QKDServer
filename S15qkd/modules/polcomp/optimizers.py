@@ -3,15 +3,17 @@
 
 import multiprocessing
 
-import scipy.optimize
 import numpy as np
+import scipy.optimize
 
 
 def run_manual_optimizer(optimizer, args=(), kwargs={}):
     """Starts optimizer in a separate process and retuns a manual callback.
 
     Note that optimizer termination is signaled by raising of 'StopIteration' exception,
-    so this needs to be wrapped in a try-except. Since the optimizer uses manual callbacks, the args and kwargs should not be populated with the first parameter 'f' of the optimizer.
+    so this needs to be wrapped in a try-except. Since the optimizer uses manual
+    callbacks, the args and kwargs should not be populated with the first parameter 'f'
+    of the optimizer.
 
     Note:
         Rather than letting the optimizer push a configuration change and poll

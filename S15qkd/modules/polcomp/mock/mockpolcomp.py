@@ -49,7 +49,7 @@ class MockPolComp:
 
 
 class ProxyPolComp(MockPolComp):
-    """Proxies the QBER information to a writable file, for handling by other interfaces."""
+    """Proxies QBER information to writable file, for handling by other interfaces."""
 
     READOUT_FILE = "/tmp/cryptostuff/mockpolcomp_qber_epoch.txt"
 

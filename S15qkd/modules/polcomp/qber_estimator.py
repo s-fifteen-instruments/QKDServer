@@ -2,8 +2,8 @@
 
 import numpy as np
 
+from S15qkd.qkd_globals import FoldersQKD, logger
 from S15qkd.utils import service_T3
-from S15qkd.qkd_globals import logger, FoldersQKD
 
 
 class QberEstimator:
@@ -36,7 +36,8 @@ class QberEstimator:
         self.diagnoses.append(diagnosis)
         self.accumulated_bits += diagnosis.okcount
         logger.info(
-            f"Accumulating bits for QBER calculation: {self.accumulated_bits} / {self.desired_bits}"
+            "Accumulating bits for QBER calculation: "
+            f"{self.accumulated_bits} / {self.desired_bits}"
         )
         if self.accumulated_bits >= self.desired_bits:
             self.qber = self.calculate_qber()

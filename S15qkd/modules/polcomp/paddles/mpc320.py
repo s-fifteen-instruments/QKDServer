@@ -15,11 +15,11 @@ Changelog:
     2024-10-17 Justin: Standardize conventions
 """
 
-import numpy as np
-import serial
 import time
 import warnings
 
+import numpy as np
+import serial
 import thorlabs_apt_protocol as _apt
 
 
@@ -248,7 +248,7 @@ class ThorlabsMPC320:
         ignored, since similar functionality is achieved by actually
         querying the motor directly.
         """
-        resp = [msg for msg in self.reader]
+        resp = list(self.reader)
 
         # Filter status update responses
         status = ["mot_move_completed", "mot_move_stopped", "mot_move_homed"]
@@ -368,7 +368,7 @@ class ThorlabsMPC320:
         if hasattr(obj, "__len__"):  # object is already a tuple
             if len(obj) != 3:
                 raise ValueError("Tuple needs to be of length 3.")
-            if t is not None and not all([isinstance(v, t) for v in obj]):
+            if t is not None and not all(isinstance(v, t) for v in obj):
                 raise ValueError(f"Tuple is not of type '{t}': '{obj}'")
             obj = tuple(obj)
         else:
@@ -462,8 +462,8 @@ class ThorlabsMPC320:
 
 class Apt:
     """
-    See Thorlabs APT protocol specification, page 12, for description of dest and source.
-    Used when messages are broadcasted to sub-modules.
+    See Thorlabs APT protocol specification, page 12, for description of
+    dest and source. Used when messages are broadcasted to sub-modules.
     In modern systems, typically connect one-to-one COM port connection,
     so can simply replace all source reference to 0x01 (host) and
     destination reference to 0x50 (generic USB).
