@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Provides the PaddlePolComp class."""
 
+from types import SimpleNamespace
+
 import numpy as np
 from fpfind.lib import parse_epochs as parser
 
@@ -8,7 +10,7 @@ from S15qkd.modules.polcomp import optimizers
 from S15qkd.modules.polcomp.mock.mockpolcomp import ProxyPolComp
 from S15qkd.modules.polcomp.paddles.mpc320 import ThorlabsMPC320
 from S15qkd.qkd_globals import QKDProtocol, logger
-from S15qkd.utils import get_current_epoch
+from S15qkd.utils import Process, get_current_epoch
 
 
 class PaddlePolComp(ProxyPolComp):
@@ -18,6 +20,9 @@ class PaddlePolComp(ProxyPolComp):
     ABSOLUTE_BOUNDS = [ABSOLUTE_BOUND] * 3
     DEFAULT_ANGLES = (40, 40, 40)
     MIN_THRESHOLD = 2 * ThorlabsMPC320.MIN_STEP
+
+    # Temporary cache name to store motor angles during connection changes
+    CACHE_NAME = "motor_angles"
 
     def __init__(self, device_path, callback_service_to_BBM92=None):
         super().__init__(None, callback_service_to_BBM92)
@@ -30,11 +35,27 @@ class PaddlePolComp(ProxyPolComp):
         self._refresh_optimizer()
 
     def save_config(self):
-        """Writes current LCVR voltages to configuration of current connection."""
-        pass
+        """Writes current motor angles to configuration of current connection."""
+        # Create a namespace, per configuration format
+        angles = self.angles
+        data = SimpleNamespace(a0=angles[0], a1=angles[1], a2=angles[2])
 
-    def load_config(self):  # use 'get' instead
-        self._commit_angles(PaddlePolComp.DEFAULT_ANGLES)
+        # Write to existing connection configuration
+        curr_conn = Process.config.remote_connection_id
+        config = getattr(Process.config.connections, curr_conn)
+        setattr(config, PaddlePolComp.CACHE_NAME, data)
+        logger.debug(
+            f"Current motor angles: {self._format_angles(angles)}. Config saved."
+        )
+
+    def load_config(self):
+        """Loads motor angles from the current configuration."""
+        data = getattr(Process.config, PaddlePolComp.CACHE_NAME, None)
+        if data:
+            angles = (data.a0, data.a1, data.a2)
+        else:
+            angles = PaddlePolComp.DEFAULT_ANGLES
+        self._commit_angles(angles)
 
     def send_epoch(self, epoch):
         # Check for protocol transition
@@ -72,11 +93,11 @@ class PaddlePolComp(ProxyPolComp):
         # Check if angle difference too small => optimization failed
         angles = self.optimizer(self.qber)
         logger.debug(
-            f"Adjusting {self._format_angles(self.prev_angles)} "
+            f"Adjusting {self._format_angles(self.angles)} "
             f"-> {self._format_angles(angles)} "
             f"for QBER {self.qber*100:.1f}% @ epoch {epoch}"
         )
-        dx = np.array(angles) - np.array(self.prev_angles)
+        dx = np.array(angles) - np.array(self.angles)
         if np.all(np.abs(dx) < PaddlePolComp.MIN_THRESHOLD):
             self._refresh_optimizer()
             angles = self.optimizer(self.qber)
@@ -103,7 +124,8 @@ class PaddlePolComp(ProxyPolComp):
     ######################
 
     def _commit_angles(self, angles):
-        self.prev_angles = angles
+        """Writes angles to motor and cache angles and current time."""
+        self.angles = angles  # cache angles to minimize angle queries to motor
         self.motor.angles = angles
         self.prev_epochint = get_current_epoch()  # motor takes time to rotate
 
@@ -123,7 +145,7 @@ class PaddlePolComp(ProxyPolComp):
 
         # Create new optimizer
         kwargs = {
-            "x0": self.motor.angles,  # start from current position
+            "x0": self.angles,  # start from current position
             "step": 80 if self.protocol is QKDProtocol.SERVICE else 30,
             "bounds": PaddlePolComp.ABSOLUTE_BOUNDS,
         }
