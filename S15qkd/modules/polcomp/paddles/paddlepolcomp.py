@@ -6,14 +6,15 @@ from types import SimpleNamespace
 import numpy as np
 from fpfind.lib import parse_epochs as parser
 
+from S15qkd import qkd_globals
 from S15qkd.modules.polcomp import optimizers
-from S15qkd.modules.polcomp.mock.mockpolcomp import ProxyPolComp
 from S15qkd.modules.polcomp.paddles.mpc320 import ThorlabsMPC320
+from S15qkd.modules.polcomp.qber_estimator import QberEstimator
 from S15qkd.qkd_globals import QKDProtocol, logger
 from S15qkd.utils import Process, get_current_epoch
 
 
-class PaddlePolComp(ProxyPolComp):
+class PaddlePolComp:
     """Wraps Thorlabs MPC320 for polarization compensation."""
 
     ABSOLUTE_BOUND = (ThorlabsMPC320.MIN_RANGE, ThorlabsMPC320.MAX_RANGE)
@@ -25,7 +26,11 @@ class PaddlePolComp(ProxyPolComp):
     CACHE_NAME = "motor_angles"
 
     def __init__(self, device_path, callback_service_to_BBM92=None):
-        super().__init__(None, callback_service_to_BBM92)
+        self._callback = callback_service_to_BBM92
+        self.estimator = QberEstimator()
+        self.qber = self.estimator.qber
+        self.qber_threshold = qkd_globals.config["QBER_threshold"]
+
         self.motor = ThorlabsMPC320(device_path, suppress_errors=True)
         self.protocol = QKDProtocol.SERVICE
         self.optimizer = None
@@ -58,6 +63,10 @@ class PaddlePolComp(ProxyPolComp):
         self._commit_angles(angles)
 
     def send_epoch(self, epoch):
+        """Process notification of epoch provided by costream/splicer.
+
+        Responsible for extracting QBER and calling SERVICE->BBM92.
+        """
         # Check for protocol transition
         if self.protocol != QKDProtocol.SERVICE:
             self.protocol = QKDProtocol.SERVICE
@@ -84,7 +93,6 @@ class PaddlePolComp(ProxyPolComp):
 
         # Update QBER and handle BBM92 trigger
         self.qber = qber
-        self._write_qber(self.qber, epoch)
         if self.qber < self.qber_threshold:
             self._disable_till_protocol_switch = True
             self._callback()
@@ -106,6 +114,10 @@ class PaddlePolComp(ProxyPolComp):
         self._commit_angles(angles)
 
     def update_QBER_secure(self, qber, epoch):
+        """Process notification of QBER @ epoch provided by error correction.
+
+        Direct counterpart to PolComp.send_epoch().
+        """
         # Check for protocol transition
         if self.protocol != QKDProtocol.BBM92:
             self.protocol = QKDProtocol.BBM92
@@ -116,8 +128,15 @@ class PaddlePolComp(ProxyPolComp):
         if self._disable_till_protocol_switch:
             return
 
-        # Update QBER
-        super().update_QBER_secure(qber, epoch)
+        # Update QBER (no active compensation implemented yet)
+        self.qber = qber
+
+    def start_walk(self):  # no need for separate start
+        pass
+
+    @property
+    def last_qber(self) -> float:
+        return self.qber
 
     ######################
     #  INTERNAL METHODS  #
