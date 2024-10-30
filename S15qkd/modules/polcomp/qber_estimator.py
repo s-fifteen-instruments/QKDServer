@@ -15,13 +15,13 @@ class QberEstimator:
         0.536s. If thread-safety is desired, one could use 'threading.Lock'.
     """
 
+    MINIMUM_BITS = 400
+
     def __init__(self):
         self.qber = 1.0
         self.reset()
 
-    def reset(self, desired_bits: int = 0):
-        self.desired_bits = desired_bits
-        self.accumulated_bits = 0
+    def reset(self):
         self.diagnoses = []
 
     def handle_epoch(self, epoch) -> float:
@@ -32,29 +32,45 @@ class QberEstimator:
         diagnosis = service_T3(epoch_path)
         return self.handle_diagnosis(diagnosis)
 
-    def handle_diagnosis(self, diagnosis) -> float:
-        self.diagnoses.append(diagnosis)
-        self.accumulated_bits += diagnosis.okcount
-        logger.info(
-            "Accumulating bits for QBER calculation: "
-            f"{self.accumulated_bits} / {self.desired_bits}"
-        )
-        if self.accumulated_bits >= self.desired_bits:
-            self.qber = self.calculate_qber()
-            self.reset(self._get_desired_bits(self.qber))
-        return self.qber
+    def handle_diagnosis(self, diagnosis):
+        """Aggregates bits for dynamic QBER calculation.
 
-    def calculate_qber(self) -> float:
+        Returns 'None' if accumulated bits are insufficient to make a precise
+        estimation of QBER, otherwise a float value [0,1] will be returned.
+        """
+        self.diagnoses.append(diagnosis)
+
+        # Do nothing if insufficient bits
+        qber, accumulated_bits = self._calculate_qber()
+        desired_bits = self._get_desired_bits(qber)
+        if accumulated_bits < desired_bits:
+            logger.info(
+                "Accumulating more bits for QBER calculation: "
+                f"{accumulated_bits} / {desired_bits}"
+            )
+            return None
+        else:
+            self.qber = qber  # commit QBER since sufficient bits
+            self.reset()
+            return self.qber
+
+    def _calculate_qber(self) -> float:
+        """Computes QBER from the accumulated set of diagnosis.
+
+        TODO:
+            Integrate this into 'handle_diagnosis()' to avoid aggressive
+            recomputation of QBER. This currently behaves poorly when the
+            number of coincidences per epoch is low.
+        """
         # Compute QBER from set of diagnosis in each epoch
         matrices = np.array([d.coinc_matrix for d in self.diagnoses])
         coinc_matrix = np.sum(matrices, axis=0)
         er_coin = sum(coinc_matrix[[0, 5, 10, 15]])  # VV, AA, HH, DD
         gd_coin = sum(coinc_matrix[[2, 7, 8, 13]])  # VH, AD, HV, DA
-        qber = (
-            round(er_coin / (er_coin + gd_coin), 3) if er_coin + gd_coin != 0 else 1.0
-        )
-        logger.info(f"Avg(qber): {qber:.2f} of the last {self.accumulated_bits} bits.")
-        return qber
+        tt_coin = er_coin + gd_coin
+        qber = round(er_coin / tt_coin, 3) if tt_coin != 0 else 1.0
+        logger.info(f"Avg(qber): {qber:.2f} of the last {tt_coin} bits.")
+        return qber, tt_coin
 
     def _get_desired_bits(self, qber) -> int:
         if qber < 0.12:
@@ -64,4 +80,4 @@ class QberEstimator:
         if qber < 0.30:
             return 800
         else:
-            return 400
+            return QberEstimator.MINIMUM_BITS
