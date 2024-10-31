@@ -53,10 +53,11 @@ def run_manual_optimizer(optimizer, args=(), kwargs={}):
     return result_callback
 
 
-def minimize_neldermead(f, x0, step, bounds):
+def minimize_neldermead(f, x0, step, bounds, simplex=None):
     """Runs Nelder-Mead minimizer with callback."""
-    simplex = generate_simplex(x0, step, bounds)
-    x0 = simplex[0]  # applied clipping
+    if simplex is None:
+        simplex = generate_simplex(x0, step, bounds)
+        x0 = simplex[0]  # applied clipping
     options = {"initial_simplex": simplex}
     try:
         scipy.optimize.minimize(
@@ -70,7 +71,7 @@ def minimize_neldermead(f, x0, step, bounds):
         pass
 
 
-def generate_simplex(vertex, step=1, bounds=[]):
+def generate_simplex(vertex, step=1, bounds=None):
     """Returns a simplex with origin vertex, and unit step in each dimension.
 
     This provides an initial search area for the Nelder-Mead algorithm.
@@ -119,7 +120,7 @@ def generate_simplex(vertex, step=1, bounds=[]):
     simplex2 = unit_simplex * -step + vertex  # inverted steps
 
     # Apply boundary conditions
-    if bounds:
+    if bounds is not None:
         bounds = np.array(bounds)
         assert bounds.shape == (d, 2)
 
@@ -135,5 +136,47 @@ def generate_simplex(vertex, step=1, bounds=[]):
             cond, (d, d + 1)
         ).T  # workaround for selecting/rejecting entire points
         simplex = np.where(cond, _simplex, _simplex2)
+
+    return simplex
+
+
+def generate_tetrahedron(vertex, step=1, bounds=None, randomize=False):
+    """Returns a regular tetrahedron centered at the vertex and unit edges.
+
+    This generates a 3-simplex centered at the vertex, so that the 3D
+    parameter search space can be symmetrically probed during the Nelder-
+    Mead algorithm. Note this assumes all the dimensions are of the same scale.
+
+    The nominal coordinates are (1,1,1), (1,-1,-1), (-1,1,-1), (-1,-1,1),
+    of edge lengths 2sqrt(2). This configuration is chosen because it has a
+    simple dual, which can be easily randomized.
+    """
+    vertex = np.array(vertex)
+    assert vertex.ndim == 1
+    d = vertex.size
+
+    # Apply randomization
+    step = np.array(step)
+    assert step.ndim == 0
+    if randomize:
+        sign = np.random.randint(2) * 2 - 1  # -1 or 1
+        step = step * sign
+
+    # Generate tetrahedron
+    unit_tetra = np.array(
+        [
+            [1, 1, 1],
+            [1, -1, -1],
+            [-1, 1, -1],
+            [-1, -1, 1],
+        ]
+    ) / (2 * np.sqrt(2))
+    simplex = unit_tetra * step + vertex
+
+    # Apply boundary conditions
+    if bounds is not None:
+        bounds = np.array(bounds)
+        assert bounds.shape == (d, 2)
+        simplex = np.clip(simplex, *bounds.T)
 
     return simplex
