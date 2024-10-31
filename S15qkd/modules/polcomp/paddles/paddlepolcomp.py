@@ -82,7 +82,7 @@ class PaddlePolComp:
         if epochint <= self.prev_epochint:
             logger.debug(
                 f"Ignored epoch {epoch}: "
-                f"waiting for epoch {parser.int2epoch(self.prev_epochint)}"
+                f"waiting for epoch {parser.int2epoch(self.prev_epochint + 1)}"
             )
             return
 
@@ -101,14 +101,17 @@ class PaddlePolComp:
         # Check if angle difference too small => optimization failed
         angles = self.optimizer(self.qber)
         logger.debug(
-            f"Adjusting {self._format_angles(self.angles)} "
-            f"-> {self._format_angles(angles)} "
-            f"for QBER {self.qber*100:.1f}% @ epoch {epoch}"
+            f"Epoch {epoch} with QBER {self.qber*100:.1f}% @ "
+            f"{self._format_angles(self.angles)}"
         )
         dx = np.array(angles) - np.array(self.angles)
         if np.all(np.abs(dx) < PaddlePolComp.MIN_THRESHOLD):
+            logger.debug(
+                "Restarting optimizer due small angular change: "
+                f"{self._format_angles(dx)}"
+            )
             self._refresh_optimizer()
-            angles = self.optimizer(self.qber)
+            angles = self.optimizer(self.qber)  # immediately suggest correction
 
         # Send epochs only after specified epoch has passed
         self._commit_angles(angles)

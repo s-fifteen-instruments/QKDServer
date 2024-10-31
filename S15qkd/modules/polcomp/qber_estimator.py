@@ -69,7 +69,7 @@ class QberEstimator:
         gd_coin = sum(coinc_matrix[[2, 7, 8, 13]])  # VH, AD, HV, DA
         tt_coin = er_coin + gd_coin
         qber = round(er_coin / tt_coin, 3) if tt_coin != 0 else 1.0
-        logger.info(f"Avg(qber): {qber:.2f} of the last {tt_coin} bits.")
+        logger.info(f"Avg(QBER): {qber:.3f} of the last {tt_coin} bits.")
         return qber, tt_coin
 
     def _get_desired_bits(self, qber) -> int:
