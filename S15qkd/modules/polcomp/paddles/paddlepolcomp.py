@@ -119,7 +119,16 @@ class PaddlePolComp:
     def update_QBER_secure(self, qber, epoch):
         """Process notification of QBER @ epoch provided by error correction.
 
-        Direct counterpart to PolComp.send_epoch().
+        Direct counterpart to PolComp.send_epoch(). Note that this method will only
+        be called when error correction has already calculated a reasonable estimate
+        of the QBER, so no external estimator is necessary. Error correction daemon
+        itself also handles the callback to SERVICE mode.
+
+        Note due to the asynchronous processing of error correction blocks, the
+        epoch values will not necessarily be monotonically increasing. The epoch
+        value reflected should represent that of the first epoch rather than the last
+        epoch (default) of the key blocks used for error correction, i.e. the
+        corresponding configuration switch must be set.
         """
         # Check for protocol transition
         if self.protocol != QKDProtocol.BBM92:
@@ -131,8 +140,40 @@ class PaddlePolComp:
         if self._disable_till_protocol_switch:
             return
 
-        # Update QBER (no active compensation implemented yet)
+        # Update QBER
         self.qber = qber
+
+        # Handle if specified epoch has passed
+        epochint = parser.epoch2int(epoch)
+        if epochint <= self.prev_epochint:
+            logger.debug(
+                f"Ignored epoch {epoch}: "
+                f"waiting for epoch {parser.int2epoch(self.prev_epochint + 1)}"
+            )
+            return
+
+        # Update best obtained QBER
+        if qber < self.best_qber_angles[0]:
+            self.best_qber_angles = (qber, self.angles)
+
+        # Check if angle difference too small => optimization failed
+        angles = self.optimizer(self.qber)
+        logger.debug(
+            f"Epoch {epoch} with QBER {self.qber*100:.1f}% @ "
+            f"{self._format_angles(self.angles)}"
+        )
+        dx = np.array(angles) - np.array(self.angles)
+        if np.all(np.abs(dx) < PaddlePolComp.MIN_THRESHOLD):
+            logger.debug(
+                "Restarting optimizer due small angular change: "
+                f"{self._format_angles(dx)}"
+            )
+            self._commit_angles(self.best_qber_angles[1])  # go to best position
+            self._refresh_optimizer()  # reverify QBER to avoid unreachable minimums
+            return
+
+        # Send epochs only after specified epoch has passed
+        self._commit_angles(angles)
 
     def start_walk(self):  # no need for separate start
         pass
@@ -166,15 +207,38 @@ class PaddlePolComp:
         self.estimator.reset()
 
         # Create new optimizer
-        kwargs = {
-            "x0": self.angles,  # start from current position
-            "step": 80 if self.protocol is QKDProtocol.SERVICE else 30,
-            "bounds": PaddlePolComp.ABSOLUTE_BOUNDS,
-        }
+        if self.protocol is QKDProtocol.SERVICE:
+            step = 80
+            bounds = PaddlePolComp.ABSOLUTE_BOUNDS
+            kwargs = {
+                "x0": self.angles,  # start from current position
+                "step": step,
+                "bounds": bounds,
+            }
+
+        else:
+            step = 1
+            max_deviation = step * 2  # roughly same scale
+            bounds = np.array(
+                [
+                    np.array(self.angles) - max_deviation,
+                    np.array(self.angles) + max_deviation,
+                ]
+            ).T
+            bounds = np.round(np.clip(bounds, *PaddlePolComp.ABSOLUTE_BOUND), 2)
+            bounds = bounds.tolist()  # for pretty printing
+            kwargs = {
+                "x0": self.angles,
+                "step": step,
+                "bounds": bounds,
+            }
+
+        logger.debug(f"New optimizer created for {self.protocol}: {kwargs}")
         self.optimizer = optimizers.run_manual_optimizer(
             optimizers.minimize_neldermead,
             kwargs=kwargs,
         )
+        self.best_qber_angles = (1.0, self.angles)
 
     def _format_angles(self, angles) -> str:
         """For pretty-printing 3-tuple 'angles'."""

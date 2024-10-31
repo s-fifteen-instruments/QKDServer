@@ -212,7 +212,12 @@ class ErrorCorr(Process):
             self.QBER_servo_history.clear()
             self._callback_qber_exceed()
         else:
-            self._callback_pol_comp(qber=self.ec_err_fraction,epoch=epoch_after(self._ec_epoch,int(self._ec_nr_of_epochs,10)))
+            if Process.config.qcrypto.error_correction.report_start_epoch:
+                epoch = self._ec_epoch
+            else:
+                # Report the last epoch in the error correction instead (default)
+                epoch = epoch_after(self._ec_epoch, int(self._ec_nr_of_epochs, 10))
+            self._callback_pol_comp(qber=self.ec_err_fraction, epoch=epoch)
 
         try:
             1+1
