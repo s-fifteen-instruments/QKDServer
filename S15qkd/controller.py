@@ -47,7 +47,8 @@ from .readevents import Readevents
 from .pfind import Pfind
 from .utils import Process, read_T2_header, HeadT2, get_current_epoch, epoch_after
 from .error_correction import ErrorCorr
-from .polarization_compensation import PolComp, MockPolComp, PaddlePolComp
+from .polarization_compensation import PolComp
+from S15qkd.modules.polcomp.paddles.paddlepolcomp import PaddlePolComp
 
 # Own modules
 from . import qkd_globals
@@ -102,7 +103,10 @@ class Controller:
         self.restart_authd()
 
         if Process.config.LCR_polarization_compensator_path != "":
-            self.polcom = PolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
+            if Process.config.qcrypto.polarization_compensation.use_mpc320_device:
+                self.polcom = PaddlePolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
+            else:
+                self.polcom = PolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
             if Process.config.do_polarization_compensation:
                 self.do_polcom = True
             else:

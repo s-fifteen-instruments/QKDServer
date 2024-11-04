@@ -75,6 +75,7 @@
       "frequency_search": false
     },
     "polarization_compensation": {
+      "use_mpc320_device": false,
       "target_qber": 0.05,
       "loss_exponent": 1.5,
       "loss_coefficient": 8.5,
@@ -87,6 +88,9 @@
       "averaging_length": 3,
       "separation_length": 12,
       "limit_correction": 1e-9
+    },
+    "error_correction": {
+      "report_start_epoch": false
     }
   },
   "ENVIRONMENT": {

@@ -44,3 +44,15 @@ It ties together the quantum channel and the classical channel and generates enc
 The general design for QKD server (together with the underlying qcrypto stack) is illustrated below, current as of commit `b2443f0`:
 
 ![](docs/qkdserver_schematic.png)
+
+## Contributing
+
+Linting services are provided by [Ruff](https://github.com/astral-sh/ruff) using [pre-commit](https://pre-commit.com/). This will eventually be rolled out gradually throughout the entire codebase - no CI linting is currently performed to minimize disruption. To run the linter:
+
+```bash
+pip3 install pre-commit
+pre-commit install
+pre-commit run  # ad-hoc
+```
+
+The scope of linting can be modified in the `.pre-commit-config.yaml` configuration to use the **files** and **exclude** [keys](https://pre-commit.com/#new-hooks). Commit changes to the configuration before `pre-commit` can be run again.
