@@ -32,6 +32,7 @@ SOFTWARE.
 
 # Built-in/Generic Imports
 import pathlib
+import sys
 import threading
 import time
 from typing import Optional
@@ -123,6 +124,26 @@ class Controller:
         self._establish_connection()
 
         self._set_symmetry()
+
+    def stop(self):
+        """Stops all processes in response to SIGTERM."""
+        logger.info("controller received termination request.")
+        self.authd.stop()  # terminate all communication first
+        self.readevents.stop()
+        self.transferd.stop()
+        self.chopper.stop()
+        self.chopper2.stop()
+        self.costream.stop()
+        self.splicer.stop()
+        self.pfind.stop()
+        self.errc.stop()
+        logger.info("controller successfully terminated.")
+        sys.exit(0)
+
+    def kill(self):
+        """Performs SIGKILL on all processes."""
+        self._clean_orphaned_qcrypto()
+        sys.exit(1)
 
     def restart_authd(self):
         config = Process.config
@@ -1031,3 +1052,8 @@ def restart_connection():
 def reload_configuration(conn_id):
     return controller.reload_configuration(conn_id)
 
+def stop():
+    return controller.stop()
+
+def kill():
+    return controller.kill()

@@ -118,7 +118,7 @@ exec:
 # Sleep needed here, for some Docker cleanup happening in the background.
 stop:
 	-docker stop qkd
-	-docker rm qkd && sleep 7
+	-docker rm qkd
 
 # Start, stop and status of keygen (whether keys are being generated)
 qkd-status:

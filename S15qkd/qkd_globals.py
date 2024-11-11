@@ -146,6 +146,7 @@ def kill_existing_qcrypto_processes():
     process_list = [
         'transferd', 'chopper', 'chopper2',
         'splicer', 'costream', 'errcd', 'pfind',
+        'fpfind', 'freqcd', 'freqservo',
         'getrate', 'readevents']
     for name in process_list:
         kill_process_by_name(name)

@@ -1,3 +1,5 @@
+import signal
+
 import dash
 import dash_bootstrap_components as dbc
 import S15qkd.controller as qkd_ctrl
@@ -57,3 +59,6 @@ def restart_transferd():
     """Kills then restarts transferd."""
     qkd_ctrl.restart_transferd()
     return "", 204
+
+signal.signal(signal.SIGINT, lambda *_: qkd_ctrl.stop())
+signal.signal(signal.SIGTERM, lambda *_: qkd_ctrl.stop())

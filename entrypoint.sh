@@ -15,6 +15,10 @@ if [ -f "$CERT" ] && [ -f "$KEY" ]; then
 fi
 
 # Run and persist server
+# Note: 'exec' needs to pass SIGTERM to gunicorn. If a longer docker stop timeout is necessary,
+#       override the default 'docker stop --stop-timeout 10'.
+# Note: Defaults '--timeout 30' is a liveness check (restarting worker if not alive),
+#       while '--graceful-timeout 30' is a termination check (SIGKILL sent after SIGTERM).
 cd /root/code/QKDServer/Settings_WebClient \
-        && gunicorn --timeout 30 --worker-connections=1 --threads=1 $CERT_FLAGS -b 0.0.0.0:8000 index:server
+        && exec gunicorn --timeout 30 --graceful-timeout 5 --worker-connections=1 --threads=1 $CERT_FLAGS -b 0.0.0.0:8000 index:server
 
