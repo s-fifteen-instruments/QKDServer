@@ -98,6 +98,8 @@ log-finalkeys:
 # Note that Docker logs will truncate. The following logs are saved:
 #   1. /root/code/QKDServer/Settings_WebClient/logs for full QKDServer logs
 #   2. /tmp/cryptostuff for qcrypto component logs
+# For sparser logs, replace the 'cryptostuff' copy with the following line:
+#	-./scripts/pull_logs.sh $(datestamp) $(host)
 savelog save-logs: pull-logs backup-logs
 pull-logs:
 	mkdir -p logs/$(datestamp)
