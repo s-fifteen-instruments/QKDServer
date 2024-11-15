@@ -106,13 +106,16 @@ class Controller:
         if Process.config.LCR_polarization_compensator_path != "":
             if Process.config.qcrypto.polarization_compensation.use_mpc320_device:
                 self.polcom = PaddlePolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
+                self.pol_dev = "MPC320"
             else:
                 self.polcom = PolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
+                self.pol_dev = "LCVR"
             if Process.config.do_polarization_compensation:
                 self.do_polcom = True
             else:
                 self.do_polcom = False
         else:
+            self.pol_dev = None
             self.polcom = None
             self.do_polcom = False
         # Statuses
@@ -983,6 +986,12 @@ class Controller:
         low_count_side = self.transferd.low_count_side
         det_cts = self.chopper.det_counts if low_count_side else self.chopper2.det_counts
         local_counts = {det_info[i] : det_cts[i] for i, _ in enumerate(det_cts)}
+        if self.pol_dev == "LCVR":
+            pol_info = { f'v{i+1}' : self.polcom.set_voltage[i] for i in range(4)}
+        elif self.pol_dev == "MPC320":
+            pol_info = { f'angle{i}' : self.polcom.angles[i] for i in range(3)}
+        else:
+            pol_info = 0
         return {
             'connection_status': Process.config.target_hostname if self.transferd.communication_status else '',
             'state': self.qkd_engine_state.name,  # returns name of Enumerate for simpler processing via JSON and clients.
@@ -996,12 +1005,7 @@ class Controller:
             'accidentals': self.costream.latest_accidentals,
             'protocol': self._qkd_protocol,
             'last_qber': self.polcom.last_qber if self.do_polcom and self._qkd_protocol is QKDProtocol.SERVICE  else '',
-            'lvcr_voltages' : {
-                'v1' : self.polcom.set_voltage[0],
-                'v2' : self.polcom.set_voltage[1],
-                'v3' : self.polcom.set_voltage[2],
-                'v4' : self.polcom.set_voltage[3],
-                } if self.do_polcom else 0 ,
+            'pol_dev_info' : pol_info,
             'freq_diff_info' : self.freq_diff if not self.pfind.is_running() else (float(self.freq_diff) + self.pfind.current_freq_diff),
             'local_counts' : local_counts,
 
