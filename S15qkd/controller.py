@@ -296,6 +296,9 @@ class Controller:
         # TODO(Justin): Refactor error correction and pipe creation
         self.clear_comms()
 
+        if inform_remote:
+            time.sleep(2) # Wait for 2 seconds before contiuation for other side to finish cleanup
+
     @requires_transferd
     def _stop_key_gen_remote(self):
         # Request remote server to stop operation / key generation
