@@ -62,7 +62,7 @@ def restart_transferd():
     return "", 204
 
 @app.server.route("/restart_connection")
-def restart_transferd():
+def restart_connection():
     """Kills then restarts connection, authd and transferd."""
     qkd_ctrl.restart_connection()
     return "", 204
