@@ -307,6 +307,7 @@ class QKDEngineState(Enum):
     ONLY_COMMUNICATION = auto()
     OFF = auto()
     PEAK_FINDING = auto()
+    INITIATING = auto()
     # TRANSITIONING_TO_KEY_GENERATION = auto()
 
 

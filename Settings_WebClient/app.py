@@ -61,6 +61,12 @@ def restart_transferd():
     qkd_ctrl.restart_transferd()
     return "", 204
 
+@app.server.route("/restart_connection")
+def restart_transferd():
+    """Kills then restarts connection, authd and transferd."""
+    qkd_ctrl.restart_connection()
+    return "", 204
+
 @app.server.route("/status_data")
 def status_data():
     """ Sends status data in json format of GUI information """

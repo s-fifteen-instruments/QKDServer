@@ -20,6 +20,8 @@ if [ -f "$CERT" ]; then
         addB=https://$hostnameB:8000/status_data
         restart_tdA=https://$hostnameA:8000/restart_transferd
         restart_tdB=https://$hostnameB:8000/restart_transferd
+        restart_connA=https://$hostnameA:8000/restart_connection
+        restart_connB=https://$hostnameB:8000/restart_connection
         start_keygenA=https://$hostnameA:8000/start_keygen
         stop_keygenA=https://$hostnameA:8000/stop_keygen
         stop_keygenB=https://$hostnameB:8000/stop_keygen
@@ -28,6 +30,8 @@ else
         addB=http://$hostnameB:8000/status_data
         restart_tdA=http://$hostnameA:8000/restart_transferd
         restart_tdB=http://$hostnameB:8000/restart_transferd
+        restart_connA=http://$hostnameA:8000/restart_connection
+        restart_connB=http://$hostnameB:8000/restart_connection
         start_keygenA=http://$hostnameA:8000/start_keygen
         stop_keygenA=http://$hostnameA:8000/stop_keygen
         stop_keygenB=http://$hostnameB:8000/stop_keygen
@@ -54,10 +58,11 @@ key=KEY_GENERATION
 ser=SERVICE_MODE
 com=ONLY_COMMUNICATION
 pkf=PEAK_FINDING
+ini=INITIATING
 
 restart=0
 date=$(date -R)
-if [[ "${stateA}" =~ ($off|$com)$ &&  "${stateB}" =~ ($off|$com)$ ]]; then
+if [[ "${stateA}" =~ ($off|$com|$ini)$ &&  "${stateB}" =~ ($off|$com)$ ]]; then
         if [[ "${stateA}" == "${stateB}" ]]; then
                 echo "$date Both idle or not working"
                 exit 0
@@ -83,9 +88,9 @@ if [ ${restart} == 1 ] ; then
         $prog $stop_keygenB &
         $prog $stop_keygenA 
         $prog $stop_keygenB
-        $prog $restart_tdB &
+        $prog $restart_connB &
         sleep 1
-        $prog $restart_tdA
+        $prog $restart_connA
         sleep 5
         $prog $stop_keygenA &
         $prog $stop_keygenB &

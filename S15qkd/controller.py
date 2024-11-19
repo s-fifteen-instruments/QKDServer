@@ -425,6 +425,7 @@ class Controller:
 
     def _expect_reply(self, timeout: int):
         self._got_st1_reply = False
+        self.qkd_engine_state = QKDEngineState.INITIATING
         if self._await_reply > 5:
             logger.debug(f'Awaited for {self._await_reply} times. Restarting transferd.')
             self.restart_transferd()
