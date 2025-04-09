@@ -53,7 +53,7 @@ from S15qkd.modules.polcomp.paddles.paddlepolcomp import PaddlePolComp
 
 # Own modules
 from . import qkd_globals
-from .qkd_globals import logger, QKDProtocol, QKDEngineState, FoldersQKD
+from .qkd_globals import logger, QKDProtocol, QKDEngineState, FoldersQKD, det_info
 
 # TODO(Justin): Rename 'program_root' in config.
 
@@ -106,13 +106,16 @@ class Controller:
         if Process.config.LCR_polarization_compensator_path != "":
             if Process.config.qcrypto.polarization_compensation.use_mpc320_device:
                 self.polcom = PaddlePolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
+                self.pol_dev = "MPC320"
             else:
                 self.polcom = PolComp(Process.config.LCR_polarization_compensator_path, self.service_to_BBM92)
+                self.pol_dev = "LCVR"
             if Process.config.do_polarization_compensation:
                 self.do_polcom = True
             else:
                 self.do_polcom = False
         else:
+            self.pol_dev = None
             self.polcom = None
             self.do_polcom = False
         # Statuses
@@ -262,6 +265,7 @@ class Controller:
     def restart_transferd(self):
         """ Stops and restarts tranferd"""
         self.stop_key_gen(inform_remote=False)
+        self.qkd_engine_state = QKDEngineState.ONLY_COMMUNICATION
         self.transferd.stop()
         self.qkd_engine_state = QKDEngineState.OFF
         self.clear_comms()
@@ -294,6 +298,9 @@ class Controller:
 
         # TODO(Justin): Refactor error correction and pipe creation
         self.clear_comms()
+
+        if inform_remote:
+            time.sleep(2) # Wait for 2 seconds before contiuation for other side to finish cleanup
 
     @requires_transferd
     def _stop_key_gen_remote(self):
@@ -418,6 +425,7 @@ class Controller:
 
     def _expect_reply(self, timeout: int):
         self._got_st1_reply = False
+        self.qkd_engine_state = QKDEngineState.INITIATING
         if self._await_reply > 5:
             logger.debug(f'Awaited for {self._await_reply} times. Restarting transferd.')
             self.restart_transferd()
@@ -491,6 +499,7 @@ class Controller:
         # Handle stopping of all processes
         if code == "stop":
             self.stop_key_gen(inform_remote=False)
+            self.qkd_engine_state = QKDEngineState.ONLY_COMMUNICATION
             return
 
         # Do not set this as a global variable!
@@ -568,6 +577,7 @@ class Controller:
             try:
                 start_epoch, periods = self._retrieve_epoch_overlap()
                 logger.debug(f"{start_epoch} {periods} {hex(int(start_epoch, 16) + periods)}")
+                self.qkd_engine_state = QKDEngineState.PEAK_FINDING
                 if Process.config.qcrypto.pfind.frequency_search:
                     (
                         self._freq_diff,
@@ -619,6 +629,7 @@ class Controller:
                 self.restart_protocol,
             )
         if qkd_protocol == QKDProtocol.BBM92 and Process.config.error_correction:
+            self.qkd_engine_state = QKDEngineState.KEY_GENERATION
             if not self.errc.is_running():
                 self.errc.start(
                     qkd_globals.PipesQKD.ECNOTE_GUARDIAN,
@@ -626,6 +637,9 @@ class Controller:
                     self.recompensate_service, # protocol for exceeding qber_limit
                     self.drift_secure_comp,
                     )
+        else:
+            self.qkd_engine_state = QKDEngineState.SERVICE_MODE
+
     @requires_transferd
     def BBM92_to_service(self):
         """Stops the programs which needs protocol, namely
@@ -643,6 +657,7 @@ class Controller:
             self.clear_comms()
             qkd_protocol = QKDProtocol.SERVICE
             self._qkd_protocol = qkd_protocol
+            self.qkd_engine_state = QKDEngineState.SERVICE_MODE
             time.sleep(0.6) # to allow chopper and splicer to end gracefully
             self.errc.empty()
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
@@ -690,6 +705,7 @@ class Controller:
                 self.costream.stop()
             qkd_globals.PipesQKD.drain_all_pipes()
             qkd_protocol = QKDProtocol.SERVICE
+            self.qkd_engine_state = QKDEngineState.SERVICE_MODE
             self._qkd_protocol = qkd_protocol
             logger.debug(f'SERVICE protocol set')
             last_secure_epoch = self.transferd.last_received_epoch
@@ -786,6 +802,7 @@ class Controller:
             self.clear_comms()
             qkd_protocol = QKDProtocol.BBM92
             self._qkd_protocol = qkd_protocol
+            self.qkd_engine_state = QKDEngineState.KEY_GENERATION
             time.sleep(0.6) # to allow chopper and splicer to end gracefully
             self.chopper.start(qkd_protocol, self.restart_protocol, self.reset_timestamp)
             self.splicer.start(
@@ -835,6 +852,7 @@ class Controller:
             #self.clear_comms() # This deletes all current epochs which we don't want
             qkd_globals.PipesQKD.drain_all_pipes() # This reads all pipes
             qkd_protocol = QKDProtocol.BBM92
+            self.qkd_engine_state = QKDEngineState.KEY_GENERATION
             self._qkd_protocol = qkd_protocol
             logger.debug(f'BBM92 protocol set')
             logger.debug(f'Retrieve_secure is {start_epoch}')
@@ -954,6 +972,8 @@ class Controller:
 
 
     def get_process_states(self):
+        if not self.transferd.is_running():
+            self.qkd_engine_state = QKDEngineState.OFF
         return {
             'transferd': self.transferd.is_running(),
             'readevents': self.readevents.is_running(),
@@ -965,19 +985,33 @@ class Controller:
         }
 
     def get_status_info(self):
+        #det_info = ('total','v','-','h','+') #moved to qkd_globals
+        low_count_side = self.transferd.low_count_side
+        det_cts = self.chopper.det_counts if low_count_side else self.chopper2.det_counts
+        local_counts = {det_info[i] : det_cts[i] for i, _ in enumerate(det_cts)}
+        if self.pol_dev == "LCVR":
+            pol_info = { f'v{i+1}' : self.polcom.set_voltage[i] for i in range(4)}
+        elif self.pol_dev == "MPC320":
+            pol_info = { f'angle{i}' : self.polcom.angles[i] for i in range(3)}
+        else:
+            pol_info = 0
         return {
             'connection_status': Process.config.target_hostname if self.transferd.communication_status else '',
-            'state': self.qkd_engine_state,  # TODO(Justin): Possible to replace protocol?
+            'state': self.qkd_engine_state.name,  # returns name of Enumerate for simpler processing via JSON and clients.
             'last_received_epoch': self.transferd.last_received_epoch,
             'init_time_diff': self._time_diff,
             'sig_long': self._sig_long,
             'sig_short': self._sig_short,
             'tracked_time_diff': self.costream.latest_deltat,
-            'symmetry': self.transferd.low_count_side,
+            'symmetry': low_count_side,
             'coincidences': self.costream.latest_coincidences,
             'accidentals': self.costream.latest_accidentals,
             'protocol': self._qkd_protocol,
             'last_qber': self.polcom.last_qber if self.do_polcom and self._qkd_protocol is QKDProtocol.SERVICE  else '',
+            'pol_dev_info' : pol_info,
+            'freq_diff_info' : self.freq_diff if not self.pfind.is_running() else (float(self.freq_diff) + self.pfind.current_freq_diff),
+            'local_counts' : local_counts,
+
         }
 
     def get_error_corr_info(self):
@@ -992,6 +1026,13 @@ class Controller:
             'total_ec_key_bits': self.errc.total_ec_key_bits,
             'init_QBER': self.errc.init_QBER_info,
         }
+
+    @property
+    def freq_diff(self):
+        try:
+            return self._freq_diff
+        except AttributeError:
+            return 0
 
     def clear_comms(self):
         qkd_globals.PipesQKD.drain_all_pipes() # This reads all pipes

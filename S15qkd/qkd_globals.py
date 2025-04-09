@@ -52,6 +52,9 @@ from enum import unique, Enum, auto
 
 EPOCH_DURATION = 2**32 / 8 * 1e-9
 
+det_info = ('total', 'v', '-', 'h', '+')
+det_blinding_info = ('total', 'total_b', 'v', '-', 'h', '+', 'v_b', '-_b', 'h_b', '+_b')
+
 config_file = '/root/code/QKDServer/S15qkd/qkd_engine_config.json'
 
 with open(config_file, 'r') as f:
@@ -303,6 +306,8 @@ class QKDEngineState(Enum):
     KEY_GENERATION = auto()
     ONLY_COMMUNICATION = auto()
     OFF = auto()
+    PEAK_FINDING = auto()
+    INITIATING = auto()
     # TRANSITIONING_TO_KEY_GENERATION = auto()
 
 

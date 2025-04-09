@@ -3,6 +3,7 @@ import signal
 import dash
 import dash_bootstrap_components as dbc
 import S15qkd.controller as qkd_ctrl
+import time
 
 # app = dash.Dash(__name__, suppress_callback_exceptions=True, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app = dash.Dash(__name__, suppress_callback_exceptions=True, title='S15 QKD', update_title=None)
@@ -59,6 +60,27 @@ def restart_transferd():
     """Kills then restarts transferd."""
     qkd_ctrl.restart_transferd()
     return "", 204
+
+@app.server.route("/restart_connection")
+def restart_connection():
+    """Kills then restarts connection, authd and transferd."""
+    qkd_ctrl.restart_connection()
+    return "", 204
+
+@app.server.route("/status_data")
+def status_data():
+    """ Sends status data in json format of GUI information """
+    process_state = qkd_ctrl.get_process_states()
+    status_info = qkd_ctrl.get_status_info()
+    errc_info = qkd_ctrl.get_error_corr_info()
+    now = time.time()
+    json_info = {
+            'time' : now,
+            'process_state' : process_state,
+            'status_info' : status_info,
+            'errc_info' : errc_info,
+            }
+    return json_info, 200
 
 signal.signal(signal.SIGINT, lambda *_: qkd_ctrl.stop())
 signal.signal(signal.SIGTERM, lambda *_: qkd_ctrl.stop())
