@@ -972,6 +972,8 @@ class Controller:
 
 
     def get_process_states(self):
+        if not self.transferd.is_running():
+            self.qkd_engine_state = QKDEngineState.OFF
         return {
             'transferd': self.transferd.is_running(),
             'readevents': self.readevents.is_running(),
