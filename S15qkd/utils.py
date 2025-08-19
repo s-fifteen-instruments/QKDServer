@@ -61,10 +61,22 @@ class Process:
         with open(path, 'r') as f:
             config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
 
+        def update(d: SimpleNamespace, u: SimpleNamespace) -> SimpleNamespace:
+            """Recursively updates 'd' from 'u' without deleting existing nested keys."""
+            d = d.__dict__  # operate on internal dictionary
+            u = u.__dict__
+            for k, v in u.items():
+                if isinstance(v, SimpleNamespace):
+                    inner_d = d.get(k, SimpleNamespace())
+                    v = update(inner_d, v)  # perform nested update
+                d[k] = v
+            return SimpleNamespace(**d)
+
         # Apply configuration override
         if conn_id:
             if hasattr(config.connections, conn_id):
-                config.__dict__.update(**getattr(config.connections, conn_id).__dict__)
+                override_config = getattr(config.connections, conn_id)
+                update(config, override_config)
             else:
                 logger.error(f"No connection ID with '{conn_id}'.")
 
