@@ -161,7 +161,6 @@ try:
                 for c in readables:
                     if c is conn_td:
                         msg = c.recv(1023)  # transferd max message length = 1023 bytes
-                        logger.debug(f"[transferd  ->] {repr(msg)}")
                         if msg == b"":
                             conn_td = None
                             raise IOError("transferd disconnected.")
@@ -172,7 +171,6 @@ try:
                         except ssl.SSLWantReadError:
                             # logger.warning("Problematic SSL handshake. Ignoring.")
                             continue
-                        logger.debug(f"[  authd    ->] {repr(msg)}")
                         if msg == b"":
                             conn = None
                             raise IOError("authd disconnected.")
@@ -182,12 +180,10 @@ try:
                     if c is conn_td and to_local:
                         msg = to_local[:1023]
                         del to_local[:1023]
-                        logger.debug(f"[transferd <- ] {repr(bytes(msg))}")
                         c.send(msg)
                     elif c is conn and to_remote:
                         msg = to_remote[:2048]  # hardcoded
                         del to_remote[:2048]  # hardcoded
-                        logger.debug(f"[  authd   <- ] {repr(bytes(msg))}")
                         c.send(msg)
                 time.sleep(0.001)
 
