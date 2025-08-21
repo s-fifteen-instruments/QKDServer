@@ -920,7 +920,7 @@ class Controller:
               an additional 2 epoch duration buffer is provided.
         """
         extra = 3  # one for first underfilled epoch and one for spare at the end, one buffer
-        target_num_epochs = Process.config.pfind_epochs + extra
+        target_num_epochs = Process.config.qcrypto.pfind.number_of_epochs + extra
         timeout_seconds = (target_num_epochs + 2) * qkd_globals.EPOCH_DURATION
         end_time = time.time() + timeout_seconds
 
