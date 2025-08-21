@@ -37,7 +37,7 @@ def serve_layout():
     # Peak finder and tracking
     pfind_epochs = dcc.Input(
         id='pfind_epochs', type='number', min=1, max=20,
-        value=config['pfind_epochs'], placeholder=10,
+        value=config['qcrypto']['pfind']['number_of_epochs'], placeholder=10,
     )
     remote_coincidence_window = dcc.Input(
         id='remote_coincidence_window', type='number', min=1, max=20,
