@@ -42,6 +42,7 @@ import numpy as np
 import math
 import time
 import threading
+from types import SimpleNamespace
 from typing import Tuple, NamedTuple, Any
 from dataclasses import dataclass
 
