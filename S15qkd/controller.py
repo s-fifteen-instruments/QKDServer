@@ -919,7 +919,7 @@ class Controller:
             - To account for latency and mismatch in epoch collection start times,
               an additional 2 epoch duration buffer is provided.
         """
-        extra = 2 # one for first underfilled epoch and one for spare at the end
+        extra = 3  # one for first underfilled epoch and one for spare at the end, one buffer
         target_num_epochs = Process.config.pfind_epochs + extra
         timeout_seconds = (target_num_epochs + 2) * qkd_globals.EPOCH_DURATION
         end_time = time.time() + timeout_seconds
