@@ -212,7 +212,7 @@ def update_values(*values):
         To avoid accidental override of variables, ensure that
         only a single client is updating the shared global config.
     """
-    event = dash.callback_context.triggered[0]  # get first of input events (usually only one) 
+    event = dash.callback_context.triggered[0]  # get first of input events (usually only one)
     trigger_id = event['prop_id'].rstrip('onvalue').rstrip('.')  # remove field name
     trigger_value = event['value']
 
