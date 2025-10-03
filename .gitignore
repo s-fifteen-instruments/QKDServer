@@ -1,11 +1,15 @@
 # custom ignores
 *.ts
 S15qkd/qkd_engine_config.json
-S15qkd/configs/qkd_engine_config.local.json
 S15qkd/*.cert
 S15qkd/*.key
 Settings_WebClient/certs
 logs
+
+# Configurations
+S15qkd/configs/*.json
+!S15qkd/configs/qkd_engine_config.default.json
+!S15qkd/configs/qkd_engine_config.example.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
