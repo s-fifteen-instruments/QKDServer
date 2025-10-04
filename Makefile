@@ -72,15 +72,14 @@ all: stop qkd
 
 # Build containers
 build-fresh:
-	docker build --network host --no-cache -t s-fifteen/qkdserver:qkd .
+	docker build --network host --no-cache \
+		-t s-fifteen/qkdserver:qkd -t s-fifteen/qkdserver:qkd-staging .
 build:
 	if [ "$(image_qkd_staging_exists)" = "y" ]; then { \
 		docker build --network host -t s-fifteen/qkdserver:qkd -f Dockerfile.staging .; \
 	} else { \
-		docker build --network host -t s-fifteen/qkdserver:qkd .; \
+		make build-fresh; \
 	}; fi
-build-staging:
-	docker build --network host --no-cache -t s-fifteen/qkdserver:qkd-staging .
 
 restart: stop qkd log
 
