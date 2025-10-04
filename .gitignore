@@ -8,8 +8,10 @@ logs
 
 # Configurations
 S15qkd/configs/*.json
+S15qkd/configs/*.yaml
 !S15qkd/configs/qkd_engine_config.default.json
-!S15qkd/configs/qkd_engine_config.example.json
+!S15qkd/configs/qkd_engine_config.default.yaml
+!S15qkd/configs/qkd_engine_config.example.yaml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
