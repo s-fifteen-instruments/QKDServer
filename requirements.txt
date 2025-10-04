@@ -1,0 +1,13 @@
+pip
+setuptools
+wheel
+
+# Includes fpfind for freqcd routines
+S15lib @ git+https://github.com/s-fifteen-instruments/pyS15.git@56a3a89e4ebd569de66755c70217eecefbca9b6d
+
+# Add support for communication over Thorlabs apt protocol
+thorlabs_apt_protocol
+
+# Server
+ipython
+gunicorn

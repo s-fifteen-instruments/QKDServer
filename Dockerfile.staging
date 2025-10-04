@@ -1,13 +1,9 @@
 # Build off existing image, to cache extras
 FROM s-fifteen/qkdserver:qkd-staging
-# Compile histogram function for debugging
-RUN \
-    apt install -y curl \
-    && cd /usr/local/lib/python3.9/site-packages/S15lib/g2lib \
-    && curl -OL "https://github.com/s-fifteen-instruments/pyS15/raw/master/S15lib/g2lib/delta.pyx" \
-    && curl -OL "https://github.com/s-fifteen-instruments/pyS15/raw/master/S15lib/g2lib/Makefile" \
-    && make
 COPY ./ /root/code/QKDServer
+RUN \
+    cd /root/code/QKDServer \
+    && pip install -e .
 
 # Use a temporary entrypoint to keep container running, for debugging
 #ENTRYPOINT ["bash"]

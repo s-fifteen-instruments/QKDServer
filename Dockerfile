@@ -33,10 +33,10 @@ ENV HOME=/root
 # Install necessary packages
 # Consider using Docker v23+ to obtain support for BuildKit,
 # which will cache build stages
+
 RUN \
-    # --mount=type=cache,target=/var/cache/apt \
-    apt update \
-    && apt install -y \
+    apt-get update \
+    && apt-get install -y \
 # For compiling, includes gcc
         build-essential \
 # For pfind.c compilation
@@ -44,15 +44,10 @@ RUN \
         git \
         vim \
 # For pkill
-        procps \
-    && pip install -U pip setuptools wheel \
-    && pip install git+https://github.com/s-fifteen-instruments/pyS15.git@beb98508a05bfc8d1b5382f7a45ffd66d1fc6817 \
-# Add fpfind + freqcd routines
-    && pip install git+https://github.com/s-fifteen-instruments/fpfind.git@v1.2024.13 \
-# Fix missing pyximport dependency in pyS15
-    && pip install Cython \
-# Add support for communication over Thorlabs apt protocol
-    && pip install thorlabs_apt_protocol
+        procps
+
+RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
+    pip install -r /tmp/requirements.txt
 
 # Install qcrypto
 RUN \
@@ -78,8 +73,5 @@ RUN \
     && cd ${HOME}/code/QKDServer/Settings_WebClient \
     && pip install -r requirements.txt \
     && ln -s ${HOME}/code/qcrypto bin
-
-RUN \
-    pip install ipython gunicorn
 
 ENTRYPOINT ["/root/code/QKDServer/entrypoint.sh"]
