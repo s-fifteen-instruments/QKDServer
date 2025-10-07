@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Provides the PaddlePolComp class."""
 
+import threading
 from types import SimpleNamespace
 
 import numpy as np
@@ -80,6 +81,11 @@ class PaddlePolComp:
             )
             return
 
+        # Ignore epoch during compensation module transition
+        if self.prev_epochint is None:
+            logger.debug(f"Ignored epoch {epoch}: paddles currently moving.")
+            return
+
         # Proxy epoch only if specified epoch has passed
         epochint = parser.epoch2int(epoch)
         if epochint <= self.prev_epochint:
@@ -95,13 +101,6 @@ class PaddlePolComp:
             logger.debug(f"Ignored epoch {epoch}: pending QBER estimate.")
             return
 
-        # Update QBER and handle BBM92 trigger
-        self.qber = qber
-        if self._callback is not None and self.qber < self.qber_threshold:
-            self._disable_till_protocol_switch = True
-            self._callback()
-            return
-
         # Verify optimizer has been initialized
         if self.optimizer is None:
             logger.debug(
@@ -110,12 +109,19 @@ class PaddlePolComp:
             )
             return
 
-        # Check if angle difference too small => optimization failed
-        angles = self.optimizer(self.qber)
+        # Update QBER and handle BBM92 trigger
+        self.qber = qber
         logger.debug(
             f"Epoch {epoch} with QBER {self.qber*100:.1f}% @ "
             f"{self._format_angles(self.angles)}"
         )
+        if self._callback is not None and self.qber < self.qber_threshold:
+            self._disable_till_protocol_switch = True
+            self._callback()
+            return
+
+        # Check if angle difference too small => optimization failed
+        angles = self.optimizer(self.qber)
         dx = np.array(angles) - np.array(self.angles)
         if np.all(np.abs(dx) < PaddlePolComp.MIN_THRESHOLD):
             logger.debug(
@@ -157,6 +163,11 @@ class PaddlePolComp:
 
         # Update QBER
         self.qber = qber
+
+        # Ignore epoch during compensation module transition
+        if self.prev_epochint is None:
+            logger.debug(f"Ignored epoch {epoch}: paddles currently moving.")
+            return
 
         # Handle if specified epoch has passed
         epochint = parser.epoch2int(epoch)
@@ -210,10 +221,20 @@ class PaddlePolComp:
     ######################
 
     def _commit_angles(self, angles):
-        """Writes angles to motor and cache angles and current time."""
+        """Writes angles to motor and cache angles and current time.
+
+        'prev_epochint' is used as a flag to signal to the process that the
+        motor has stopped moving.
+        """
         self.angles = angles  # cache angles to minimize angle queries to motor
-        self.motor.angles = angles
-        self.prev_epochint = get_current_epoch()  # motor takes time to rotate
+        self.prev_epochint = None
+
+        def f():
+            self.motor.angles = angles
+            self.prev_epochint = get_current_epoch()  # motor takes time to rotate
+
+        thread = threading.Thread(target=f)
+        thread.start()
 
     def _refresh_optimizer(self):
         """Resets and assigns new optimizer based on current protocol.
