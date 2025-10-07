@@ -70,11 +70,14 @@ class PaddlePolComp:
         # Check for protocol transition
         if self.protocol != QKDProtocol.SERVICE:
             self.protocol = QKDProtocol.SERVICE
-            self._disable_till_protocol_switch = False
             self._refresh_optimizer()
+            self._disable_till_protocol_switch = False
 
         # Ignore if protocol due for switching
         if self._disable_till_protocol_switch:
+            logger.debug(
+                f"Ignored epoch {epoch}: pending protocol switch to SERVICE mode."
+            )
             return
 
         # Proxy epoch only if specified epoch has passed
@@ -89,13 +92,22 @@ class PaddlePolComp:
         # Proxy QBER only if estimator returns a QBER estimate
         qber = self.estimator.handle_epoch(epoch)
         if qber is None:
+            logger.debug(f"Ignored epoch {epoch}: pending QBER estimate.")
             return
 
         # Update QBER and handle BBM92 trigger
         self.qber = qber
-        if self.qber < self.qber_threshold:
+        if self._callback is not None and self.qber < self.qber_threshold:
             self._disable_till_protocol_switch = True
             self._callback()
+            return
+
+        # Verify optimizer has been initialized
+        if self.optimizer is None:
+            logger.debug(
+                f"Ignored epoch {epoch}: "
+                f"optimizer not yet initialized (QBER {qber})."
+            )
             return
 
         # Check if angle difference too small => optimization failed
@@ -133,11 +145,14 @@ class PaddlePolComp:
         # Check for protocol transition
         if self.protocol != QKDProtocol.BBM92:
             self.protocol = QKDProtocol.BBM92
-            self._disable_till_protocol_switch = False
             self._refresh_optimizer()
+            self._disable_till_protocol_switch = False
 
         # Ignore if protocol due for switching
         if self._disable_till_protocol_switch:
+            logger.debug(
+                f"Ignored epoch {epoch}: pending protocol switch to BBM92 mode."
+            )
             return
 
         # Update QBER
@@ -155,6 +170,14 @@ class PaddlePolComp:
         # Update best obtained QBER
         if qber < self.best_qber_angles[0]:
             self.best_qber_angles = (qber, self.angles)
+
+        # Verify optimizer has been initialized
+        if self.optimizer is None:
+            logger.debug(
+                f"Ignored epoch {epoch}: "
+                f"optimizer not yet initialized (QBER {qber})."
+            )
+            return
 
         # Check if angle difference too small => optimization failed
         angles = self.optimizer(self.qber)
