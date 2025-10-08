@@ -9,6 +9,8 @@ IOBOARD_ROOT=/dev/ioboards
 CONFIG_FILE=S15qkd/qkd_engine_config.json
 DEFAULT_CONFIG_FILE=S15qkd/configs/qkd_engine_config.default.json
 USER_CONFIG_FILE=S15qkd/configs/qkd_engine_config.local.json
+DEFAULT_CONFIG_FILE_YAML=S15qkd/configs/qkd_engine_config.default.yaml
+USER_CONFIG_FILE_YAML=S15qkd/configs/qkd_engine_config.local.yaml
 # Only for Debian-based and RHEL 7+
 TZ=$(shell timedatectl | grep "zone" | awk '{print $$3}')
 
@@ -58,7 +60,11 @@ verify-config:
 verify-build:
 	@if [ "$(image_qkd_exists)" = "n" ]; then { echo "QKD image has not been built  (hint: run 'make build')"; exit 1; }; fi
 generate-config: verify-jq
-	@test -f "$(USER_CONFIG_FILE)" || { echo "User configuration file missing: '$(USER_CONFIG_FILE)'  (hint: see README for setup instructions)"; exit 1; }
+	@test -f "$(USER_CONFIG_FILE)" || { test -f "$(USER_CONFIG_FILE_YAML)" \
+		&& python3 scripts/yaml2json.py "$(USER_CONFIG_FILE_YAML)" \
+		|| { echo "User configuration file missing: '$(USER_CONFIG_FILE_YAML)'  (hint: see README for setup instructions)"; exit 1; } }
+	@test -f "$(DEFAULT_CONFIG_FILE)" || { test -f "$(DEFAULT_CONFIG_FILE_YAML)" \
+		&& python3 scripts/yaml2json.py "$(DEFAULT_CONFIG_FILE_YAML)"; }
 	@jq -s '.[0]*.[1]' \
 		$(DEFAULT_CONFIG_FILE) $(USER_CONFIG_FILE) \
 		> S15qkd/qkd_engine_config.json

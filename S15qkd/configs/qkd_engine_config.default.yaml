@@ -1,0 +1,88 @@
+connections: {}
+remote_connection_id: ''
+local_connection_id: ''
+target_hostname: ''
+remote_cert: ''
+local_cert: ''
+local_key: ''
+port_authd: 55555
+port_transd: 4855
+local_authd_ip: localhost
+data_root: /tmp/cryptostuff
+program_root: bin/remotecrypto
+identity: ''
+remote_coincidence_window: 6
+tracking_window: 30
+track_filter_time_constant: 200000
+FFT_buffer_order: 23
+local_detector_skew_correction:
+  det1corr: 0
+  det2corr: 0
+  det3corr: 0
+  det4corr: 0
+max_event_time_pause: 20000
+autorestart_costream: true
+costream_general_log: true
+freqcd_threshold: 34400
+clock_source: -e
+protocol: 1
+max_event_diff: 20000
+kill_option: -k -K
+pfind_epochs: 3
+costream_histo_option: ''
+costream_histo_number: 50
+error_correction_program_path: bin/errorcorrection
+error_correction: true
+privacy_amplification: true
+errcd_killfile_option: -k
+QBER_limit: 0.1
+QBER_threshold: 0.085
+default_QBER: 0.06
+minimal_block_size: 20000
+target_bit_error: 1.0e-09
+servo_blocks: 5
+do_polarization_compensation: false
+LCR_polarization_compensator_path: ''
+LCR_volt_info:
+  V1: 2.0
+  V2: 2.0
+  V3: 2.0
+  V4: 2.0
+qcrypto:
+  readevents:
+    use_ttl_trigger: false
+    use_fast_mode: false
+    use_blinding_countermeasure: true
+    blinding_parameters:
+      test_mode: 1
+      density: 3
+      timebase: 4
+      level1: 880
+      level2: 0
+      monitor_ave: 5
+      monitor_lower_thresh: 300
+      monitor_higher_thresh: 60000
+  pfind:
+    number_of_epochs: 4
+    coarse_resolution: 32
+    fine_resolution: 4
+    frequency_search: false
+  polarization_compensation:
+    use_mpc320_device: false
+    target_qber: 0.05
+    loss_exponent: 1.5
+    loss_coefficient: 8.5
+    qber_history_length: 5
+  frequency_correction:
+    enable: false
+    initial_correction: 0.0
+    ignore_first_epochs: 5
+    averaging_length: 3
+    separation_length: 12
+    limit_correction: 1.0e-09
+  error_correction:
+    report_start_epoch: false
+ENVIRONMENT:
+  secrets_root: /root/keys/authd
+  raise_readevents_priority: true
+  polarization_compensation_is_low_count: false

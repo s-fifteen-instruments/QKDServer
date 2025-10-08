@@ -1,4 +1,4 @@
-files: ^S15qkd/modules/polcomp/
+files: ^(S15qkd/(modules/polcomp/|configs)|scripts)
 repos:
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.7.1
