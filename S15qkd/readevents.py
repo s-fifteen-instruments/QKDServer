@@ -282,7 +282,7 @@ class Readevents(Process):
 
         self.sb.insert(0, int(total_sb))
         self.tt_counts.insert(0, int(total_counts))
-        if len(self.sb) < 4:
+        if len(self.sb) < n_ave:
             return
         else:
             sb_mean = np.mean(self.sb)
